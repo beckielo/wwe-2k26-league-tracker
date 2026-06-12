@@ -229,6 +229,21 @@ Week {selected?.week} is complete and locked. Unlock it from Week Review before 
   )}
 ```
 
-    {message && <div role="status" className={`border p-4 text-sm ${message.tone === "success" ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300" : "border-red-400/30 bg-red-400/10 text-red-300"}`}>{message.text}</div>}
-  </form>;
+    ```
+  {message && (
+    <div
+      role="status"
+      className={`border p-4 text-sm ${
+        message.tone === "success"
+          ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+          : "border-red-400/30 bg-red-400/10 text-red-200"
+      }`}
+    >
+      {message.text}
+    </div>
+  )}
+</form>
+
+);
 }
+
