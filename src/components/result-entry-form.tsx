@@ -54,20 +54,17 @@ const confirmed = state.confirmedResults.find(
 (result) => result.matchId === id,
 );
 
-```
 setMatchId(id);
 setResultType(confirmed?.resultType ?? "Winner");
 setWinner(confirmed?.winner ?? match?.wrestlerA ?? "");
 setDirty(false);
 setMessage(null);
-```
 
 }
 
 function submit(event: FormEvent<HTMLFormElement>) {
 event.preventDefault();
 
-```
 if (!selected) return;
 
 const confirmed = {
@@ -98,16 +95,20 @@ replaceState(action.state);
 setDirty(false);
 setMessage({
   tone: "success",
-  text: `${existing ? "Updated" : "Confirmed"}: ${selected.wrestlerA} vs ${selected.wrestlerB}. Stored in local app state only.`,
+  text:
+    (existing ? "Updated" : "Confirmed") +
+    ": " +
+    selected.wrestlerA +
+    " vs " +
+    selected.wrestlerB +
+    ". Stored in local app state only.",
 });
-```
 
 }
 
 function remove() {
 if (!existing) return;
 
-```
 const action = removeResult(state, existing.matchId);
 
 if (!action.ok) {
@@ -126,7 +127,6 @@ setMessage({
   tone: "success",
   text: "Confirmed result removed from local app state.",
 });
-```
 
 }
 
@@ -142,7 +142,6 @@ Week {selected?.week} is complete and locked. Unlock it from Week
 Review before editing. </div>
 )}
 
-```
   <div>
     <label
       className="mb-2 block text-[11px] font-bold uppercase tracking-[.16em] text-slate-500"
@@ -198,11 +197,12 @@ Review before editing. </div>
           [selected.wrestlerA, selected.wrestlerB].map((name) => (
             <label
               key={name}
-              className={`cursor-pointer border p-4 font-bold transition ${
-                effectiveWinner === name
+              className={
+                "cursor-pointer border p-4 font-bold transition " +
+                (effectiveWinner === name
                   ? "border-red-400 bg-red-400/10"
-                  : "border-white/10 bg-white/[.02] hover:border-white/25"
-              }`}
+                  : "border-white/10 bg-white/[.02] hover:border-white/25")
+              }
             >
               <input
                 className="sr-only"
@@ -253,17 +253,17 @@ Review before editing. </div>
   {message && (
     <div
       role={message.tone === "success" ? "status" : "alert"}
-      className={`border p-4 text-sm ${
-        message.tone === "success"
+      className={
+        "border p-4 text-sm " +
+        (message.tone === "success"
           ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
-          : "border-red-400/30 bg-red-400/10 text-red-200"
-      }`}
+          : "border-red-400/30 bg-red-400/10 text-red-200")
+      }
     >
       {message.text}
     </div>
   )}
 </form>
-```
 
 );
 }
