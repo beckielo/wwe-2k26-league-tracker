@@ -14,10 +14,7 @@ const nav = [
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
-return ( <div className="min-h-screen"> <header className="sticky top-0 z-20 border-b border-white/10 bg-[#080b11]/90 backdrop-blur-xl"> <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-6 px-5 py-4 lg:px-10"> <Link
-         href="/"
-         className="flex items-center gap-3"
-       > <span className="grid h-10 w-10 place-items-center bg-red-500 text-lg font-black italic shadow-[5px_5px_0_#fff]">
+return ( <div className="min-h-screen"> <header className="sticky top-0 z-20 border-b border-white/10 bg-[#080b11]/90 backdrop-blur-xl"> <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-6 px-5 py-4 lg:px-10"> <Link href="/" className="flex items-center gap-3"> <span className="grid h-10 w-10 place-items-center bg-red-500 text-lg font-black italic shadow-[5px_5px_0_#fff]">
 X </span> <span> <strong className="block text-sm font-black uppercase tracking-[.18em]">
 League Control </strong> <span className="text-xs text-slate-400">
 WWE 2K26 Tracker </span> </span> </Link>
