@@ -60,7 +60,6 @@ setPreviews((current) =>
 current.map((preview) => {
 if (preview.matchId !== matchId) return preview;
 
-```
     const outcome: SimulationOutcome =
       value === "draw"
         ? "draw"
@@ -70,21 +69,28 @@ if (preview.matchId !== matchId) return preview;
 
     const winner = outcome === "decisive" ? value : null;
 
+    const reason =
+      outcome === "decisive"
+        ? "Manually reviewed preview: " +
+          winner +
+          " selected as winner. Original weighted favorite: " +
+          (preview.favorite ?? "none") +
+          "."
+        : "Manually reviewed preview: " +
+          (outcome === "draw" ? "Draw" : "No Contest") +
+          " selected; no winner assigned.";
+
     return {
       ...preview,
       outcome,
       winner,
       upset: Boolean(winner && preview.favorite && winner !== preview.favorite),
-      reason:
-        outcome === "decisive"
-          ? `Manually reviewed preview: ${winner} selected as winner. Original weighted favorite: ${preview.favorite ?? "none"}.`
-          : `Manually reviewed preview: ${outcome === "draw" ? "Draw" : "No Contest"} selected; no winner assigned.`,
+      reason,
     };
   }),
 );
 
 setErrors([]);
-```
 
 }
 
@@ -100,7 +106,6 @@ existingResults,
 userLeague,
 });
 
-```
 if (!previewValidation.valid) {
   setErrors(previewValidation.errors);
   return;
@@ -153,14 +158,12 @@ if (actionErrors.length) {
 replaceState(nextState);
 setPreviews([]);
 setErrors([]);
-```
 
 }
 
 function removeConfirmed(matchId: string) {
 const action = removeResult(state, matchId);
 
-```
 if (!action.ok) {
   setErrors(action.errors);
   return;
@@ -168,7 +171,6 @@ if (!action.ok) {
 
 replaceState(action.state);
 setErrors([]);
-```
 
 }
 
@@ -183,7 +185,6 @@ Simulation Week {week} </p> <p className="mt-1 text-sm text-slate-400">
 {availableCandidates.length} unconfirmed scheduled matches across{" "}
 {leagues.length} eligible leagues. {userLeague} is excluded. </p> </div>
 
-```
     <div className="flex flex-wrap gap-3">
       <button
         type="button"
@@ -257,7 +258,7 @@ Simulation Week {week} </p> <p className="mt-1 text-sm text-slate-400">
             <span className="font-bold">
               {result.wrestlerA} vs {result.wrestlerB}:{" "}
               {result.resultType === "Winner"
-                ? `${result.winner} wins`
+                ? result.winner + " wins"
                 : result.resultType}
             </span>
 
@@ -372,7 +373,6 @@ Simulation Week {week} </p> <p className="mt-1 text-sm text-slate-400">
     ))
   )}
 </div>
-```
 
 );
 }
