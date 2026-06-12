@@ -99,10 +99,13 @@ if (!action.ok) {
 
 replaceState(action.state);
 
+```
 setMessage({
   tone: "success",
   text: `${existing ? "Updated" : "Confirmed"}: ${selected.wrestlerA} vs ${selected.wrestlerB}. Stored in local app state only.`,
 });
+```
+
 ```
 
 }
