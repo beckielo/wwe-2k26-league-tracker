@@ -1,58 +1,75 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import {
-  confirmResult,
-  isWeekLocked,
-  removeResult,
-  upsertResult,
-  type ConfirmedResultType,
+confirmResult,
+isWeekLocked,
+removeResult,
+upsertResult,
+type ConfirmedResultType,
 } from "@/domain/tracker-state";
 import type { LeagueName, Match } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
 
 export function ResultEntryForm({
-  matches,
-  userLeague,
+matches,
+userLeague,
 }: {
-  matches: Match[];
-  userLeague: LeagueName;
+matches: Match[];
+userLeague: LeagueName;
 }) {
-  const { state, replaceState, hydrated } = useTrackerState();
-  const [matchId, setMatchId] = useState(matches[0]?.id ?? "");
-  const selected = useMemo(
-    () => matches.find((match) => match.id === matchId),
-    [matchId, matches],
-  );
-  const existing = state.confirmedResults.find(
-    (result) => result.matchId === matchId,
-  );
-  const [resultType, setResultType] =
-    useState<ConfirmedResultType>("Winner");
-  const [winner, setWinner] = useState(matches[0]?.wrestlerA ?? "");
-  const [dirty, setDirty] = useState(false);
-  const effectiveResultType = dirty
-    ? resultType
-    : existing?.resultType ?? resultType;
-  const effectiveWinner = dirty ? winner : existing?.winner ?? winner;
-  const [message, setMessage] = useState<{
-    tone: "success" | "error";
-    text: string;
-  } | null>(null);
-  const weekLocked = selected ? isWeekLocked(state, selected.week) : false;
+const { state, replaceState, hydrated } = useTrackerState();
+const [matchId, setMatchId] = useState(matches[0]?.id ?? "");
 
-  function chooseMatch(id: string) {
-    setMatchId(id);
-    const match = matches.find((candidate) => candidate.id === id);
-    const confirmed = state.confirmedResults.find((result) => result.matchId === id);
-    setResultType(confirmed?.resultType ?? "Winner");
-    setWinner(confirmed?.winner ?? match?.wrestlerA ?? "");
-    setDirty(false);
-    setMessage(null);
-  }
+const selected = useMemo(
+() => matches.find((match) => match.id === matchId),
+[matchId, matches],
+);
 
-  function submit(event: React.FormEvent) {
-    event.preventDefault();
+const existing = state.confirmedResults.find(
+(result) => result.matchId === matchId,
+);
+
+const [resultType, setResultType] =
+useState<ConfirmedResultType>("Winner");
+const [winner, setWinner] = useState(matches[0]?.wrestlerA ?? "");
+const [dirty, setDirty] = useState(false);
+
+const effectiveResultType = dirty
+? resultType
+: existing?.resultType ?? resultType;
+
+const effectiveWinner = dirty
+? winner
+: existing?.winner ?? winner;
+
+const [message, setMessage] = useState<{
+tone: "success" | "error";
+text: string;
+} | null>(null);
+
+const weekLocked = selected ? isWeekLocked(state, selected.week) : false;
+
+function chooseMatch(id: string) {
+setMatchId(id);
+
+```
+const match = matches.find((candidate) => candidate.id === id);
+const confirmed = state.confirmedResults.find(
+  (result) => result.matchId === id,
+);
+
+setResultType(confirmed?.resultType ?? "Winner");
+setWinner(confirmed?.winner ?? match?.wrestlerA ?? "");
+setDirty(false);
+setMessage(null);
+```
+
+}
+
+function submit(event: FormEvent<HTMLFormElement>) {
+event.preventDefault();
+
 ```
 if (!selected) return;
 
@@ -77,16 +94,12 @@ if (!action.ok) {
   return;
 }
 
-```
 replaceState(action.state);
+setDirty(false);
 setMessage({
   tone: "success",
   text: `${existing ? "Updated" : "Confirmed"}: ${selected.wrestlerA} vs ${selected.wrestlerB}. Stored in local app state only.`,
 });
-```
-
-}
-
 ```
 
 }
@@ -103,6 +116,9 @@ if (!action.ok) {
 }
 
 replaceState(action.state);
+setResultType("Winner");
+setWinner(selected?.wrestlerA ?? "");
+setDirty(false);
 setMessage({
   tone: "success",
   text: "Confirmed result removed from local app state.",
@@ -224,12 +240,11 @@ Week {selected?.week} is complete and locked. Unlock it from Week Review before 
 
   {existing && (
     <div className="border border-sky-400/20 bg-sky-400/5 p-4 text-sm text-sky-200">
-      Confirmed from {existing.source} at {new Date(existing.confirmedAt).toLocaleString()}.
+      Confirmed from {existing.source} at{" "}
+      {new Date(existing.confirmedAt).toLocaleString()}.
     </div>
   )}
-```
 
-    ```
   {message && (
     <div
       role="status"
@@ -243,7 +258,7 @@ Week {selected?.week} is complete and locked. Unlock it from Week Review before 
     </div>
   )}
 </form>
+```
 
 );
 }
-
