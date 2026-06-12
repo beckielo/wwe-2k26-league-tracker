@@ -37,11 +37,13 @@ description={`Generate explainable, editable previews for non-user-controlled le
       value={simulation.week ?? "Complete"}
       detail="First open scheduled week"
     />
+
     <Stat
       label="Eligible leagues"
       value={eligibleLeagues.length}
       detail={eligibleLeagues.join(" · ") || "No open league cards"}
     />
+
     <Stat
       label="Excluded user league"
       value={simulation.excludedLeague.replace(" League", "")}
