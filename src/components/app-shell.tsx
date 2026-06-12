@@ -2,17 +2,16 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 const nav = [
-["Dashboard", "/"],
-["Schedule", "/schedule"],
-["Standings", "/standings"],
-["H2H", "/head-to-head"],
-["Streaks", "/streaks"],
-["Tiebreakers", "/tiebreakers"],
-["Simulation", "/simulation"],
-["Result Entry", "/results"],
+  ["Dashboard", "/"],
+  ["Schedule", "/schedule"],
+  ["Standings", "/standings"],
+  ["H2H", "/head-to-head"],
+  ["Streaks", "/streaks"],
+  ["Tiebreakers", "/tiebreakers"],
+  ["Simulation", "/simulation"],
+  ["Week Review", "/week-review"],
+  ["Result Entry", "/results"],
 ] as const;
-
-
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen">
