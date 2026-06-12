@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState } from "react";
 import {
 confirmResult,
 isWeekLocked,
@@ -19,8 +19,8 @@ matches: Match[];
 userLeague: LeagueName;
 }) {
 const { state, replaceState, hydrated } = useTrackerState();
-const [matchId, setMatchId] = useState(matches[0]?.id ?? "");
 
+const [matchId, setMatchId] = useState(matches[0]?.id ?? "");
 const selected = useMemo(
 () => matches.find((match) => match.id === matchId),
 [matchId, matches],
@@ -51,14 +51,13 @@ text: string;
 const weekLocked = selected ? isWeekLocked(state, selected.week) : false;
 
 function chooseMatch(id: string) {
-setMatchId(id);
-
-```
-const match = matches.find((candidate) => candidate.id === id);
+const match = matches.find((item) => item.id === id);
 const confirmed = state.confirmedResults.find(
-  (result) => result.matchId === id,
+(result) => result.matchId === id,
 );
 
+```
+setMatchId(id);
 setResultType(confirmed?.resultType ?? "Winner");
 setWinner(confirmed?.winner ?? match?.wrestlerA ?? "");
 setDirty(false);
@@ -99,31 +98,30 @@ if (!action.ok) {
 
 replaceState(action.state);
 
-```
 setMessage({
   tone: "success",
   text: `${existing ? "Updated" : "Confirmed"}: ${selected.wrestlerA} vs ${selected.wrestlerB}. Stored in local app state only.`,
 });
 ```
 
-```
-
 }
 
+function remove() {
 if (!existing) return;
 
 ```
 const action = removeResult(state, existing.matchId);
 
 if (!action.ok) {
-  setMessage({ tone: "error", text: action.errors.join(" ") });
+  setMessage({
+    tone: "error",
+    text: action.errors.join(" "),
+  });
   return;
 }
 
 replaceState(action.state);
-setResultType("Winner");
-setWinner(selected?.wrestlerA ?? "");
-setDirty(false);
+
 setMessage({
   tone: "success",
   text: "Confirmed result removed from local app state.",
@@ -182,9 +180,9 @@ Week {selected?.week} is complete and locked. Unlock it from Week Review before 
       }}
       className="w-full border border-white/15 bg-[#0b1019] px-4 py-3 text-white disabled:opacity-50"
     >
-      <option>Winner</option>
-      <option>Draw</option>
-      <option>No Contest</option>
+      <option value="Winner">Winner</option>
+      <option value="Draw">Draw</option>
+      <option value="No Contest">No Contest</option>
     </select>
   </div>
 
@@ -193,6 +191,7 @@ Week {selected?.week} is complete and locked. Unlock it from Week Review before 
       <legend className="mb-2 text-[11px] font-bold uppercase tracking-[.16em] text-slate-500">
         Winner
       </legend>
+
       <div className="grid gap-3 sm:grid-cols-2">
         {selected &&
           [selected.wrestlerA, selected.wrestlerB].map((name) => (
@@ -252,7 +251,7 @@ Week {selected?.week} is complete and locked. Unlock it from Week Review before 
 
   {message && (
     <div
-      role="status"
+      role={message.tone === "success" ? "status" : "alert"}
       className={`border p-4 text-sm ${
         message.tone === "success"
           ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
