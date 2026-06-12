@@ -12,7 +12,6 @@ const nav = [
   ["Week Review", "/week-review"],
   ["Result Entry", "/results"],
 ] as const;
-
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen">
