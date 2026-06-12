@@ -5,6 +5,9 @@ const nav = [
   ["Dashboard", "/"],
   ["Schedule", "/schedule"],
   ["Standings", "/standings"],
+  ["H2H", "/head-to-head"],
+  ["Streaks", "/streaks"],
+  ["Tiebreakers", "/tiebreakers"],
   ["Result Entry", "/results"],
 ] as const;
 
