@@ -20,7 +20,9 @@ The current implementation reads the workbook only. The Result Entry page valida
 
 ## Simulation preview
 
-The `/simulation` page reads the user-controlled league from workbook metadata, excludes it, and offers weighted previews only for open matchups that agree between the schedule and `Matchup_Reference`. Generated results can be edited and confirmed in browser `localStorage`, but they do not update the workbook, standings, or server data.
+The `/simulation` page reads the user-controlled league from workbook metadata, excludes it, and offers weighted preview results only for open matchups that agree between the schedule and `Matchup_Reference`.
+
+Generated results can be edited and confirmed in browser `localStorage`, but they do not update the workbook, standings, or server data.
 
 ## Trust boundary
 
