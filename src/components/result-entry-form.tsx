@@ -67,7 +67,7 @@ setMessage(null);
 
 }
 
-function submit(event: FormEvent<HTMLFormElement>) {
+function submit(event: React.FormEvent) {
 event.preventDefault();
 
 ```
@@ -90,12 +90,15 @@ const action = existing
   : confirmResult(state, confirmed, matches, userLeague);
 
 if (!action.ok) {
-  setMessage({ tone: "error", text: action.errors.join(" ") });
+  setMessage({
+    tone: "error",
+    text: action.errors.join(" "),
+  });
   return;
 }
 
 replaceState(action.state);
-setDirty(false);
+
 setMessage({
   tone: "success",
   text: `${existing ? "Updated" : "Confirmed"}: ${selected.wrestlerA} vs ${selected.wrestlerB}. Stored in local app state only.`,
@@ -104,7 +107,6 @@ setMessage({
 
 }
 
-function remove() {
 if (!existing) return;
 
 ```
