@@ -43,8 +43,6 @@ The next user show is National League, Opening Split Week 14. Its six matchups a
 - **Remaining boundary:** the exact calculation of head-to-head for a tie involving three or more wrestlers is not specified. The application may identify the tied group and available head-to-head evidence, but must not invent a mini-table formula. If the first three active criteria still do not resolve a consequential tie, use a tiebreaker match; the exact multi-person match format remains case-specific unless documented.
 - **Phase 2A handling:** two-wrestler ties apply the active order directly. A 1–1 head-to-head advances to longest winning streak; if that is also tied, the UI marks `Tiebreaker match required`. Point-tie groups of three or more are shown as requiring review because no aggregation formula is documented. Winning-streak calculations treat a draw as a non-win that ends a streak, while no-contest and unclear outcomes are ignored until their encoding is confirmed.
 - **Status:** **resolved for two-wrestler ordered criteria; multi-wrestler head-to-head calculation and match format remain open**.
-* **Status:** **resolved for the ordered criteria; multi-wrestler head-to-head calculation and match format remain open**.
-
 
 ### C-004: Global Elite Cup semifinal seeding is explicitly open in the rulebook but fixed in the workbook template
 
@@ -76,8 +74,8 @@ The next user show is National League, Opening Split Week 14. Its six matchups a
 - **Current workbook:** all 312 completed regular matches through Week 13 have one participant in the `Winner` field. No current row demonstrates how draw, DQ, no contest, or unclear abandonment would be encoded.
 - **Impact:** import behavior for these outcomes cannot be inferred safely from existing rows.
 * **Current handling:** Phase 3A supports browser-local confirmed results for Winner, Draw, and No Contest. Winner results update browser-local standings with a win/loss and 3/0 points. Draw results award one point to each wrestler. No Contest is stored but does not affect standings until an authoritative rule is confirmed. The workbook is not mutated. DQ and unclear-result encoding remain unresolved until the workbook/rulebook defines their exact representation.
+* **Status:** **open data-encoding question; Phase 3A local handling is resolved, Excel export remains disabled**.
 
-- **Status:** **open data-encoding question; Phase 1 safely constrained**.
 
 ### C-008: Some Excel table ranges do not cover all populated rows
 

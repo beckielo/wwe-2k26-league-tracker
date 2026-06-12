@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import {
 confirmResult,
 isWeekLocked,
@@ -11,16 +11,24 @@ type ConfirmedResultType,
 import type { LeagueName, Match } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
 
-export function ResultEntryForm({
-matches,
-userLeague,
-}: {
+interface ResultEntryFormProps {
 matches: Match[];
 userLeague: LeagueName;
-}) {
+}
+
+export function ResultEntryForm({ matches, userLeague }: ResultEntryFormProps) {
 const { state, replaceState, hydrated } = useTrackerState();
 
 const [matchId, setMatchId] = useState(matches[0]?.id ?? "");
+const [resultType, setResultType] =
+useState<ConfirmedResultType>("Winner");
+const [winner, setWinner] = useState(matches[0]?.wrestlerA ?? "");
+const [dirty, setDirty] = useState(false);
+const [message, setMessage] = useState<{
+tone: "success" | "error";
+text: string;
+} | null>(null);
+
 const selected = useMemo(
 () => matches.find((match) => match.id === matchId),
 [matchId, matches],
@@ -30,11 +38,6 @@ const existing = state.confirmedResults.find(
 (result) => result.matchId === matchId,
 );
 
-const [resultType, setResultType] =
-useState<ConfirmedResultType>("Winner");
-const [winner, setWinner] = useState(matches[0]?.wrestlerA ?? "");
-const [dirty, setDirty] = useState(false);
-
 const effectiveResultType = dirty
 ? resultType
 : existing?.resultType ?? resultType;
@@ -42,11 +45,6 @@ const effectiveResultType = dirty
 const effectiveWinner = dirty
 ? winner
 : existing?.winner ?? winner;
-
-const [message, setMessage] = useState<{
-tone: "success" | "error";
-text: string;
-} | null>(null);
 
 const weekLocked = selected ? isWeekLocked(state, selected.week) : false;
 
@@ -66,7 +64,7 @@ setMessage(null);
 
 }
 
-function submit(event: React.FormEvent) {
+function submit(event: FormEvent<HTMLFormElement>) {
 event.preventDefault();
 
 ```
@@ -97,7 +95,7 @@ if (!action.ok) {
 }
 
 replaceState(action.state);
-
+setDirty(false);
 setMessage({
   tone: "success",
   text: `${existing ? "Updated" : "Confirmed"}: ${selected.wrestlerA} vs ${selected.wrestlerB}. Stored in local app state only.`,
@@ -121,7 +119,9 @@ if (!action.ok) {
 }
 
 replaceState(action.state);
-
+setResultType("Winner");
+setWinner(selected?.wrestlerA ?? "");
+setDirty(false);
 setMessage({
   tone: "success",
   text: "Confirmed result removed from local app state.",
@@ -138,7 +138,8 @@ Loading local tracker state… </div>
 
 return ( <form onSubmit={submit} className="grid gap-5 p-6">
 {weekLocked && ( <div className="border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-200">
-Week {selected?.week} is complete and locked. Unlock it from Week Review before editing. </div>
+Week {selected?.week} is complete and locked. Unlock it from Week
+Review before editing. </div>
 )}
 
 ```
