@@ -18,6 +18,12 @@ The app first looks for `source-docs/current-master.xlsx`. In this repository it
 
 The current implementation reads the workbook only. The Result Entry page validates decisive results against scheduled National League match IDs but does not write to the workbook.
 
+## Simulation preview
+
+The `/simulation` page reads the user-controlled league from workbook metadata, excludes it, and offers weighted preview results only for open matchups that agree between the schedule and `Matchup_Reference`.
+
+Generated results can be edited and confirmed in browser `localStorage`, but they do not update the workbook, standings, or server data.
+
 ## Trust boundary
 
 Workbook ingestion is limited to the repository-controlled current master file. Do not point the importer at untrusted uploads; the SheetJS community package currently reports upstream security advisories with no published patched npm release.

@@ -43,7 +43,8 @@ The next user show is National League, Opening Split Week 14. Its six matchups a
 - **Remaining boundary:** the exact calculation of head-to-head for a tie involving three or more wrestlers is not specified. The application may identify the tied group and available head-to-head evidence, but must not invent a mini-table formula. If the first three active criteria still do not resolve a consequential tie, use a tiebreaker match; the exact multi-person match format remains case-specific unless documented.
 - **Phase 2A handling:** two-wrestler ties apply the active order directly. A 1–1 head-to-head advances to longest winning streak; if that is also tied, the UI marks `Tiebreaker match required`. Point-tie groups of three or more are shown as requiring review because no aggregation formula is documented. Winning-streak calculations treat a draw as a non-win that ends a streak, while no-contest and unclear outcomes are ignored until their encoding is confirmed.
 - **Status:** **resolved for two-wrestler ordered criteria; multi-wrestler head-to-head calculation and match format remain open**.
-- **Status:** **resolved for the ordered criteria; multi-wrestler head-to-head calculation and match format remain open**.
+* **Status:** **resolved for the ordered criteria; multi-wrestler head-to-head calculation and match format remain open**.
+
 
 ### C-004: Global Elite Cup semifinal seeding is explicitly open in the rulebook but fixed in the workbook template
 
@@ -74,7 +75,8 @@ The next user show is National League, Opening Split Week 14. Its six matchups a
 - **Rulebook:** draws award one point to each wrestler; relegation DQ and no-contest outcomes have special handling.
 - **Current workbook:** all 312 completed regular matches through Week 13 have one participant in the `Winner` field. No current row demonstrates how draw, DQ, no contest, or unclear abandonment would be encoded.
 - **Impact:** import behavior for these outcomes cannot be inferred safely from existing rows.
-- **Current handling:** the Phase 1 model supports explicit outcome states, but the import maps only the decisive winner/loser rows demonstrated by the workbook. The Result Entry page permits schedule-locked decisive-result validation only and performs no workbook write. Draw, DQ, no-contest, and unclear-result entry remain disabled until their workbook encoding is documented.
+* **Current handling:** the Phase 1 model supports explicit outcome states, but the import maps only the decisive winner/loser rows demonstrated by the workbook. The manual Result Entry page permits schedule-locked decisive-result validation only and performs no workbook write. Draw, DQ, no-contest, and unclear-result entry/export remain disabled until their workbook encoding is documented. Phase 2B may show Draw or No Contest only as an editable browser-local simulation preview under C-012; those outcomes are never mapped back into Excel.
+
 - **Status:** **open data-encoding question; Phase 1 safely constrained**.
 
 ### C-008: Some Excel table ranges do not cover all populated rows
@@ -107,6 +109,15 @@ The next user show is National League, Opening Split Week 14. Its six matchups a
 - **Impact:** implementing legacy rankings would introduce a ruleset whose authority/version is unclear.
 - **Current handling:** preserve legacy workbook data for later display/import work, but defer calculated GOAT/legacy logic until its authority and formulas are confirmed.
 - **Status:** **open rule-version conflict**.
+
+### C-012: Phase 2B simulation persistence and weighting
+
+* **Confirmed scope:** only non-user-controlled leagues with open matches in the first open scheduled week are eligible. The user league is read from workbook metadata and excluded.
+* **Match authority:** a simulation candidate must exist in both `Schedule_22W` and `Matchup_Reference`; no fixture is generated or repaired.
+* **Weighting:** simulation uses seed/prestige, current standing, points, current winning streak, longest winning streak, a bounded upset chance, and a 1% draw chance. These weights are an application simulation model, not a claim that the workbook or rulebook defines exact probability formulas.
+* **Persistence:** confirmation is stored only in browser `localStorage` as a preview. The workbook, server snapshot, and standings are not mutated.
+* **Special outcomes:** Draw and No Contest may be selected only in the browser preview. They are not exported or mapped back into Excel because workbook encoding remains unresolved under C-007.
+* **Status:** **resolved for Phase 2B preview behavior; permanent persistence/export remains out of scope**.
 
 ## Verified data-quality observations
 
