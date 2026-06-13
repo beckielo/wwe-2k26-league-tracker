@@ -7,6 +7,24 @@ export interface WeeklyClosePackage {
   exportedAt: string;
   week: number;
   completedAt: string;
+  workbookCompletedThroughWeek: number;
+  latestLockedWeek: number;
+  latestLockedCompletedAt: string;
+  validation: {
+    exportable: boolean;
+    status: "passed";
+    scheduled: number;
+    confirmed: number;
+    missing: number;
+    manual: number;
+    simulation: number;
+    errors: string[];
+  };
+  safety: {
+    excelModified: false;
+    source: string;
+    notice: "Excel was not modified.";
+  };
   summary: {
     scheduled: number;
     confirmed: number;
@@ -68,6 +86,8 @@ export function createWeeklyCloseExports(
   matches: Match[],
   baselineStandings: StandingRow[],
   userLeague: LeagueName,
+  workbookCompletedThroughWeek: number,
+  source: string,
   exportedAt = new Date().toISOString(),
 ): WeeklyCloseExportResult {
   const completedWeek = [...state.completedWeeks].sort((a, b) => b.week - a.week)[0];
@@ -114,6 +134,24 @@ export function createWeeklyCloseExports(
     exportedAt,
     week: completedWeek.week,
     completedAt: completedWeek.completedAt,
+    workbookCompletedThroughWeek,
+    latestLockedWeek: completedWeek.week,
+    latestLockedCompletedAt: completedWeek.completedAt,
+    validation: {
+      exportable: true,
+      status: "passed",
+      scheduled: progress.total,
+      confirmed: progress.confirmed,
+      missing: progress.missing,
+      manual: progress.manual,
+      simulation: progress.simulation,
+      errors: progress.validationErrors,
+    },
+    safety: {
+      excelModified: false,
+      source,
+      notice: "Excel was not modified.",
+    },
     summary: {
       scheduled: progress.total,
       confirmed: progress.confirmed,

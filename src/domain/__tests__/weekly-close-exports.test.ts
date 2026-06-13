@@ -77,6 +77,8 @@ describe("weekly close exports", () => {
       matches,
       baselineStandings,
       "National League",
+      13,
+      "test.xlsx",
       "2026-06-13T12:00:00.000Z",
     );
 
@@ -87,6 +89,24 @@ describe("weekly close exports", () => {
       week: 14,
       completedAt: "2026-06-13T11:00:00.000Z",
       exportedAt: "2026-06-13T12:00:00.000Z",
+      workbookCompletedThroughWeek: 13,
+      latestLockedWeek: 14,
+      latestLockedCompletedAt: "2026-06-13T11:00:00.000Z",
+      validation: {
+        exportable: true,
+        status: "passed",
+        scheduled: 24,
+        confirmed: 24,
+        missing: 0,
+        manual: 6,
+        simulation: 18,
+        errors: [],
+      },
+      safety: {
+        excelModified: false,
+        source: "test.xlsx",
+        notice: "Excel was not modified.",
+      },
       summary: { scheduled: 24, confirmed: 24, manual: 6, simulation: 18 },
     });
     expect(exports.package.results).toHaveLength(24);
@@ -104,13 +124,27 @@ describe("weekly close exports", () => {
     };
 
     expect(
-      createWeeklyCloseExports(incomplete, matches, baselineStandings, "National League"),
+      createWeeklyCloseExports(
+        incomplete,
+        matches,
+        baselineStandings,
+        "National League",
+        13,
+        "test.xlsx",
+      ),
     ).toEqual({
       ok: false,
       reason: "Locked Week 14 is not complete and valid, so safe exports are unavailable.",
     });
     expect(
-      createWeeklyCloseExports(unlocked, matches, baselineStandings, "National League"),
+      createWeeklyCloseExports(
+        unlocked,
+        matches,
+        baselineStandings,
+        "National League",
+        13,
+        "test.xlsx",
+      ),
     ).toEqual({
       ok: false,
       reason: "Complete and lock a week before downloading the weekly close exports.",
@@ -123,6 +157,8 @@ describe("weekly close exports", () => {
       matches,
       baselineStandings,
       "National League",
+      13,
+      "test.xlsx",
     );
 
     expect(exports.ok).toBe(true);
@@ -152,7 +188,14 @@ describe("weekly close exports", () => {
     const matchesBefore = structuredClone(matches);
     const standingsBefore = structuredClone(baselineStandings);
 
-    createWeeklyCloseExports(state, matches, baselineStandings, "National League");
+    createWeeklyCloseExports(
+      state,
+      matches,
+      baselineStandings,
+      "National League",
+      13,
+      "test.xlsx",
+    );
 
     expect(state).toEqual(stateBefore);
     expect(matches).toEqual(matchesBefore);
