@@ -33,7 +33,14 @@ export async function POST(request: Request) {
     if (!result.ok) {
       return NextResponse.json({ errors: result.errors }, { status: 422 });
     }
-    return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json(
+      {
+        ...result,
+        gitAutomationEnabled:
+          process.env.ALLOW_LOCAL_GIT_AUTOMATION === "true",
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (error) {
     return NextResponse.json(
       {

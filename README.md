@@ -12,6 +12,19 @@ npm run lint
 npm run build
 ```
 
+### Local one-click Git finalization
+
+To enable the post-promotion validation, commit, push, and next-week reload flow
+in PowerShell, start the development server with:
+
+```powershell
+$env:ALLOW_LOCAL_GIT_AUTOMATION="true"; npm run dev
+```
+
+This capability is local-only and must not be enabled in production. When the
+environment variable is absent, workbook promotion remains available but Git
+finalization is safely disabled.
+
 ## Source data
 
 The app first looks for `source-docs/current-master.xlsx`. In this repository it falls back to the single role-labelled workbook whose filename contains `source-docs-current-master`.
