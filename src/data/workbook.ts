@@ -36,6 +36,14 @@ function findMasterWorkbook(): string {
   return path.join(SOURCE_DIR, candidates[0]);
 }
 
+export function loadMasterWorkbookBuffer(): { buffer: Buffer; sourceFile: string } {
+  const workbookPath = findMasterWorkbook();
+  return {
+    buffer: fs.readFileSync(workbookPath),
+    sourceFile: path.basename(workbookPath),
+  };
+}
+
 type CellValue = string | number | boolean | null | undefined;
 type SheetRow = Record<string, CellValue>;
 
