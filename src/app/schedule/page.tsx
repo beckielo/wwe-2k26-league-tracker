@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export default function SchedulePage() {
   const data = loadTrackerData();
-  const nextWeek = data.meta.currentWeek + 1;
+  const nextWeek = data.meta.appBaselineCompletedThroughWeek + 1;
   return <>
     <PageHeader eyebrow="Authoritative matchup reference" title={`Week ${nextWeek} Card`} description="Every pairing below is read from Matchup_Reference in workbook booking order. The application does not generate or repair fixtures." aside={<div className="border border-white/10 bg-white/5 px-4 py-3 text-sm"><span className="text-slate-500">Phase</span><strong className="ml-3">Rückrunde</strong></div>} />
     <div className="grid gap-6 xl:grid-cols-2">

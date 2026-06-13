@@ -9,7 +9,7 @@ export type LeagueName = (typeof LEAGUE_NAMES)[number];
 export type SplitName = "Opening Split" | "Closing Split";
 export type RoundType = "Hinrunde" | "Rückrunde" | "Tiebreaker" | "League Finals";
 export type MatchStatus = "completed" | "scheduled";
-export type ResultSource = "User" | "Simulation" | "Unknown";
+export type ResultSource = "User" | "Manual" | "Simulation" | "Unknown";
 
 export interface SourceRef {
   file: string;
@@ -126,6 +126,10 @@ export interface TrackerMeta {
   leagueYearLabel: string;
   currentSplit: SplitName;
   currentWeek: number;
+  latestAppWritebackWeek: number | null;
+  latestAppWritebackCompletedAt: string | null;
+  appBaselineCompletedThroughWeek: number;
+  usesAppWritebackSheets: boolean;
   currentStatus: string;
   userLeague: LeagueName;
   userWrestler: string;
@@ -153,6 +157,7 @@ export interface TrackerData {
   leagues: League[];
   matches: Match[];
   results: MatchResult[];
+  appWritebackResults: import("./tracker-state").ConfirmedResult[];
   standings: StandingRow[];
   headToHead: HeadToHeadRecord[];
   streaks: StreakRecord[];

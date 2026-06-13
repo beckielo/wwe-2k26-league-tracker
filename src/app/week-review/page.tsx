@@ -18,7 +18,9 @@ return (
     allMatches={data.matches}
     baselineStandings={data.standings}
     userLeague={data.meta.userLeague}
-    workbookCurrentWeek={data.meta.currentWeek}
+    workbookCurrentWeek={data.meta.appBaselineCompletedThroughWeek}
+    originalWorkbookCurrentWeek={data.meta.currentWeek}
+    latestAppWritebackWeek={data.meta.latestAppWritebackWeek}
     sourceFile={data.sourceFile}
   />
 </>

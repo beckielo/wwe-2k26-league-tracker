@@ -20,6 +20,8 @@ allMatches: Match[];
 baselineStandings: StandingRow[];
 userLeague: LeagueName;
 workbookCurrentWeek: number;
+originalWorkbookCurrentWeek: number;
+latestAppWritebackWeek: number | null;
 sourceFile: string;
 }
 
@@ -28,6 +30,8 @@ allMatches,
 baselineStandings,
 userLeague,
 workbookCurrentWeek,
+originalWorkbookCurrentWeek,
+latestAppWritebackWeek,
 sourceFile,
 }: WeekReviewProps) {
 const { state, replaceState, exportState, importState, resetState, hydrated } =
@@ -236,7 +240,10 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
           </div>
 
           <p className="text-sm text-slate-500">
-            Workbook completed through Week {workbookCurrentWeek}
+            Workbook completed through Week {originalWorkbookCurrentWeek}
+            {latestAppWritebackWeek !== null && (
+              <> · App workbook baseline through Week {latestAppWritebackWeek} (App_* sheets)</>
+            )}
           </p>
         </div>
       </div>
