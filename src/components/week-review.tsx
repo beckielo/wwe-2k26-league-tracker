@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState, type RefObject } from "react";
+import { WorkflowSummaryBanner } from "./workflow-summary-banner";
 import {
 calculateStandingsWithConfirmedResults,
 completeWeek,
 removeResult,
 unlockWeek,
 } from "@/domain/tracker-state";
-import { detectActiveWeek, getWeekProgress } from "@/domain/week-progression";
+import { getWorkflowSummary } from "@/domain/week-progression";
 import type { LeagueName, Match, StandingRow } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
 
@@ -31,10 +32,15 @@ useTrackerState();
 const [messages, setMessages] = useState<string[]>([]);
 const importInput = useRef<HTMLInputElement>(null);
 
-const resolution = detectActiveWeek(state, allMatches, workbookCurrentWeek);
-const week = resolution.activeWeek;
-const progress =
-week === null ? null : getWeekProgress(state, week, allMatches, userLeague);
+const summary = getWorkflowSummary(
+state,
+allMatches,
+workbookCurrentWeek,
+userLeague,
+);
+
+const week = summary.activeWeek;
+const progress = summary.progress;
 
 const weekMatches =
 week === null
@@ -48,7 +54,7 @@ progress?.confirmedResults.map((result) => [result.matchId, result]) ?? [],
 );
 
 const leagues = [...new Set(weekMatches.map((match) => match.league))];
-const latestLockedWeek = resolution.latestLockedWeek;
+const latestLockedWeek = summary.latestLockedWeek;
 
 const updatedStandings = useMemo(
 () =>
@@ -168,11 +174,22 @@ Loading local tracker state… </div>
 );
 }
 
-return ( <div className="space-y-8">
-{messages.length > 0 && ( <div className="border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-200"> <ul className="list-disc space-y-1 pl-5">
-{messages.map((message) => ( <li key={message}>{message}</li>
-))} </ul> </div>
-)}
+return ( <div className="space-y-8"> <WorkflowSummaryBanner
+     matches={allMatches}
+     workbookCurrentWeek={workbookCurrentWeek}
+     userLeague={userLeague}
+     compact
+   />
+
+  {messages.length > 0 && (
+    <div className="border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-200">
+      <ul className="list-disc space-y-1 pl-5">
+        {messages.map((message) => (
+          <li key={message}>{message}</li>
+        ))}
+      </ul>
+    </div>
+  )}
 
   {latestLockedWeek !== null && (
     <div className="flex flex-col justify-between gap-4 border border-emerald-400/30 bg-emerald-400/10 p-5 sm:flex-row sm:items-center">
@@ -376,35 +393,48 @@ return ( <div className="space-y-8">
         </section>
       </div>
 
-      <div className="flex flex-wrap gap-3 border border-white/10 bg-[#111722] p-5">
-        <button
-          disabled={progress.status !== "complete-unlocked"}
-          onClick={markComplete}
-          className="bg-emerald-500 px-4 py-3 text-xs font-black uppercase tracking-wider text-white disabled:cursor-not-allowed disabled:opacity-35"
-        >
-          Complete & lock Week {week}
-        </button>
+      <div className="border border-white/10 bg-[#111722] p-5">
+        <div className="flex flex-col justify-between gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-center">
+          <div>
+            <p className="font-black uppercase">Close Week {week}</p>
+            <p className="mt-1 text-sm text-slate-400">
+              {progress.status === "complete-unlocked"
+                ? "All validation passed. Locking protects these results and advances the workflow."
+                : "Locking stays disabled until all 24 authoritative results pass validation."}
+            </p>
+          </div>
 
-        <Link
-          href="/results"
-          className="border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300"
-        >
-          Result Entry
-        </Link>
+          <button
+            disabled={progress.status !== "complete-unlocked"}
+            onClick={markComplete}
+            className="bg-emerald-500 px-5 py-4 text-xs font-black uppercase tracking-wider text-white disabled:cursor-not-allowed disabled:opacity-35"
+          >
+            Complete & lock Week {week}
+          </button>
+        </div>
 
-        <Link
-          href="/simulation"
-          className="border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300"
-        >
-          Simulation
-        </Link>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Link
+            href="/results"
+            className="border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300"
+          >
+            Result Entry
+          </Link>
 
-        <StateControls
-          downloadExport={downloadExport}
-          importInput={importInput}
-          importFile={importFile}
-          reset={reset}
-        />
+          <Link
+            href="/simulation"
+            className="border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300"
+          >
+            Simulation
+          </Link>
+
+          <StateControls
+            downloadExport={downloadExport}
+            importInput={importInput}
+            importFile={importFile}
+            reset={reset}
+          />
+        </div>
       </div>
     </>
   ) : (

@@ -130,6 +130,7 @@ if (count > 1) {
 errors.push(matchId + ": duplicate confirmed results are not allowed.");
 }
 }
+
   if (weekMatches.length !== 24) errors.push(`Week ${week} has ${weekMatches.length} scheduled matches; expected 24.`);
   for (const match of weekMatches) {
     const result = resultByMatch.get(match.id);

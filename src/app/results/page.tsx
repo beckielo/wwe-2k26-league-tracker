@@ -9,9 +9,9 @@ const data = loadTrackerData();
 
 return (
 <> <PageHeader
-     eyebrow="Phase 3B · active user show"
+     eyebrow="Phase 3C · active user show"
      title="Result Entry"
-     description="Enter only the user-controlled league results for the active app week. The active week advances from workbook baseline through browser-local week locks."
+     description="Enter and review only the user-controlled league results for the active app week. The workbook card is authoritative; browser-local state tracks progress."
    />
 
   <ResultEntryWorkflow

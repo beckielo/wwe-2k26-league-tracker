@@ -7,17 +7,17 @@ export const dynamic = "force-dynamic";
 export default function SimulationPage() {
 const data = loadTrackerData();
 
-const description =
-"Generate explainable previews only for open non-user league matches in the active app week. " +
-data.meta.userLeague +
-" remains excluded.";
-
 return (
-<> <PageHeader
-     eyebrow="Phase 3B · active non-user shows"
-     title="Simulation Studio"
-     description={description}
-   />
+<>
+<PageHeader
+eyebrow="Phase 3C · active non-user shows"
+title="Simulation Studio"
+description={
+"Review progress by league and generate editable previews only for open non-user matches in the active app week. " +
+data.meta.userLeague +
+" remains excluded."
+}
+/>
 
   <SimulationWorkflow
     matches={data.matches}

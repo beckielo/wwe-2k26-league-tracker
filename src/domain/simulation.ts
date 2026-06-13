@@ -90,7 +90,11 @@ export function buildSimulationCandidates(input: {
   userLeague: LeagueName;
 targetWeek?: number | null;
 confirmedMatchIds?: Iterable<string>;
-}): { week: number | null; candidates: SimulationCandidate[]; excludedLeague: LeagueName } {
+}): {
+week: number | null;
+candidates: SimulationCandidate[];
+excludedLeague: LeagueName;
+} {
 const completedIds = new Set(
 input.existingResults.map((result) => result.matchId),
 );
@@ -109,6 +113,7 @@ input.targetWeek === undefined
 ? Math.min(...openMatches.map((match) => match.week))
 : null
 : input.targetWeek;
+  
   if (week === null) return { week, candidates: [], excludedLeague: input.userLeague };
 
   const leagueByName = new Map(input.leagues.map((league) => [league.name, league]));

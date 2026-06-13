@@ -9,9 +9,9 @@ const data = loadTrackerData();
 
 return (
 <> <PageHeader
-     eyebrow="Phase 3B · week progression"
+     eyebrow="Phase 3C · week control center"
      title="Week Review"
-     description="Review the active authoritative 24-match card, resolve missing results, lock a valid completed week, and advance the local workflow without changing Excel."
+     description="Review every league, resolve missing or invalid results, safely lock a completed week, manage local state, and inspect standings without changing Excel."
    />
 
   <WeekReview

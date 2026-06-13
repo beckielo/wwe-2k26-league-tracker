@@ -1,12 +1,13 @@
 import Link from "next/link";
-import { DashboardWorkflowSummary } from "@/components/dashboard-workflow-summary";
 import { PageHeader, Panel, Stat } from "@/components/ui";
+import { WorkflowSummaryBanner } from "@/components/workflow-summary-banner";
 import { loadTrackerData } from "@/data/workbook";
 
 export const dynamic = "force-dynamic";
 
 export default function DashboardPage() {
 const data = loadTrackerData();
+
 const nextWeek = data.meta.currentWeek + 1;
 const nextMatches = data.matchupReference
 .filter(
@@ -33,7 +34,6 @@ Source connected </div>
 }
 />
 
-```
   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
     <Stat
       label="League year"
@@ -63,7 +63,7 @@ Source connected </div>
   </div>
 
   <div className="mt-8">
-    <DashboardWorkflowSummary
+    <WorkflowSummaryBanner
       matches={data.matches}
       workbookCurrentWeek={data.meta.currentWeek}
       userLeague={data.meta.userLeague}
