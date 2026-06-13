@@ -356,8 +356,12 @@ Simulation Week {week} </p> <p className="mt-1 text-sm text-slate-400">
                     onChange={(event) => editResult(preview.matchId, event.target.value)}
                     className="w-full border border-white/15 bg-[#0b1019] px-3 py-3 text-sm font-bold text-white"
                   >
-                    <option value={preview.wrestlerA}>{preview.wrestlerA} wins</option>
-                    <option value={preview.wrestlerB}>{preview.wrestlerB} wins</option>
+                    <option value={preview.wrestlerA}>
+                      {preview.wrestlerA} wins
+                    </option>
+                    <option value={preview.wrestlerB}>
+                      {preview.wrestlerB} wins
+                    </option>
                     <option value="draw">Draw</option>
                     <option value="no-contest">No Contest</option>
                   </select>

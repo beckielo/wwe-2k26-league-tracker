@@ -88,10 +88,27 @@ export function buildSimulationCandidates(input: {
   streaks: StreakRecord[];
   existingResults: MatchResult[];
   userLeague: LeagueName;
+targetWeek?: number | null;
+confirmedMatchIds?: Iterable<string>;
 }): { week: number | null; candidates: SimulationCandidate[]; excludedLeague: LeagueName } {
-  const completedIds = new Set(input.existingResults.map((result) => result.matchId));
-  const openMatches = input.matches.filter((match) => match.status === "scheduled" && !completedIds.has(match.id));
-  const week = openMatches.length ? Math.min(...openMatches.map((match) => match.week)) : null;
+const completedIds = new Set(
+input.existingResults.map((result) => result.matchId),
+);
+
+for (const matchId of input.confirmedMatchIds ?? []) {
+completedIds.add(matchId);
+}
+
+const openMatches = input.matches.filter(
+(match) => match.status === "scheduled" && !completedIds.has(match.id),
+);
+
+const week =
+input.targetWeek === undefined
+? openMatches.length
+? Math.min(...openMatches.map((match) => match.week))
+: null
+: input.targetWeek;
   if (week === null) return { week, candidates: [], excludedLeague: input.userLeague };
 
   const leagueByName = new Map(input.leagues.map((league) => [league.name, league]));

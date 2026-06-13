@@ -58,6 +58,29 @@ describe("simulation eligibility", () => {
     expect(result.candidates.map((entry) => entry.match.league)).toEqual(["Regional League"]);
   });
 
+it("excludes browser-confirmed matches from an explicitly targeted active week", () => {
+const regional = match("Regional League");
+const result = buildSimulationCandidates({
+matches: [regional],
+matchupReference: [reference(regional)],
+leagues: [league(regional)],
+standings: [
+standing(regional, "Alpha", 1, 30),
+standing(regional, "Beta", 2, 27),
+],
+streaks: [
+streak(regional, "Alpha", 2, 5),
+streak(regional, "Beta", 1, 3),
+],
+existingResults: [],
+userLeague: "National League",
+targetWeek: 14,
+confirmedMatchIds: [regional.id],
+});
+
+expect(result.candidates).toEqual([]);
+
+});
   it("simulates scheduled matches only when Matchup_Reference agrees", () => {
     const regional = match("Regional League");
     const result = buildSimulationCandidates({

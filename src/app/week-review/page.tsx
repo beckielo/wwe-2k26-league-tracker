@@ -5,11 +5,22 @@ import { loadTrackerData } from "@/data/workbook";
 export const dynamic = "force-dynamic";
 
 export default function WeekReviewPage() {
-  const data = loadTrackerData();
-  const week = Math.min(...data.matches.filter((match) => match.status === "scheduled").map((match) => match.week));
-  const matches = data.matches.filter((match) => match.week === week);
-  return <>
-    <PageHeader eyebrow="Phase 3A · local tracker state" title={`Week ${week} Review`} description="Review all 24 authoritative matchups, fill missing manual and simulation results, validate completion, lock the week, and calculate app-state standings without changing the Excel workbook." />
-    <WeekReview week={week} matches={matches} allMatches={data.matches} baselineStandings={data.standings} userLeague={data.meta.userLeague} />
-  </>;
+const data = loadTrackerData();
+
+return (
+<> <PageHeader
+     eyebrow="Phase 3B · week progression"
+     title="Week Review"
+     description="Review the active authoritative 24-match card, resolve missing results, lock a valid completed week, and advance the local workflow without changing Excel."
+   />
+
+  <WeekReview
+    allMatches={data.matches}
+    baselineStandings={data.standings}
+    userLeague={data.meta.userLeague}
+    workbookCurrentWeek={data.meta.currentWeek}
+  />
+</>
+
+);
 }

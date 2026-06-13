@@ -76,7 +76,6 @@ The next user show is National League, Opening Split Week 14. Its six matchups a
 * **Current handling:** Phase 3A supports browser-local confirmed results for Winner, Draw, and No Contest. Winner results update browser-local standings with a win/loss and 3/0 points. Draw results award one point to each wrestler. No Contest is stored but does not affect standings until an authoritative rule is confirmed. The workbook is not mutated. DQ and unclear-result encoding remain unresolved until the workbook/rulebook defines their exact representation.
 * **Status:** **open data-encoding question; Phase 3A local handling is resolved, Excel export remains disabled**.
 
-
 ### C-008: Some Excel table ranges do not cover all populated rows
 
 - `H2H_Tracker` has 312 populated result rows plus its header, while the named Excel table covers only `A1:G265`.
@@ -126,7 +125,6 @@ The next user show is National League, Opening Split Week 14. Its six matchups a
 * **Persistence:** confirmed results, completed-week locks, and import/export timestamps use browser `localStorage`. JSON export/import is the portable backup; there is no database or workbook write.
 * **Status:** **resolved for Phase 3A local workflow; workbook export and permanent storage remain out of scope**.
 
-
 ## Verified data-quality observations
 
 The following checks found no current-data conflict:
@@ -151,3 +149,12 @@ The following checks found no current-data conflict:
 - How draws, DQ, no contest, and unclear stoppages are encoded in the Excel master.
 - Whether current zone labels represent projections or clinched outcomes.
 - Whether workbook-only legacy/GOAT calculations are active authoritative rules.
+## Phase 3B — week progression workflow
+
+* **Active week detection:** the app starts with authoritative workbook match rows whose status is `scheduled` and whose week is later than the workbook's completed-through week. The first such week not present in the browser-local `completedWeeks` locks is the active app week. No fixture is generated to fill a missing week.
+* **Local-only progression:** completing and locking a week advances the browser workflow to the next authoritative scheduled week. This does not alter the workbook's current-week metadata or any workbook cell.
+* **Completion state:** an active week is `incomplete` until all 24 authoritative scheduled matches have one valid confirmed result; it is `complete-unlocked` when those checks pass; and a completed-week entry makes it `locked`. A No Contest counts as a confirmed result but continues to have no standings effect under the existing Phase 3A handling.
+* **Locked-week behavior:** locked weeks reject result edits and removals. Week Review offers an explicit warning-confirmed unlock action; unlocking an earlier week returns it to the active workflow before later weeks.
+* **Simulation boundary:** simulation is restricted to open, authoritative non-user-league matches in the active app week. Browser-confirmed matches are excluded, and the workbook-defined user-controlled league remains ineligible.
+* **Persistence compatibility:** Phase 3B keeps tracker state version 1 and the existing JSON export/import format. Existing confirmed results, completed-week locks, and timestamps remain usable.
+* **Season complete behavior:** if every later authoritative scheduled week is locked, the workflow reports that no active week remains. It does not invent a subsequent card or infer League Finals fixtures.
