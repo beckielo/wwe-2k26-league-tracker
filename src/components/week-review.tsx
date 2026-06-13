@@ -1,0 +1,220 @@
+"use client";
+
+import Link from "next/link";
+import { useMemo, useRef, useState } from "react";
+import { WorkflowSummaryBanner } from "./workflow-summary-banner";
+import {
+  calculateStandingsWithConfirmedResults,
+  completeWeek,
+  removeResult,
+  unlockWeek,
+} from "@/domain/tracker-state";
+import { getWorkflowSummary } from "@/domain/week-progression";
+import {
+  buildWeeklyClosePackage,
+  standingsToCsv,
+  weeklyResultsToCsv,
+} from "@/domain/weekly-close";
+import type { LeagueName, Match, StandingRow } from "@/domain/types";
+import { useTrackerState } from "@/state/tracker-state-provider";
+
+interface WeekReviewProps {
+  allMatches: Match[];
+  baselineStandings: StandingRow[];
+  userLeague: LeagueName;
+  workbookCurrentWeek: number;
+}
+
+export function WeekReview({ allMatches, baselineStandings, userLeague, workbookCurrentWeek }: WeekReviewProps) {
+  const { state, replaceState, exportState, importState, resetState, hydrated } = useTrackerState();
+  const [messages, setMessages] = useState<string[]>([]);
+  const importInput = useRef<HTMLInputElement>(null);
+  const summary = getWorkflowSummary(state, allMatches, workbookCurrentWeek, userLeague);
+  const week = summary.activeWeek;
+  const progress = summary.progress;
+  const weekMatches = week === null ? [] : allMatches.filter((match) => match.week === week && match.status === "scheduled");
+  const resultByMatch = new Map(progress?.confirmedResults.map((result) => [result.matchId, result]) ?? []);
+  const leagues = [...new Set(weekMatches.map((match) => match.league))];
+  const latestLockedWeek = summary.latestLockedWeek;
+  const updatedStandings = useMemo(() => calculateStandingsWithConfirmedResults(
+    baselineStandings,
+    allMatches,
+    state.confirmedResults.filter((result) => latestLockedWeek !== null && result.week <= latestLockedWeek),
+  ), [allMatches, baselineStandings, latestLockedWeek, state.confirmedResults]);
+  const closePackage = useMemo(() => latestLockedWeek === null ? null : buildWeeklyClosePackage({
+    week: latestLockedWeek,
+    scheduledMatches: allMatches,
+    confirmedResults: state.confirmedResults,
+    workbookCurrentWeek,
+    userLeague,
+    baselineStandings,
+    completedWeeks: state.completedWeeks,
+  }), [allMatches, baselineStandings, latestLockedWeek, state.completedWeeks, state.confirmedResults, userLeague, workbookCurrentWeek]);
+
+  function markComplete() {
+    if (week === null) return;
+    const action = completeWeek(state, week, allMatches, userLeague);
+    if (!action.ok) return setMessages(action.errors);
+    replaceState(action.state);
+    setMessages([`Week ${week} completed and locked. The next authoritative scheduled week is now the workflow target.`]);
+  }
+
+  function unlock(lockedWeek: number) {
+    if (!window.confirm(`Unlock Week ${lockedWeek}? This returns it to the active workflow and makes its confirmed results editable again.`)) return;
+    replaceState(unlockWeek(state, lockedWeek));
+    setMessages([`Week ${lockedWeek} unlocked. Review changes carefully before locking it again.`]);
+  }
+
+  function remove(matchId: string) {
+    const action = removeResult(state, matchId);
+    if (!action.ok) return setMessages(action.errors);
+    replaceState(action.state);
+    setMessages([]);
+  }
+
+  function downloadExport() {
+    const json = exportState();
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `wwe-2k26-tracker-state${week === null ? "" : `-week-${week}`}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadWeeklyCloseJson() {
+    if (!closePackage?.exportable) return;
+    downloadFile(
+      JSON.stringify(closePackage, null, 2),
+      `wwe-2k26-week-${closePackage.week}-close-package.json`,
+      "application/json",
+    );
+  }
+
+  function downloadWeeklyResultsCsv() {
+    if (!closePackage?.exportable) return;
+    downloadFile(
+      weeklyResultsToCsv(closePackage),
+      `wwe-2k26-week-${closePackage.week}-results.csv`,
+      "text/csv;charset=utf-8",
+    );
+  }
+
+  function downloadStandingsCsv() {
+    if (!closePackage?.exportable) return;
+    downloadFile(
+      standingsToCsv(closePackage),
+      `wwe-2k26-week-${closePackage.week}-standings.csv`,
+      "text/csv;charset=utf-8",
+    );
+  }
+
+  async function importFile(file: File | undefined) {
+    if (!file) return;
+    const errors = importState(await file.text(), allMatches, userLeague);
+    setMessages(errors.length ? errors : ["Tracker state imported successfully. Review the active week before continuing."]);
+    if (importInput.current) importInput.current.value = "";
+  }
+
+  function reset() {
+    if (!window.confirm("Reset all local tracker state? This removes confirmed results, completed-week locks, and import/export timestamps from this browser. The workbook is not affected.")) return;
+    resetState();
+    setMessages(["Local tracker state reset. The workbook snapshot remains unchanged."]);
+  }
+
+  if (!hydrated) return <div className="border border-white/10 p-6 text-sm text-slate-500">Loading local tracker state…</div>;
+
+  return <div className="space-y-8">
+    <WorkflowSummaryBanner matches={allMatches} workbookCurrentWeek={workbookCurrentWeek} userLeague={userLeague} compact />
+
+    {messages.length > 0 && <div className="border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-200"><ul className="list-disc space-y-1 pl-5">{messages.map((message) => <li key={message}>{message}</li>)}</ul></div>}
+
+    {latestLockedWeek !== null && <div className="flex flex-col justify-between gap-4 border border-emerald-400/30 bg-emerald-400/10 p-5 sm:flex-row sm:items-center"><div><p className="font-black uppercase text-emerald-200">Week {latestLockedWeek} is complete and locked</p><p className="mt-1 text-sm text-slate-300">Its results are protected from edits. Progression and standings are local app-state only; Excel remains unchanged.</p></div><button type="button" onClick={() => unlock(latestLockedWeek)} className="border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-amber-200">Unlock Week {latestLockedWeek} with warning</button></div>}
+
+    {progress ? <>
+      <div className="border border-white/10 bg-[#111722] p-5"><p className="text-xs font-bold uppercase tracking-[.18em] text-red-400">Current active app week</p><div className="mt-2 flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><h2 className="text-3xl font-black uppercase">Week {week}</h2><p className="mt-1 text-sm text-slate-400">Status: {progress.status === "complete-unlocked" ? "Complete but unlocked — ready to lock" : "Incomplete — confirmed results still required"}</p></div><p className="text-sm text-slate-500">Workbook completed through Week {workbookCurrentWeek}</p></div></div>
+
+      <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-6">
+        {[['Scheduled', progress.total, 'text-white'], ['Confirmed', progress.confirmed, 'text-emerald-300'], ['Missing', progress.missing, 'text-amber-300'], ['Manual', progress.manual, 'text-sky-300'], ['Simulation', progress.simulation, 'text-violet-300'], ['State', progress.status === 'complete-unlocked' ? 'Ready' : 'Open', 'text-white']].map(([label, value, color]) => <div key={String(label)} className="border border-white/10 bg-[#111722] p-5"><p className="text-[10px] uppercase tracking-wider text-slate-500">{label}</p><p className={`mt-2 text-2xl font-black ${color}`}>{value}</p></div>)}
+      </div>
+
+      {progress.validationErrors.length > 0 && <div className="border border-amber-400/30 bg-amber-400/5 p-5"><p className="font-black uppercase text-amber-300">Completion validation</p><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-400">{progress.validationErrors.slice(0, 8).map((error) => <li key={error}>{error}</li>)}</ul>{progress.validationErrors.length > 8 && <p className="mt-2 text-xs text-slate-500">Plus {progress.validationErrors.length - 8} additional validation messages.</p>}</div>}
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <section className="border border-amber-400/20 bg-[#111722]"><div className="border-b border-white/10 p-5"><p className="text-[10px] font-bold uppercase tracking-[.2em] text-amber-400">Missing results</p><h2 className="mt-1 text-xl font-black uppercase">Grouped by league</h2></div><div className="divide-y divide-white/10">{leagues.map((league) => { const missing = progress.missingMatches.filter((match) => match.league === league); return <div key={league} className="p-5"><div className="flex justify-between"><h3 className="font-black uppercase">{league}</h3><span className="text-xs text-amber-300">{missing.length} missing</span></div>{missing.length ? <ul className="mt-3 space-y-2 text-sm text-slate-400">{missing.map((match) => <li key={match.id}>Match {match.matchNumber}: {match.wrestlerA} vs {match.wrestlerB}</li>)}</ul> : <p className="mt-2 text-sm text-emerald-300">All six results confirmed.</p>}</div>; })}</div></section>
+
+        <section className="border border-emerald-400/20 bg-[#111722]"><div className="border-b border-white/10 p-5"><p className="text-[10px] font-bold uppercase tracking-[.2em] text-emerald-400">Confirmed results</p><h2 className="mt-1 text-xl font-black uppercase">Grouped by league</h2></div><div className="divide-y divide-white/10">{leagues.map((league) => { const matches = weekMatches.filter((match) => match.league === league && resultByMatch.has(match.id)); return <div key={league} className="p-5"><div className="flex justify-between"><h3 className="font-black uppercase">{league}</h3><span className="text-xs text-emerald-300">{matches.length}/6</span></div>{matches.length ? <div className="mt-3 space-y-3">{matches.map((match) => { const result = resultByMatch.get(match.id)!; return <div key={match.id} className="flex items-center justify-between gap-3 text-sm"><span className="text-slate-300">{match.wrestlerA} vs {match.wrestlerB}<small className="ml-2 text-slate-600">{result.source}</small></span><div className="flex items-center gap-2"><strong className="text-emerald-300">{result.resultType === "Winner" ? `${result.winner} wins` : result.resultType}</strong><button type="button" onClick={() => remove(match.id)} className="border border-white/10 px-2 py-1 text-[10px] uppercase text-slate-500">Remove</button></div></div>; })}</div> : <p className="mt-2 text-sm text-slate-500">No confirmed results.</p>}</div>; })}</div></section>
+      </div>
+
+      <div className="border border-white/10 bg-[#111722] p-5">
+        <div className="flex flex-col justify-between gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-center">
+          <div><p className="font-black uppercase">Close Week {week}</p><p className="mt-1 text-sm text-slate-400">{progress.status === "complete-unlocked" ? "All validation passed. Locking protects these results and advances the workflow." : "Locking stays disabled until all 24 authoritative results pass validation."}</p></div>
+          <button disabled={progress.status !== "complete-unlocked"} onClick={markComplete} className="bg-emerald-500 px-5 py-4 text-xs font-black uppercase tracking-wider text-white disabled:cursor-not-allowed disabled:opacity-35">Complete & lock Week {week}</button>
+        </div>
+        <div className="mt-5 flex flex-wrap gap-3"><Link href="/results" className="border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">Result Entry</Link><Link href="/simulation" className="border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">Simulation</Link><StateControls downloadExport={downloadExport} importInput={importInput} importFile={importFile} reset={reset} /></div>
+      </div>
+    </> : <div className="border border-emerald-400/20 bg-emerald-400/5 p-10 text-center"><h2 className="text-3xl font-black uppercase">Season workflow complete</h2><p className="mt-2 text-slate-400">Every later authoritative scheduled week is locked in browser-local tracker state.</p><div className="mt-6 flex justify-center gap-3"><StateControls downloadExport={downloadExport} importInput={importInput} importFile={importFile} reset={reset} /></div></div>}
+
+    <section className="border border-sky-400/20 bg-[#111722]">
+      <div className="flex flex-col justify-between gap-4 border-b border-white/10 p-5 sm:flex-row sm:items-center">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[.2em] text-sky-400">Phase 4 export</p>
+          <h2 className="mt-1 text-xl font-black uppercase">Weekly Close Package</h2>
+          <p className="mt-2 text-sm text-slate-400">
+            Latest locked local week: {latestLockedWeek === null ? "None" : `Week ${latestLockedWeek}`}.
+          </p>
+        </div>
+        <span className={`border px-3 py-2 text-xs font-black uppercase tracking-wider ${
+          closePackage?.exportable
+            ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+            : "border-amber-400/30 bg-amber-400/10 text-amber-200"
+        }`}>
+          {closePackage?.exportable ? "Ready to export" : "Locked week required"}
+        </span>
+      </div>
+      <div className="p-5">
+        <p className="border border-sky-400/20 bg-sky-400/5 p-4 text-sm text-sky-100">
+          Exports are generated from workbook baseline + browser-local tracker state. Excel is not modified.
+        </p>
+        {closePackage && !closePackage.exportable && closePackage.validationErrors.length > 0 && (
+          <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-amber-200">
+            {closePackage.validationErrors.map((error) => <li key={error}>{error}</li>)}
+          </ul>
+        )}
+        {!closePackage && (
+          <p className="mt-4 text-sm text-slate-500">
+            Complete and lock a valid week before generating weekly close exports.
+          </p>
+        )}
+        <div className="mt-5 flex flex-wrap gap-3">
+          <ExportButton disabled={!closePackage?.exportable} onClick={downloadWeeklyCloseJson}>Export close package JSON</ExportButton>
+          <ExportButton disabled={!closePackage?.exportable} onClick={downloadWeeklyResultsCsv}>Export weekly results CSV</ExportButton>
+          <ExportButton disabled={!closePackage?.exportable} onClick={downloadStandingsCsv}>Export standings CSV</ExportButton>
+        </div>
+      </div>
+    </section>
+
+    <div className="flex flex-col gap-2 text-xs text-slate-500 sm:flex-row sm:justify-between"><span>Last export: {state.lastExportedAt ? new Date(state.lastExportedAt).toLocaleString() : "Never"}</span><span>Last import: {state.lastImportedAt ? new Date(state.lastImportedAt).toLocaleString() : "Never"}</span></div>
+
+    {latestLockedWeek !== null && <section className="border border-white/10 bg-[#111722]"><div className="border-b border-white/10 p-5"><p className="text-[10px] font-bold uppercase tracking-[.2em] text-red-400">App-state calculation</p><h2 className="mt-1 text-xl font-black uppercase">Updated standings through locked Week {latestLockedWeek}</h2></div><div className="grid gap-px bg-white/10 xl:grid-cols-4">{[...new Set(updatedStandings.map((row) => row.league))].map((league) => <div key={league} className="bg-[#111722] p-4"><h3 className="mb-3 text-sm font-black uppercase">{league}</h3><ol className="space-y-2">{updatedStandings.filter((row) => row.league === league).map((row) => <li key={row.wrestler} className="flex justify-between text-xs"><span>#{row.rank} {row.wrestler}</span><strong>{row.points} pts</strong></li>)}</ol></div>)}</div></section>}
+  </div>;
+}
+
+function StateControls({ downloadExport, importInput, importFile, reset }: { downloadExport: () => void; importInput: React.RefObject<HTMLInputElement | null>; importFile: (file: File | undefined) => void; reset: () => void }) {
+  return <><button onClick={downloadExport} className="border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">Export JSON</button><button onClick={() => importInput.current?.click()} className="border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">Import JSON</button><input ref={importInput} type="file" accept="application/json,.json" onChange={(event) => importFile(event.target.files?.[0])} className="hidden" /><button onClick={reset} className="ml-auto border border-red-400/30 bg-red-400/5 px-4 py-3 text-xs font-black uppercase tracking-wider text-red-300">Reset local tracker state</button></>;
+}
+
+function ExportButton({ children, disabled, onClick }: { children: React.ReactNode; disabled: boolean; onClick: () => void }) {
+  return <button type="button" disabled={disabled} onClick={onClick} className="border border-sky-400/30 bg-sky-400/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-sky-200 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/[.02] disabled:text-slate-600">{children}</button>;
+}
+
+function downloadFile(content: string, filename: string, type: string) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}

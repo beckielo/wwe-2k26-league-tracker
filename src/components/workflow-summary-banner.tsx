@@ -1,0 +1,92 @@
+"use client";
+
+import Link from "next/link";
+import { getWorkflowSummary } from "@/domain/week-progression";
+import type { LeagueName, Match } from "@/domain/types";
+import { useTrackerState } from "@/state/tracker-state-provider";
+
+interface WorkflowSummaryBannerProps {
+  matches: Match[];
+  workbookCurrentWeek: number;
+  userLeague: LeagueName;
+  compact?: boolean;
+}
+
+export function WorkflowSummaryBanner({
+  matches,
+  workbookCurrentWeek,
+  userLeague,
+  compact = false,
+}: WorkflowSummaryBannerProps) {
+  const { state, hydrated } = useTrackerState();
+  if (!hydrated) {
+    return <div className="border border-white/10 bg-[#111722] p-6 text-sm text-slate-500">Loading active workflow…</div>;
+  }
+
+  const summary = getWorkflowSummary(state, matches, workbookCurrentWeek, userLeague);
+  const progress = summary.progress;
+
+  return (
+    <section className="overflow-hidden border border-red-400/25 bg-gradient-to-r from-red-500/15 via-[#111722] to-[#111722]">
+      <div className="grid gap-6 p-6 xl:grid-cols-[1fr_auto] xl:items-center">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[.22em] text-red-400">
+            Active browser-local workflow
+          </p>
+          <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <h2 className="text-2xl font-black uppercase sm:text-3xl">
+              {summary.activeWeek === null ? "Season workflow complete" : `Week ${summary.activeWeek}`}
+            </h2>
+            <span className="text-sm text-slate-400">
+              Excel baseline: completed through Week {summary.workbookCompletedThroughWeek}
+            </span>
+          </div>
+          <p className="mt-3 text-sm leading-6 text-slate-300">
+            <strong className="text-white">{summary.recommendedLabel}.</strong>{" "}
+            {summary.recommendedReason}
+          </p>
+          {!compact && (
+            <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-bold uppercase tracking-wider">
+              <Badge label="User league" value={summary.userLeague} />
+              <Badge label="Latest local lock" value={summary.latestLockedWeek === null ? "None" : `Week ${summary.latestLockedWeek}`} />
+              <Badge label="Confirmed" value={progress?.confirmed ?? "—"} />
+              <Badge label="Manual" value={progress?.manual ?? "—"} />
+              <Badge label="Simulation" value={progress?.simulation ?? "—"} />
+              <Badge label="Missing" value={progress?.missing ?? "—"} tone={progress?.missing ? "warning" : "default"} />
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-3 xl:justify-end">
+          {summary.recommendedAction !== "complete" && (
+            <Link href={summary.recommendedHref} className="bg-red-500 px-5 py-3 text-xs font-black uppercase tracking-[.14em] text-white">
+              {summary.recommendedLabel} →
+            </Link>
+          )}
+          <Link href="/results" className="border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">Result Entry</Link>
+          <Link href="/simulation" className="border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">Simulation</Link>
+          <Link href="/week-review" className="border border-emerald-400/30 px-4 py-3 text-xs font-black uppercase tracking-wider text-emerald-300">Week Review</Link>
+        </div>
+      </div>
+      <div className="border-t border-white/10 bg-black/20 px-6 py-3 text-xs text-slate-500">
+        Excel remains read-only. Confirmed results and week locks are an overlay stored only in this browser.
+      </div>
+    </section>
+  );
+}
+
+function Badge({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string | number;
+  tone?: "default" | "warning";
+}) {
+  return (
+    <span className={`border px-3 py-2 ${tone === "warning" ? "border-amber-400/30 bg-amber-400/10 text-amber-200" : "border-white/10 bg-white/[.03] text-slate-300"}`}>
+      <span className="text-slate-600">{label}:</span> {value}
+    </span>
+  );
+}
