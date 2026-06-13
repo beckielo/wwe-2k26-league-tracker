@@ -11,6 +11,6 @@ description: "Workbook-driven WWE 2K26 League Year tracker.",
 export default function RootLayout({
 children,
 }: Readonly<{ children: React.ReactNode }>) {
-return ( <html lang="en"> <body> <TrackerStateProvider> <AppShell>{children}</AppShell> </TrackerStateProvider> </body> </html>
+return ( <html lang="en" suppressHydrationWarning> <body> <TrackerStateProvider> <AppShell>{children}</AppShell> </TrackerStateProvider> </body> </html>
 );
 }
