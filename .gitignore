@@ -141,3 +141,7 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Local workbook promotion archives must never be committed.
+source-docs/*.backup
+source-docs/*[[]archived-master[]]*
