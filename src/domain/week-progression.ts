@@ -30,30 +30,33 @@ export interface ActiveWeekResolution {
   latestLockedWeek: number | null;
 }
 
-export type WorkflowAction = "result-entry" | "simulation" | "week-review" | "complete";
+export type WorkflowAction =
+| "result-entry"
+| "simulation"
+| "week-review"
+| "complete";
 
 export interface LeagueWeekProgress {
-  league: LeagueName;
-  scheduled: number;
-  confirmed: number;
-  missing: number;
+league: LeagueName;
+scheduled: number;
+confirmed: number;
+missing: number;
 }
 
 export interface WorkflowSummary {
-  workbookCompletedThroughWeek: number;
-  activeWeek: number | null;
-  latestLockedWeek: number | null;
-  userLeague: LeagueName;
-  seasonComplete: boolean;
-  progress: WeekProgress | null;
-  userLeagueProgress: LeagueWeekProgress | null;
-  nonUserLeagueProgress: LeagueWeekProgress[];
-  recommendedAction: WorkflowAction;
-  recommendedHref: "/" | "/results" | "/simulation" | "/week-review";
-  recommendedLabel: string;
-  recommendedReason: string;
+workbookCompletedThroughWeek: number;
+activeWeek: number | null;
+latestLockedWeek: number | null;
+userLeague: LeagueName;
+seasonComplete: boolean;
+progress: WeekProgress | null;
+userLeagueProgress: LeagueWeekProgress | null;
+nonUserLeagueProgress: LeagueWeekProgress[];
+recommendedAction: WorkflowAction;
+recommendedHref: "/" | "/results" | "/simulation" | "/week-review";
+recommendedLabel: string;
+recommendedReason: string;
 }
-
 export function getWorkflowScheduledWeeks(matches: Match[], workbookCurrentWeek: number): number[] {
   return [...new Set(
     matches
@@ -149,98 +152,125 @@ export function getActiveUserLeagueMatches(
     .filter((match) => match.status === "scheduled" && match.week === activeWeek && match.league === userLeague)
     .sort((a, b) => a.matchNumber - b.matchNumber);
 }
-
 export function getWorkflowSummary(
-  state: TrackerState,
-  matches: Match[],
-  workbookCurrentWeek: number,
-  userLeague: LeagueName,
+state: TrackerState,
+matches: Match[],
+workbookCurrentWeek: number,
+userLeague: LeagueName,
 ): WorkflowSummary {
-  const resolution = detectActiveWeek(state, matches, workbookCurrentWeek);
-  if (resolution.activeWeek === null) {
-    return {
-      workbookCompletedThroughWeek: workbookCurrentWeek,
-      activeWeek: null,
-      latestLockedWeek: resolution.latestLockedWeek,
-      userLeague,
-      seasonComplete: true,
-      progress: null,
-      userLeagueProgress: null,
-      nonUserLeagueProgress: [],
-      recommendedAction: "complete",
-      recommendedHref: "/",
-      recommendedLabel: "Season workflow complete",
-      recommendedReason: "No later authoritative scheduled week remains.",
-    };
-  }
+const resolution = detectActiveWeek(state, matches, workbookCurrentWeek);
 
-  const activeWeek = resolution.activeWeek;
-  const progress = getWeekProgress(state, activeWeek, matches, userLeague);
-  const confirmedIds = new Set(progress.confirmedResults.map((result) => result.matchId));
-  const activeMatches = matches.filter(
-    (match) => match.status === "scheduled" && match.week === activeWeek,
-  );
-  const leagueProgress = [...new Set(activeMatches.map((match) => match.league))]
-    .map((league): LeagueWeekProgress => {
-      const leagueMatches = activeMatches.filter((match) => match.league === league);
-      const confirmed = leagueMatches.filter((match) => confirmedIds.has(match.id)).length;
-      return {
-        league,
-        scheduled: leagueMatches.length,
-        confirmed,
-        missing: leagueMatches.length - confirmed,
-      };
-    });
-  const userLeagueProgress = leagueProgress.find((entry) => entry.league === userLeague) ?? null;
-  const nonUserLeagueProgress = leagueProgress.filter((entry) => entry.league !== userLeague);
+if (resolution.activeWeek === null) {
+return {
+workbookCompletedThroughWeek: workbookCurrentWeek,
+activeWeek: null,
+latestLockedWeek: resolution.latestLockedWeek,
+userLeague,
+seasonComplete: true,
+progress: null,
+userLeagueProgress: null,
+nonUserLeagueProgress: [],
+recommendedAction: "complete",
+recommendedHref: "/",
+recommendedLabel: "Season workflow complete",
+recommendedReason: "No later authoritative scheduled week remains.",
+};
+}
 
-  if ((userLeagueProgress?.missing ?? 0) > 0) {
-    return {
-      workbookCompletedThroughWeek: workbookCurrentWeek,
-      activeWeek,
-      latestLockedWeek: resolution.latestLockedWeek,
-      userLeague,
-      seasonComplete: false,
-      progress,
-      userLeagueProgress,
-      nonUserLeagueProgress,
-      recommendedAction: "result-entry",
-      recommendedHref: "/results",
-      recommendedLabel: "Enter user-league results",
-      recommendedReason: `${userLeagueProgress?.missing ?? 0} ${userLeague} matches still need confirmed results.`,
-    };
-  }
+const activeWeek = resolution.activeWeek;
+const progress = getWeekProgress(state, activeWeek, matches, userLeague);
+const confirmedIds = new Set(
+progress.confirmedResults.map((result) => result.matchId),
+);
 
-  const nonUserMissing = nonUserLeagueProgress.reduce((total, entry) => total + entry.missing, 0);
-  if (nonUserMissing > 0) {
-    return {
-      workbookCompletedThroughWeek: workbookCurrentWeek,
-      activeWeek,
-      latestLockedWeek: resolution.latestLockedWeek,
-      userLeague,
-      seasonComplete: false,
-      progress,
-      userLeagueProgress,
-      nonUserLeagueProgress,
-      recommendedAction: "simulation",
-      recommendedHref: "/simulation",
-      recommendedLabel: "Simulate non-user leagues",
-      recommendedReason: `${nonUserMissing} non-user league matches still need confirmed results.`,
-    };
-  }
+const activeMatches = matches.filter(
+(match) => match.status === "scheduled" && match.week === activeWeek,
+);
+
+const leagueProgress = [...new Set(activeMatches.map((match) => match.league))]
+.map((league): LeagueWeekProgress => {
+const leagueMatches = activeMatches.filter(
+(match) => match.league === league,
+);
+const confirmed = leagueMatches.filter((match) =>
+confirmedIds.has(match.id),
+).length;
 
   return {
-    workbookCompletedThroughWeek: workbookCurrentWeek,
-    activeWeek,
-    latestLockedWeek: resolution.latestLockedWeek,
-    userLeague,
-    seasonComplete: false,
-    progress,
-    userLeagueProgress,
-    nonUserLeagueProgress,
-    recommendedAction: "week-review",
-    recommendedHref: "/week-review",
-    recommendedLabel: "Review and lock week",
-    recommendedReason: `All ${progress.confirmed} authoritative results are valid and Week ${activeWeek} is ready to lock.`,
+    league,
+    scheduled: leagueMatches.length,
+    confirmed,
+    missing: leagueMatches.length - confirmed,
   };
+});
+
+const userLeagueProgress =
+leagueProgress.find((entry) => entry.league === userLeague) ?? null;
+const nonUserLeagueProgress = leagueProgress.filter(
+(entry) => entry.league !== userLeague,
+);
+
+if ((userLeagueProgress?.missing ?? 0) > 0) {
+return {
+workbookCompletedThroughWeek: workbookCurrentWeek,
+activeWeek,
+latestLockedWeek: resolution.latestLockedWeek,
+userLeague,
+seasonComplete: false,
+progress,
+userLeagueProgress,
+nonUserLeagueProgress,
+recommendedAction: "result-entry",
+recommendedHref: "/results",
+recommendedLabel: "Enter user-league results",
+recommendedReason:
+(userLeagueProgress?.missing ?? 0) +
+" " +
+userLeague +
+" matches still need confirmed results.",
+};
+}
+
+const nonUserMissing = nonUserLeagueProgress.reduce(
+(total, entry) => total + entry.missing,
+0,
+);
+
+if (nonUserMissing > 0) {
+return {
+workbookCompletedThroughWeek: workbookCurrentWeek,
+activeWeek,
+latestLockedWeek: resolution.latestLockedWeek,
+userLeague,
+seasonComplete: false,
+progress,
+userLeagueProgress,
+nonUserLeagueProgress,
+recommendedAction: "simulation",
+recommendedHref: "/simulation",
+recommendedLabel: "Simulate non-user leagues",
+recommendedReason:
+nonUserMissing + " non-user league matches still need confirmed results.",
+};
+}
+
+return {
+workbookCompletedThroughWeek: workbookCurrentWeek,
+activeWeek,
+latestLockedWeek: resolution.latestLockedWeek,
+userLeague,
+seasonComplete: false,
+progress,
+userLeagueProgress,
+nonUserLeagueProgress,
+recommendedAction: "week-review",
+recommendedHref: "/week-review",
+recommendedLabel: "Review and lock week",
+recommendedReason:
+"All " +
+progress.confirmed +
+" authoritative results are valid and Week " +
+activeWeek +
+" is ready to lock.",
+};
 }

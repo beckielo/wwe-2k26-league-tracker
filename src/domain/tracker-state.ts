@@ -112,14 +112,25 @@ export function validateWeekCompletion(
   userLeague: LeagueName,
 ): string[] {
   const weekMatches = scheduledMatches.filter((match) => match.week === week);
-  const weekResults = state.confirmedResults.filter((result) => result.week === week);
-  const resultByMatch = new Map(weekResults.map((result) => [result.matchId, result]));
-  const errors: string[] = [];
-  const resultCounts = new Map<string, number>();
-  for (const result of weekResults) resultCounts.set(result.matchId, (resultCounts.get(result.matchId) ?? 0) + 1);
-  for (const [matchId, count] of resultCounts) {
-    if (count > 1) errors.push(`${matchId}: duplicate confirmed results are not allowed.`);
-  }
+const weekResults = state.confirmedResults.filter(
+(result) => result.week === week,
+);
+const resultByMatch = new Map(
+weekResults.map((result) => [result.matchId, result]),
+);
+const errors: string[] = [];
+const resultCounts = new Map<string, number>();
+
+for (const result of weekResults) {
+resultCounts.set(result.matchId, (resultCounts.get(result.matchId) ?? 0) + 1);
+}
+
+for (const [matchId, count] of resultCounts) {
+if (count > 1) {
+errors.push(matchId + ": duplicate confirmed results are not allowed.");
+}
+}
+
   if (weekMatches.length !== 24) errors.push(`Week ${week} has ${weekMatches.length} scheduled matches; expected 24.`);
   for (const match of weekMatches) {
     const result = resultByMatch.get(match.id);

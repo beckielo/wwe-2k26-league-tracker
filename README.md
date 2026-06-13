@@ -22,7 +22,7 @@ The current implementation reads the workbook only. The Result Entry page valida
 
 The `/simulation` page reads the user-controlled league from workbook metadata, excludes it, and offers weighted previews only for open matchups that agree between the schedule and `Matchup_Reference`. Generated results can be edited and confirmed into the shared browser-local tracker state.
 
-The `/week-review` page reviews all 24 matches, blocks incomplete weeks, locks completed weeks, calculates app-state standings over the workbook baseline, and supports JSON backup/restore. None of these actions modify the Excel workbook.
+The `/week-review` page reviews all 24 matches, blocks incomplete weeks, locks completed weeks, calculates app-state standings over the workbook baseline, and supports JSON backup/restore. None of these actions modify the Excel workbook or server data.
 
 ## Trust boundary
 
