@@ -9,6 +9,9 @@ export default function DashboardPage() {
 const data = loadTrackerData();
 
 const nextWeek = data.meta.appBaselineCompletedThroughWeek + 1;
+const nextUserShow = data.meta.latestAppWritebackWeek === null
+? data.meta.nextUserShow
+: `${data.meta.userLeague} – Woche ${nextWeek}`;
 const nextMatches = data.matchupReference
 .filter(
 (match) =>
@@ -82,10 +85,10 @@ Source connected </div>
       <div className="flex items-start justify-between border-b border-white/10 p-6">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.2em] text-red-400">
-            Workbook next user show
+            Active next user show
           </p>
           <h2 className="mt-2 text-2xl font-black uppercase">
-            {data.meta.nextUserShow}
+            {nextUserShow}
           </h2>
         </div>
 
