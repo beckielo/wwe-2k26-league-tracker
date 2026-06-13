@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useRef, useState, type RefObject } from "react";
 import { WorkflowSummaryBanner } from "./workflow-summary-banner";
+import { WeekReviewExports } from "./week-review-exports";
 import {
 calculateStandingsWithConfirmedResults,
 completeWeek,
@@ -510,6 +511,13 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
       </div>
     </section>
   )}
+
+  <WeekReviewExports
+    state={state}
+    allMatches={allMatches}
+    baselineStandings={baselineStandings}
+    userLeague={userLeague}
+  />
 </div>
 
 );
