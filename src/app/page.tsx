@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default function DashboardPage() {
 const data = loadTrackerData();
 
-const nextWeek = data.meta.currentWeek + 1;
+const nextWeek = data.meta.appBaselineCompletedThroughWeek + 1;
 const nextMatches = data.matchupReference
 .filter(
 (match) =>
@@ -50,6 +50,13 @@ Source connected </div>
       value={"Week " + data.meta.currentWeek}
       detail={data.meta.currentStatus}
     />
+    {data.meta.latestAppWritebackWeek !== null && (
+      <Stat
+        label="App workbook baseline"
+        value={"Week " + data.meta.latestAppWritebackWeek}
+        detail="Using validated App_* writeback sheets"
+      />
+    )}
     <Stat
       label="User league"
       value="National"
@@ -65,7 +72,7 @@ Source connected </div>
   <div className="mt-8">
     <WorkflowSummaryBanner
       matches={data.matches}
-      workbookCurrentWeek={data.meta.currentWeek}
+      workbookCurrentWeek={data.meta.appBaselineCompletedThroughWeek}
       userLeague={data.meta.userLeague}
     />
   </div>

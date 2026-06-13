@@ -26,7 +26,7 @@ data.meta.userLeague +
     standings={data.standings}
     streaks={data.streaks}
     existingResults={data.results}
-    workbookCurrentWeek={data.meta.currentWeek}
+    workbookCurrentWeek={data.meta.appBaselineCompletedThroughWeek}
     userLeague={data.meta.userLeague}
     userWrestler={data.meta.userWrestler}
   />

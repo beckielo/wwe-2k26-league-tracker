@@ -69,6 +69,12 @@ detectActiveWeek(createEmptyTrackerState(), allMatches, 13).activeWeek,
 ).toBe(14);
 });
 
+it("advances to Week 15 when an app workbook baseline is complete through Week 14", () => {
+expect(
+detectActiveWeek(createEmptyTrackerState(), allMatches, 14).activeWeek,
+).toBe(15);
+});
+
 it("detects an incomplete week", () => {
 const progress = getWeekProgress(
 stateWith(confirmations(scheduledWeek(14)).slice(0, 20)),

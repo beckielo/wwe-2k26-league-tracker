@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import * as XLSX from "xlsx";
 import { validateTrackerData } from "@/domain/validation";
+import { parseAppWorkbookBaseline } from "@/domain/app-workbook-baseline";
 import {
   LEAGUE_NAMES,
   type HeadToHeadRecord,
@@ -254,7 +255,7 @@ export function loadTrackerData(): TrackerData {
     }];
   });
 
-  const standings: StandingRow[] = readRows(workbook, "Standings_Current").map((row) => ({
+  const workbookStandings: StandingRow[] = readRows(workbook, "Standings_Current").map((row) => ({
     league: league(row.League),
     rank: number(row.Rank),
     wrestler: text(row.Wrestler),
@@ -299,6 +300,28 @@ export function loadTrackerData(): TrackerData {
     sourceLabel: text(row.Source),
     status: text(row["Status / Use"]),
   }));
+  const appBaseline = parseAppWorkbookBaseline(workbook, matches, workbookStandings);
+  const standings = appBaseline.standings ?? workbookStandings;
+  const appMatchResults: MatchResult[] = appBaseline.confirmedResults.map((result) => {
+    const match = matchById.get(result.matchId);
+    const loser = result.resultType === "Winner" && result.winner && match
+      ? (result.winner === match.wrestlerA ? match.wrestlerB : match.wrestlerA)
+      : null;
+    return {
+      matchId: result.matchId,
+      outcome: result.resultType === "Winner" ? "decisive" : result.resultType === "Draw" ? "draw" : "no-contest",
+      winner: result.winner,
+      loser,
+      resultSource: result.source,
+      notes: null,
+      source: { file: sourceFile, sheet: "App_Confirmed_Results" },
+    };
+  });
+  const appResultIds = new Set(appMatchResults.map((result) => result.matchId));
+  const workbookBackedResults = [
+    ...results.filter((result) => !appResultIds.has(result.matchId)),
+    ...appMatchResults,
+  ];
 
   const dataWithoutIssues: Omit<TrackerData, "validationIssues"> = {
     sourceFile,
@@ -307,6 +330,10 @@ export function loadTrackerData(): TrackerData {
       leagueYearLabel,
       currentSplit,
       currentWeek,
+      latestAppWritebackWeek: appBaseline.latestAppWritebackWeek,
+      latestAppWritebackCompletedAt: appBaseline.latestAppWritebackCompletedAt,
+      appBaselineCompletedThroughWeek: Math.max(currentWeek, appBaseline.latestAppWritebackWeek ?? currentWeek),
+      usesAppWritebackSheets: appBaseline.hasWritebackSheets,
       currentStatus,
       userLeague: league(dashboard.get("User-Liga")),
       userWrestler: dashboard.get("User-Wrestler") || "",
@@ -319,7 +346,8 @@ export function loadTrackerData(): TrackerData {
     weeks,
     leagues,
     matches,
-    results,
+    results: workbookBackedResults,
+    appWritebackResults: appBaseline.confirmedResults,
     standings,
     headToHead,
     streaks,
@@ -331,6 +359,10 @@ export function loadTrackerData(): TrackerData {
     validationIssues: [
       ...validateTrackerData(dataWithoutIssues),
       ...workbookWarnings(workbook, sourceFile),
+      ...appBaseline.validationIssues.map((issue) => ({
+        ...issue,
+        source: issue.source ? { ...issue.source, file: sourceFile } : undefined,
+      })),
     ],
   };
 }

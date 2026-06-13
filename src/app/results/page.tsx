@@ -16,7 +16,7 @@ return (
 
   <ResultEntryWorkflow
     matches={data.matches}
-    workbookCurrentWeek={data.meta.currentWeek}
+    workbookCurrentWeek={data.meta.appBaselineCompletedThroughWeek}
     userLeague={data.meta.userLeague}
     userWrestler={data.meta.userWrestler}
   />
