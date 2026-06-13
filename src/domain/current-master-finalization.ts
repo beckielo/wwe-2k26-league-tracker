@@ -60,16 +60,35 @@ function removePromotionBackups(sourceDir: string): void {
 }
 
 function parseStatusPaths(status: string): string[] {
-  return status.split("\n").filter(Boolean).flatMap((line) => {
-    const value = line.slice(3);
-    return value.includes(" -> ") ? value.split(" -> ") : [value];
-  });
+  const records = status.split("\0");
+  const paths: string[] = [];
+
+  for (let index = 0; index < records.length; index += 1) {
+    const record = records[index];
+    if (!record) continue;
+
+    const statusCode = record.slice(0, 2);
+    paths.push(record.slice(3));
+    if (statusCode.includes("R") || statusCode.includes("C")) {
+      const originalPath = records[index + 1];
+      if (originalPath) paths.push(originalPath);
+      index += 1;
+    }
+  }
+
+  return paths;
 }
 
 function isAllowedWorkbookPath(filePath: string): boolean {
   return filePath.startsWith("source-docs/") &&
     filePath.includes(CURRENT_MASTER_MARKER) &&
     filePath.toLowerCase().endsWith(".xlsx");
+}
+
+function isPromotionBackupPath(filePath: string): boolean {
+  return filePath.startsWith("source-docs/") &&
+    !filePath.includes(CURRENT_MASTER_MARKER) &&
+    (filePath.includes("[archived-master]") || filePath.endsWith(".backup"));
 }
 
 export function finalizeCurrentMaster(
@@ -114,9 +133,15 @@ export function finalizeCurrentMaster(
     return fail("Preflight", `The current-master filename does not contain promoted Week ${week}.`);
   }
 
-  const status = runner("git", ["status", "--porcelain", "--untracked-files=all"], projectRoot);
+  const status = runner(
+    "git",
+    ["status", "--porcelain=v1", "-z", "--untracked-files=all"],
+    projectRoot,
+  );
   if (status.status !== 0) return fail("Preflight", "Could not inspect repository changes.", outputOf(status));
-  const changedPaths = parseStatusPaths(status.stdout).filter((file) => file !== "next-env.d.ts");
+  const changedPaths = parseStatusPaths(status.stdout).filter(
+    (file) => file !== "next-env.d.ts" && !isPromotionBackupPath(file),
+  );
   const unrelated = changedPaths.filter((file) => !isAllowedWorkbookPath(file));
   if (unrelated.length > 0) {
     return fail("Preflight", `Refusing to finalize with unrelated changes: ${unrelated.join(", ")}`);
