@@ -19,6 +19,7 @@ return (
     baselineStandings={data.standings}
     userLeague={data.meta.userLeague}
     workbookCurrentWeek={data.meta.currentWeek}
+    sourceFile={data.sourceFile}
   />
 </>
 

@@ -9,6 +9,8 @@ interface WeekReviewExportsProps {
   allMatches: Match[];
   baselineStandings: StandingRow[];
   userLeague: LeagueName;
+  workbookCompletedThroughWeek: number;
+  source: string;
 }
 
 function downloadFile(contents: string, filename: string, type: string) {
@@ -26,8 +28,17 @@ export function WeekReviewExports({
   allMatches,
   baselineStandings,
   userLeague,
+  workbookCompletedThroughWeek,
+  source,
 }: WeekReviewExportsProps) {
-  const exports = createWeeklyCloseExports(state, allMatches, baselineStandings, userLeague);
+  const exports = createWeeklyCloseExports(
+    state,
+    allMatches,
+    baselineStandings,
+    userLeague,
+    workbookCompletedThroughWeek,
+    source,
+  );
 
   if (!exports.ok) {
     return (

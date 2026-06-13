@@ -19,6 +19,7 @@ allMatches: Match[];
 baselineStandings: StandingRow[];
 userLeague: LeagueName;
 workbookCurrentWeek: number;
+sourceFile: string;
 }
 
 export function WeekReview({
@@ -26,6 +27,7 @@ allMatches,
 baselineStandings,
 userLeague,
 workbookCurrentWeek,
+sourceFile,
 }: WeekReviewProps) {
 const { state, replaceState, exportState, importState, resetState, hydrated } =
 useTrackerState();
@@ -517,6 +519,8 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
     allMatches={allMatches}
     baselineStandings={baselineStandings}
     userLeague={userLeague}
+    workbookCompletedThroughWeek={workbookCurrentWeek}
+    source={sourceFile}
   />
 </div>
 
