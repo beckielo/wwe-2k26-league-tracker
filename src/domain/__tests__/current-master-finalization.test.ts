@@ -29,7 +29,9 @@ function runner(statusOutput: string, overrides: Record<string, Reply> = {}) {
     const key = `${command} ${args.join(" ")}`;
     if (overrides[key]) return overrides[key];
     if (key === "git branch --show-current") return { status: 0, stdout: "main\n", stderr: "" };
-    if (key === "git status --porcelain --untracked-files=all") return { status: 0, stdout: statusOutput, stderr: "" };
+    if (key === "git status --porcelain=v1 -z --untracked-files=all") {
+      return { status: 0, stdout: statusOutput, stderr: "" };
+    }
     return { status: 0, stdout: "ok", stderr: "" };
   });
 }
@@ -57,20 +59,26 @@ describe("current master finalization", () => {
 
   it("refuses unrelated modified files", () => {
     const { root, master } = setup();
-    const result = finalizeCurrentMaster(root, 16, { enabled: true, runner: runner(`?? ${master}\n M README.md\n`) });
+    const result = finalizeCurrentMaster(root, 16, {
+      enabled: true,
+      runner: runner(`?? ${master}\0 M README.md\0`),
+    });
     expect(result.message).toContain("README.md");
   });
 
   it("refuses multiple current-master workbooks", () => {
     const { root, master } = setup({ [`source-docs/[${CURRENT_MASTER_MARKER}] duplicate.xlsx`]: "duplicate" });
-    const result = finalizeCurrentMaster(root, 16, { enabled: true, runner: runner(`?? ${master}\n`) });
+    const result = finalizeCurrentMaster(root, 16, {
+      enabled: true,
+      runner: runner(`?? ${master}\0`),
+    });
     expect(result.message).toContain("found 2");
   });
 
-  it("stages only current-master workbook paths, uses the week commit message, and removes backups", () => {
-    const { root, master } = setup({ "source-docs/[archived-master] old.before-W16.backup": "old" });
+  it("accepts and stages the W15 to W16 current-master transition", () => {
+    const { root, master } = setup();
     const oldMaster = `source-docs/[${CURRENT_MASTER_MARKER}] WWE_W15_abgeschlossen.xlsx`;
-    const run = runner(` D ${oldMaster}\n?? ${master}\n`);
+    const run = runner(` D ${oldMaster}\0?? ${master}\0`);
     const result = finalizeCurrentMaster(root, 16, { enabled: true, runner: run });
     expect(result).toMatchObject({ ok: true, status: "success" });
     expect(run).toHaveBeenCalledWith("git", ["add", "-A", "--", oldMaster, master], root);
@@ -79,9 +87,25 @@ describe("current master finalization", () => {
     expect(fs.existsSync(path.join(root, "source-docs/[archived-master] old.before-W16.backup"))).toBe(false);
   });
 
+  it("does not stage next-env.d.ts or archived-master backup files", () => {
+    const backup = "source-docs/[archived-master] WWE_W15.before-W16.backup";
+    const { root, master } = setup({ [backup]: "old" });
+    const oldMaster = `source-docs/[${CURRENT_MASTER_MARKER}] WWE_W15_abgeschlossen.xlsx`;
+    const run = runner(` M next-env.d.ts\0 D ${oldMaster}\0?? ${master}\0?? ${backup}\0`);
+
+    const result = finalizeCurrentMaster(root, 16, { enabled: true, runner: run });
+
+    expect(result).toMatchObject({ ok: true, status: "success" });
+    expect(run).toHaveBeenCalledWith("git", ["add", "-A", "--", oldMaster, master], root);
+    expect(run.mock.calls.filter(([command, args]) =>
+      command === "git" && args[0] === "add"
+    )).toEqual([["git", ["add", "-A", "--", oldMaster, master], root]]);
+    expect(fs.existsSync(path.join(root, backup))).toBe(false);
+  });
+
   it("stops after a failed validation command", () => {
     const { root, master } = setup();
-    const run = runner(`?? ${master}\n`, {
+    const run = runner(`?? ${master}\0`, {
       "npm test": { status: 1, stdout: "", stderr: "tests failed" },
     });
     const result = finalizeCurrentMaster(root, 16, { enabled: true, runner: run });
@@ -92,7 +116,10 @@ describe("current master finalization", () => {
 
   it("returns successful structured logs", () => {
     const { root, master } = setup();
-    const result = finalizeCurrentMaster(root, 16, { enabled: true, runner: runner(`?? ${master}\n`) });
+    const result = finalizeCurrentMaster(root, 16, {
+      enabled: true,
+      runner: runner(`?? ${master}\0`),
+    });
     expect(result.ok).toBe(true);
     expect(result.logs.map((log) => log.step)).toEqual(["Preflight", "Lint", "Tests", "Build", "Git commit", "Git push"]);
   });
