@@ -77,7 +77,6 @@ allMatches,
 "National League",
 );
 
-```
 expect(progress).toMatchObject({
   status: "incomplete",
   confirmed: 20,
