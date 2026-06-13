@@ -73,8 +73,8 @@ The next user show is National League, Opening Split Week 14. Its six matchups a
 - **Rulebook:** draws award one point to each wrestler; relegation DQ and no-contest outcomes have special handling.
 - **Current workbook:** all 312 completed regular matches through Week 13 have one participant in the `Winner` field. No current row demonstrates how draw, DQ, no contest, or unclear abandonment would be encoded.
 - **Impact:** import behavior for these outcomes cannot be inferred safely from existing rows.
-- **Current handling:** the import maps only the decisive winner/loser rows demonstrated by the workbook. The manual Result Entry page permits schedule-locked decisive-result validation only and performs no workbook write. Draw, DQ, no-contest, and unclear-result Excel export remain disabled until their workbook encoding is documented. Phase 2B may show Draw or No Contest only as an editable browser-local simulation preview under C-012; those outcomes are never mapped back into Excel.
-- **Status:** **open data-encoding question; Phase 1 safely constrained**.
+* **Current handling:** Phase 3A supports browser-local confirmed results for Winner, Draw, and No Contest. Winner results update browser-local standings with a win/loss and 3/0 points. Draw results award one point to each wrestler. No Contest is stored but does not affect standings until an authoritative rule is confirmed. The workbook is not mutated. DQ and unclear-result encoding remain unresolved until the workbook/rulebook defines their exact representation.
+* **Status:** **open data-encoding question; Phase 3A local handling is resolved, Excel export remains disabled**.
 
 ### C-008: Some Excel table ranges do not cover all populated rows
 
@@ -109,21 +109,21 @@ The next user show is National League, Opening Split Week 14. Its six matchups a
 
 ### C-012: Phase 2B simulation persistence and weighting
 
-- **Confirmed scope:** only non-user-controlled leagues with open matches in the first open scheduled week are eligible. The user league is read from workbook metadata and excluded.
-- **Match authority:** a simulation candidate must exist in both `Schedule_22W` and `Matchup_Reference`; no fixture is generated or repaired.
-- **Weighting:** simulation uses seed/prestige, current standing, points, current winning streak, longest winning streak, a bounded upset chance, and a 1% draw chance. These weights are an application simulation model, not a claim that the workbook or rulebook defines exact probability formulas.
-- **Persistence:** Phase 2B originally stored a simulation preview in browser state. Phase 3A promotes confirmed previews into the shared versioned tracker-state overlay under C-013. The workbook and server snapshot remain unchanged.
-- **Special outcomes:** Draw and No Contest may be confirmed in local tracker state and JSON backup, but they are not mapped back into Excel because workbook encoding remains unresolved under C-007.
-- **Status:** **resolved for browser-local simulation and confirmation behavior; workbook export remains out of scope**.
+* **Confirmed scope:** only non-user-controlled leagues with open matches in the first open scheduled week are eligible. The user league is read from workbook metadata and excluded.
+* **Match authority:** a simulation candidate must exist in both `Schedule_22W` and `Matchup_Reference`; no fixture is generated or repaired.
+* **Weighting:** simulation uses seed/prestige, current standing, points, current winning streak, longest winning streak, a bounded upset chance, and a 1% draw chance. These weights are an application simulation model, not a claim that the workbook or rulebook defines exact probability formulas.
+* **Persistence:** Phase 2B originally stored simulation previews in browser `localStorage`. Phase 3A promotes confirmed previews into the shared versioned tracker-state overlay under C-013. The workbook and server snapshot remain read-only and unchanged.
+* **Special outcomes:** Draw and No Contest may be confirmed in local tracker state and JSON backup, but they are not mapped back into Excel because workbook encoding remains unresolved under C-007.
+* **Status:** **resolved for browser-local simulation and confirmation behavior; workbook export remains out of scope**.
 
 ### C-013: Phase 3A local confirmed-result state
 
-- **Snapshot boundary:** the Excel workbook remains the authoritative baseline through completed Week 13. Phase 3A confirmations are a separate versioned browser-local overlay and never overwrite workbook cells.
-- **Completion:** the first open scheduled week may be completed only when all 24 authoritative schedule rows have one valid confirmed result. Completion locks that week; unlocking requires an explicit warning.
-- **Standings overlay:** Winner adds one match, one win/loss, and 3/0 points; Draw adds one match and one draw to each wrestler and one point each. No Contest is accepted as a confirmed completion outcome but does not change matches or points because the normal-league workbook encoding/effect remains unresolved.
-- **Ranking display:** app-state standings sort by updated points and preserve workbook order for equal points. Full H2H/streak re-ranking after newly confirmed app results is deferred until app-state H2H/streak overlays are implemented.
-- **Persistence:** confirmed results, completed-week locks, and import/export timestamps use browser `localStorage`. JSON export/import is the portable backup; there is no database or workbook write.
-- **Status:** **resolved for Phase 3A local workflow; workbook export and permanent storage remain out of scope**.
+* **Snapshot boundary:** the Excel workbook remains the authoritative baseline through completed Week 13. Phase 3A confirmations are a separate versioned browser-local overlay and never overwrite workbook cells.
+* **Completion:** the first open scheduled week may be completed only when all 24 authoritative schedule rows have one valid confirmed result. Completion locks that week; unlocking requires an explicit warning.
+* **Standings overlay:** Winner adds one match, one win/loss, and 3/0 points; Draw adds one match and one draw to each wrestler and one point each. No Contest is accepted as a confirmed completion outcome but does not change matches or points because the normal-league workbook encoding/effect remains unresolved.
+* **Ranking display:** app-state standings sort by updated points and preserve workbook order for equal points. Full H2H/streak re-ranking after newly confirmed app results is deferred until app-state H2H/streak overlays are implemented.
+* **Persistence:** confirmed results, completed-week locks, and import/export timestamps use browser `localStorage`. JSON export/import is the portable backup; there is no database or workbook write.
+* **Status:** **resolved for Phase 3A local workflow; workbook export and permanent storage remain out of scope**.
 
 ## Verified data-quality observations
 
@@ -149,13 +149,12 @@ The following checks found no current-data conflict:
 - How draws, DQ, no contest, and unclear stoppages are encoded in the Excel master.
 - Whether current zone labels represent projections or clinched outcomes.
 - Whether workbook-only legacy/GOAT calculations are active authoritative rules.
-
 ## Phase 3B — week progression workflow
 
-- **Active week detection:** the app starts with authoritative workbook match rows whose status is `scheduled` and whose week is later than the workbook's completed-through week. The first such week not present in the browser-local `completedWeeks` locks is the active app week. No fixture is generated to fill a missing week.
-- **Local-only progression:** completing and locking a week advances the browser workflow to the next authoritative scheduled week. This does not alter the workbook's current-week metadata or any workbook cell.
-- **Completion state:** an active week is `incomplete` until all 24 authoritative scheduled matches have one valid confirmed result; it is `complete-unlocked` when those checks pass; and a completed-week entry makes it `locked`. A No Contest counts as a confirmed result but continues to have no standings effect under the existing Phase 3A handling.
-- **Locked-week behavior:** locked weeks reject result edits and removals. Week Review offers an explicit warning-confirmed unlock action; unlocking an earlier week returns it to the active workflow before later weeks.
-- **Simulation boundary:** simulation is restricted to open, authoritative non-user-league matches in the active app week. Browser-confirmed matches are excluded, and the workbook-defined user-controlled league remains ineligible.
-- **Persistence compatibility:** Phase 3B keeps tracker state version 1 and the existing JSON export/import format. Existing confirmed results, completed-week locks, and timestamps remain usable.
-- **Season complete behavior:** if every later authoritative scheduled week is locked, the workflow reports that no active week remains. It does not invent a subsequent card or infer League Finals fixtures.
+* **Active week detection:** the app starts with authoritative workbook match rows whose status is `scheduled` and whose week is later than the workbook's completed-through week. The first such week not present in the browser-local `completedWeeks` locks is the active app week. No fixture is generated to fill a missing week.
+* **Local-only progression:** completing and locking a week advances the browser workflow to the next authoritative scheduled week. This does not alter the workbook's current-week metadata or any workbook cell.
+* **Completion state:** an active week is `incomplete` until all 24 authoritative scheduled matches have one valid confirmed result; it is `complete-unlocked` when those checks pass; and a completed-week entry makes it `locked`. A No Contest counts as a confirmed result but continues to have no standings effect under the existing Phase 3A handling.
+* **Locked-week behavior:** locked weeks reject result edits and removals. Week Review offers an explicit warning-confirmed unlock action; unlocking an earlier week returns it to the active workflow before later weeks.
+* **Simulation boundary:** simulation is restricted to open, authoritative non-user-league matches in the active app week. Browser-confirmed matches are excluded, and the workbook-defined user-controlled league remains ineligible.
+* **Persistence compatibility:** Phase 3B keeps tracker state version 1 and the existing JSON export/import format. Existing confirmed results, completed-week locks, and timestamps remain usable.
+* **Season complete behavior:** if every later authoritative scheduled week is locked, the workflow reports that no active week remains. It does not invent a subsequent card or infer League Finals fixtures.
