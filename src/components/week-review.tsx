@@ -5,6 +5,7 @@ import { useMemo, useRef, useState, type RefObject } from "react";
 import { WorkflowSummaryBanner } from "./workflow-summary-banner";
 import { WeekReviewExports } from "./week-review-exports";
 import { SafeWorkbookUpdate } from "./safe-workbook-update";
+import { PromoteCurrentMaster } from "./promote-current-master";
 import {
 calculateStandingsWithConfirmedResults,
 completeWeek,
@@ -531,6 +532,14 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
     source={sourceFile}
   />
   <SafeWorkbookUpdate
+    state={state}
+    allMatches={allMatches}
+    baselineStandings={baselineStandings}
+    userLeague={userLeague}
+    workbookCompletedThroughWeek={workbookCurrentWeek}
+    source={sourceFile}
+  />
+  <PromoteCurrentMaster
     state={state}
     allMatches={allMatches}
     baselineStandings={baselineStandings}
