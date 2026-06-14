@@ -1,4 +1,9 @@
-import { calculateWinningStreaks, decideTwoWrestlerTiebreak, detectPointTies } from "./tiebreakers";
+import {
+  calculateWinningStreaks,
+  decideMultiWrestlerTiebreak,
+  decideTwoWrestlerTiebreak,
+  detectPointTies,
+} from "./tiebreakers";
 import type {
   LeagueName,
   Match,
@@ -16,10 +21,10 @@ export type SplitNextPhase =
   | "No Authoritative Next Phase";
 
 export type TieReviewStatus =
-  | "Resolved by head-to-head"
-  | "Resolved by longest winning streak"
-  | "Tiebreaker match required"
-  | "Review required";
+  | "Resolved by Head-to-Head"
+  | "Resolved by Winning Streak"
+  | "Tiebreaker Match Required"
+  | "Review Required";
 
 export interface ConsequentialTieReview {
   league: LeagueName;
@@ -28,6 +33,7 @@ export interface ConsequentialTieReview {
   wrestlers: string[];
   status: TieReviewStatus;
   winner: string | null;
+  recommendedFormat: string | null;
   explanation: string;
 }
 
@@ -146,14 +152,16 @@ export function deriveSplitCompletionReview(input: SplitCompletionInput): SplitC
         const placements = tie.wrestlers.map((row) => row.rank);
         const wrestlers = tie.wrestlers.map((row) => row.wrestler);
         if (tie.wrestlers.length >= 3) {
+          const decision = decideMultiWrestlerTiebreak(tie.wrestlers, headToHead, streaks);
           return {
             league: tie.league,
             points: tie.points,
             placements,
             wrestlers,
-            status: "Review required",
-            winner: null,
-            explanation: `${tie.explanation} Multi-wrestler head-to-head aggregation is not documented.`,
+            status: decision.status,
+            winner: decision.winner,
+            recommendedFormat: decision.recommendedFormat,
+            explanation: `${tie.explanation} ${decision.explanation}`,
           };
         }
 
@@ -164,12 +172,12 @@ export function deriveSplitCompletionReview(input: SplitCompletionInput): SplitC
           streaks,
         );
         const status: TieReviewStatus = decision.criterion === "head-to-head"
-          ? "Resolved by head-to-head"
+          ? "Resolved by Head-to-Head"
           : decision.criterion === "longest-winning-streak"
-            ? "Resolved by longest winning streak"
+            ? "Resolved by Winning Streak"
             : decision.matchRequired
-              ? "Tiebreaker match required"
-              : "Review required";
+              ? "Tiebreaker Match Required"
+              : "Review Required";
         return {
           league: tie.league,
           points: tie.points,
@@ -177,6 +185,7 @@ export function deriveSplitCompletionReview(input: SplitCompletionInput): SplitC
           wrestlers,
           status,
           winner: decision.winner,
+          recommendedFormat: null,
           explanation: `${tie.explanation} ${decision.explanation}`,
         };
       })

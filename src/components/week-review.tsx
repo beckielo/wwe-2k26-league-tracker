@@ -297,8 +297,16 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
               </span>
             </div>
             <p className="mt-3 text-sm leading-6 text-slate-400">{tie.explanation}</p>
+            {tie.recommendedFormat && (
+              <p className="mt-2 text-sm font-bold text-amber-200">
+                Recommended format: {tie.recommendedFormat}
+              </p>
+            )}
           </div>
         ))}
+        <p className="text-xs text-slate-500">
+          Multi-man ties are ranked by longest winning streak first. Aggregate head-to-head mini-tables are not used; head-to-head is allowed only for a remaining clean two-wrestler subgroup.
+        </p>
         {splitReview.sourceWarnings.map((warning) => (
           <div key={warning} className="border-l-2 border-amber-400 bg-amber-400/5 p-4 text-sm text-amber-200">
             Source warning: {warning}
