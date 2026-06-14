@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState, type RefObject } from "react";
+import { useRef, useState, type RefObject } from "react";
 import { WorkflowSummaryBanner } from "./workflow-summary-banner";
 import { WeekReviewExports } from "./week-review-exports";
 import { SafeWorkbookUpdate } from "./safe-workbook-update";
@@ -23,6 +23,7 @@ SplitName,
 StandingRow,
 } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
+import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 
 interface WeekReviewProps {
 allMatches: Match[];
@@ -58,12 +59,15 @@ useTrackerState();
 
 const [messages, setMessages] = useState<string[]>([]);
 const importInput = useRef<HTMLInputElement>(null);
+const workflowMatches = getActiveWorkflowMatches(state, allMatches);
+const workflowBaseline = state.activeWorkflow ? 24 : workbookCurrentWeek;
+const workflowUserLeague = state.activeWorkflow?.userLeague ?? userLeague;
 
 const summary = getWorkflowSummary(
 state,
-allMatches,
-workbookCurrentWeek,
-userLeague,
+workflowMatches,
+workflowBaseline,
+workflowUserLeague,
 );
 
 const week = summary.activeWeek;
@@ -72,7 +76,7 @@ const progress = summary.progress;
 const weekMatches =
 week === null
 ? []
-: allMatches.filter(
+: workflowMatches.filter(
 (match) => match.week === week && match.status === "scheduled",
 );
 
@@ -83,19 +87,15 @@ progress?.confirmedResults.map((result) => [result.matchId, result]) ?? [],
 const leagues = [...new Set(weekMatches.map((match) => match.league))];
 const latestLockedWeek = summary.latestLockedWeek;
 
-const updatedStandings = useMemo(
-() =>
-calculateStandingsWithConfirmedResults(
+const updatedStandings = calculateStandingsWithConfirmedResults(
 baselineStandings,
-allMatches,
+workflowMatches,
 state.confirmedResults.filter(
 (result) => latestLockedWeek !== null && result.week <= latestLockedWeek,
 ),
-),
-[allMatches, baselineStandings, latestLockedWeek, state.confirmedResults],
 );
 const localMatchResults = state.confirmedResults.map((result): MatchResult => {
-const match = allMatches.find((candidate) => candidate.id === result.matchId);
+const match = workflowMatches.find((candidate) => candidate.id === result.matchId);
 const loser = result.resultType === "Winner" && result.winner && match
 ? (result.winner === match.wrestlerA ? match.wrestlerB : match.wrestlerA)
 : null;
@@ -127,7 +127,7 @@ hasLeagueFinalsTemplate,
 function markComplete() {
 if (week === null) return;
 
-const action = completeWeek(state, week, allMatches, userLeague);
+const action = completeWeek(state, week, workflowMatches, workflowUserLeague);
 
 if (!action.ok) {
   setMessages(action.errors);
@@ -194,7 +194,7 @@ URL.revokeObjectURL(url);
 async function importFile(file: File | undefined) {
 if (!file) return;
 
-const errors = importState(await file.text(), allMatches, userLeague);
+const errors = importState(await file.text(), workflowMatches, workflowUserLeague);
 
 setMessages(
   errors.length
@@ -231,9 +231,9 @@ Loading local tracker state… </div>
 }
 
 return ( <div className="space-y-8"> <WorkflowSummaryBanner
-     matches={allMatches}
-     workbookCurrentWeek={workbookCurrentWeek}
-     userLeague={userLeague}
+     matches={workflowMatches}
+     workbookCurrentWeek={workflowBaseline}
+     userLeague={workflowUserLeague}
      compact
    />
 
@@ -247,7 +247,7 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
     </div>
   )}
 
-  {splitReview.regularPhaseComplete && (
+  {!state.activeWorkflow && splitReview.regularPhaseComplete && (
     <section className="border border-amber-400/30 bg-[#111722]">
       <div className="border-b border-amber-400/20 bg-amber-400/10 p-6">
         <p className="text-xs font-black uppercase tracking-[.2em] text-amber-300">
@@ -571,10 +571,12 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
   ) : (
     <div className="border border-emerald-400/20 bg-emerald-400/5 p-10 text-center">
       <h2 className="text-3xl font-black uppercase">
-        {splitReview.regularPhaseComplete ? "Opening Split regular season complete" : "Season workflow complete"}
+        {state.activeWorkflow ? "Closing Split workflow complete" : splitReview.regularPhaseComplete ? "Opening Split regular season complete" : "Season workflow complete"}
       </h2>
       <p className="mt-2 text-slate-400">
-        {splitReview.regularPhaseComplete
+        {state.activeWorkflow
+          ? "Every authoritative Closing Split regular week is locked in browser-local tracker state."
+          : splitReview.regularPhaseComplete
           ? "Next phase: Tiebreaker Review. No normal Week 23 fixtures are generated."
           : "Every later authoritative scheduled week is locked in browser-local tracker state."}
       </p>

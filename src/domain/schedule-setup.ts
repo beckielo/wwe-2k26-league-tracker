@@ -1,4 +1,5 @@
-import { LEAGUE_NAMES, type LeagueName, type SplitName } from "./types";
+import { LEAGUE_NAMES, type LeagueName, type Match, type SplitName } from "./types";
+import type { ActiveWorkflow, TrackerState } from "./tracker-state";
 
 export const SCHEDULE_GENERATOR_VERSION = "1.0.0";
 export const SCHEDULE_IMPORTER_VERSION = "1.0.0";
@@ -170,4 +171,81 @@ export function createAcceptedScheduleSnapshot(input: {
 export function canActivateNextWeek(input: { transitionValid: boolean; seedsValid: boolean; acceptedSchedule?: AcceptedScheduleSnapshot; target: "Closing Split Week 1" | "New League Year Week 1"; hasOpenManualReviews?: boolean }): boolean {
   return !input.hasOpenManualReviews && input.transitionValid && input.seedsValid && Boolean(input.acceptedSchedule?.validation.valid)
     && (input.target === "Closing Split Week 1" ? input.acceptedSchedule?.split === "Closing Split" : input.acceptedSchedule?.split === "Opening Split");
+}
+
+export interface Week25ActivationInput {
+  state: TrackerState;
+  transitionValid: boolean;
+  seedsValid: boolean;
+  userLeague: LeagueName;
+  activatedAt?: string;
+}
+
+export function getWeek25ActivationStatus(input: Omit<Week25ActivationInput, "activatedAt" | "userLeague">): ScheduleAcceptanceStatus {
+  const { state } = input;
+  const accepted = state.acceptedSchedule;
+  if (!input.transitionValid) return { enabled: false, disabledReason: "Phase 9B Transition must be ready." };
+  if (!input.seedsValid) return { enabled: false, disabledReason: "Phase 9.5 Seeds must be ready." };
+  if (!accepted) return { enabled: false, disabledReason: "Accept a valid schedule snapshot first." };
+  if (!accepted.validation.valid || accepted.validation.totalMatches !== 528) return { enabled: false, disabledReason: "The accepted schedule snapshot must be valid." };
+  if (accepted.leagueYear !== 2 || accepted.split !== "Closing Split" || accepted.matches.some((match) => match.yearWeek !== match.splitWeek + 24)) {
+    return { enabled: false, disabledReason: "The accepted target must be League Year 2 Closing Split, regular Year Weeks 25–46." };
+  }
+  if ((state.manualReviews ?? []).some((review) => review.status === "open")) return { enabled: false, disabledReason: "Resolve blocking Manual Review items first." };
+  if (state.activeWorkflow?.yearWeek === 25) return { enabled: false, disabledReason: "Closing Split Week 25 is already active." };
+  if (state.confirmedResults.some((result) => result.week >= 25 && accepted.matches.some((match) => match.id === result.matchId))) {
+    return { enabled: false, disabledReason: "Conflicting already-played Closing Split results exist." };
+  }
+  return { enabled: true, disabledReason: null };
+}
+
+export function activateWeek25(input: Week25ActivationInput): { state: TrackerState; errors: string[] } {
+  const status = getWeek25ActivationStatus(input);
+  if (!status.enabled || !input.state.acceptedSchedule) return { state: input.state, errors: [status.disabledReason ?? "Week 25 cannot be activated."] };
+  const activeWorkflow: ActiveWorkflow = {
+    leagueYear: 2,
+    split: "Closing Split",
+    yearWeek: 25,
+    splitWeek: 1,
+    scheduleSource: input.state.acceptedSchedule.source === "Generated" ? "accepted generated snapshot" : "accepted imported snapshot",
+    acceptedScheduleAt: input.state.acceptedSchedule.acceptedAt,
+    activatedAt: input.activatedAt ?? new Date().toISOString(),
+    userLeague: input.userLeague,
+  };
+  return { state: { ...input.state, activeWorkflow }, errors: [] };
+}
+
+const SHOW_DAYS: Record<LeagueName, "Montag" | "Dienstag" | "Mittwoch" | "Freitag"> = {
+  "Regional League": "Montag",
+  "National League": "Dienstag",
+  "Continental League": "Mittwoch",
+  "Global League": "Freitag",
+};
+
+export function acceptedScheduleMatches(snapshot: AcceptedScheduleSnapshot): Match[] {
+  const matchNumbers = new Map<string, number>();
+  return snapshot.matches.map((match) => {
+    const cardKey = `${match.league}:${match.splitWeek}`;
+    const matchNumber = (matchNumbers.get(cardKey) ?? 0) + 1;
+    matchNumbers.set(cardKey, matchNumber);
+    return {
+    id: match.id,
+    leagueYear: match.leagueYear,
+    split: match.split,
+    week: match.yearWeek ?? match.splitWeek + 24,
+    roundType: match.leg,
+    league: match.league,
+    showDay: SHOW_DAYS[match.league],
+    matchNumber,
+    wrestlerA: match.wrestlerA,
+    wrestlerB: match.wrestlerB,
+    matchupKey: [match.wrestlerA, match.wrestlerB].sort().join("::"),
+    status: "scheduled",
+    source: { file: "browser-local accepted schedule snapshot", sheet: "acceptedSchedule" },
+    };
+  });
+}
+
+export function getActiveWorkflowMatches(state: TrackerState, workbookMatches: Match[]): Match[] {
+  return state.activeWorkflow && state.acceptedSchedule ? acceptedScheduleMatches(state.acceptedSchedule) : workbookMatches;
 }
