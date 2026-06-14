@@ -263,4 +263,40 @@ expect(state).toEqual(beforeState);
 expect(allMatches).toEqual(beforeMatches);
 
 });
+
+it("routes a Week 22 baseline to tiebreaker review instead of normal Week 23", () => {
+const summary = getWorkflowSummary(
+createEmptyTrackerState(),
+scheduledWeek(22),
+22,
+"National League",
+);
+
+expect(summary).toMatchObject({
+activeWeek: null,
+seasonComplete: false,
+recommendedAction: "tiebreaker-review",
+recommendedHref: "/week-review",
+recommendedLabel: "Opening Split regular season complete",
+});
+});
+
+it("routes a locally completed Week 22 to tiebreaker review before workbook promotion", () => {
+const state = {
+...createEmptyTrackerState(),
+completedWeeks: [{ week: 22, completedAt: "2026-06-14T00:00:00.000Z" }],
+};
+const summary = getWorkflowSummary(
+state,
+scheduledWeek(22),
+21,
+"National League",
+);
+
+expect(summary).toMatchObject({
+workbookCompletedThroughWeek: 22,
+activeWeek: null,
+recommendedAction: "tiebreaker-review",
+});
+});
 });

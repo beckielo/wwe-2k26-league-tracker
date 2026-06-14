@@ -13,12 +13,25 @@ removeResult,
 unlockWeek,
 } from "@/domain/tracker-state";
 import { getWorkflowSummary } from "@/domain/week-progression";
-import type { LeagueName, Match, StandingRow } from "@/domain/types";
+import { deriveSplitCompletionReview } from "@/domain/split-completion";
+import type {
+LeagueName,
+Match,
+MatchResult,
+MatchupReferenceRow,
+SplitName,
+StandingRow,
+} from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
 
 interface WeekReviewProps {
 allMatches: Match[];
 baselineStandings: StandingRow[];
+workbookResults: MatchResult[];
+matchupReference: MatchupReferenceRow[];
+leagueYear: number;
+split: SplitName;
+hasLeagueFinalsTemplate: boolean;
 userLeague: LeagueName;
 workbookCurrentWeek: number;
 originalWorkbookCurrentWeek: number;
@@ -29,6 +42,11 @@ sourceFile: string;
 export function WeekReview({
 allMatches,
 baselineStandings,
+workbookResults,
+matchupReference,
+leagueYear,
+split,
+hasLeagueFinalsTemplate,
 userLeague,
 workbookCurrentWeek,
 originalWorkbookCurrentWeek,
@@ -76,6 +94,35 @@ state.confirmedResults.filter(
 ),
 [allMatches, baselineStandings, latestLockedWeek, state.confirmedResults],
 );
+const localMatchResults = state.confirmedResults.map((result): MatchResult => {
+const match = allMatches.find((candidate) => candidate.id === result.matchId);
+const loser = result.resultType === "Winner" && result.winner && match
+? (result.winner === match.wrestlerA ? match.wrestlerB : match.wrestlerA)
+: null;
+return {
+matchId: result.matchId,
+outcome: result.resultType === "Winner" ? "decisive" : result.resultType === "Draw" ? "draw" : "no-contest",
+winner: result.winner,
+loser,
+resultSource: result.source,
+notes: null,
+source: { file: "browser-local tracker state", sheet: "confirmedResults" },
+};
+});
+const localResultIds = new Set(localMatchResults.map((result) => result.matchId));
+const splitReview = deriveSplitCompletionReview({
+leagueYear,
+split,
+completedThroughWeek: Math.max(workbookCurrentWeek, latestLockedWeek ?? 0),
+standings: updatedStandings,
+matches: allMatches,
+results: [
+...workbookResults.filter((result) => !localResultIds.has(result.matchId)),
+...localMatchResults,
+],
+matchupReference,
+hasLeagueFinalsTemplate,
+});
 
 function markComplete() {
 if (week === null) return;
@@ -198,6 +245,70 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
         ))}
       </ul>
     </div>
+  )}
+
+  {splitReview.regularPhaseComplete && (
+    <section className="border border-amber-400/30 bg-[#111722]">
+      <div className="border-b border-amber-400/20 bg-amber-400/10 p-6">
+        <p className="text-xs font-black uppercase tracking-[.2em] text-amber-300">
+          Opening Split completion
+        </p>
+        <h2 className="mt-2 text-2xl font-black uppercase">
+          Tiebreaker Review
+        </h2>
+        <p className="mt-2 text-sm text-slate-300">
+          Final regular standings through Week {splitReview.completedRegularSplitWeek}. Next phase: {splitReview.nextPhase}.
+        </p>
+      </div>
+
+      <div className="grid gap-px bg-white/10 xl:grid-cols-4">
+        {[...new Set(splitReview.finalRegularStandings.map((row) => row.league))].map((league) => (
+          <div key={league} className="bg-[#111722] p-4">
+            <h3 className="mb-3 text-sm font-black uppercase">{league}</h3>
+            <ol className="space-y-2">
+              {splitReview.finalRegularStandings.filter((row) => row.league === league).map((row) => (
+                <li key={row.wrestler} className="flex justify-between text-xs">
+                  <span>#{row.rank} {row.wrestler}</span>
+                  <strong>{row.points} pts</strong>
+                </li>
+              ))}
+            </ol>
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-4 border-t border-white/10 p-6">
+        <h3 className="font-black uppercase">Consequential tied groups</h3>
+        {splitReview.consequentialTies.length === 0 ? (
+          <p className="text-sm text-emerald-300">
+            No point tie crosses a currently known competitive-zone boundary.
+          </p>
+        ) : splitReview.consequentialTies.map((tie) => (
+          <div key={`${tie.league}-${tie.points}-${tie.wrestlers.join("-")}`} className="border border-white/10 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="font-black uppercase">{tie.league}</p>
+                <p className="mt-1 text-sm text-slate-300">
+                  Places {tie.placements.join(", ")} · {tie.wrestlers.join(" / ")} · {tie.points} points
+                </p>
+              </div>
+              <span className="border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs font-black uppercase text-amber-200">
+                {tie.status}
+              </span>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-slate-400">{tie.explanation}</p>
+          </div>
+        ))}
+        {splitReview.sourceWarnings.map((warning) => (
+          <div key={warning} className="border-l-2 border-amber-400 bg-amber-400/5 p-4 text-sm text-amber-200">
+            Source warning: {warning}
+          </div>
+        ))}
+        <p className="text-xs text-slate-500">
+          Week 24 League Finals may follow tiebreaker review, but this phase does not generate its card or assume Global Elite Cup semifinal seeding.
+        </p>
+      </div>
+    </section>
   )}
 
   {latestLockedWeek !== null && (
@@ -452,11 +563,12 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
   ) : (
     <div className="border border-emerald-400/20 bg-emerald-400/5 p-10 text-center">
       <h2 className="text-3xl font-black uppercase">
-        Season workflow complete
+        {splitReview.regularPhaseComplete ? "Opening Split regular season complete" : "Season workflow complete"}
       </h2>
       <p className="mt-2 text-slate-400">
-        Every later authoritative scheduled week is locked in browser-local
-        tracker state.
+        {splitReview.regularPhaseComplete
+          ? "Next phase: Tiebreaker Review. No normal Week 23 fixtures are generated."
+          : "Every later authoritative scheduled week is locked in browser-local tracker state."}
       </p>
 
       <div className="mt-6 flex justify-center gap-3">
