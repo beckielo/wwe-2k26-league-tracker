@@ -25,7 +25,12 @@ export type FinalizationResult = {
   logs: StepLog[];
 };
 
-type CommandResult = { status: number; stdout: string; stderr: string };
+type CommandResult = {
+  status?: number | null;
+  code?: number | null;
+  stdout: string;
+  stderr: string;
+};
 type CommandRunner = (command: string, args: string[], cwd: string) => CommandResult;
 type NpmCommand = { command: "npm" | "npm.cmd"; args: string[]; display: string };
 
@@ -40,6 +45,11 @@ const runCommand: CommandRunner = (command, args, cwd) => {
 
 function outputOf(result: CommandResult): string {
   return [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
+}
+
+function commandSucceeded(result: CommandResult): boolean {
+  const exitCode = result.status ?? result.code;
+  return exitCode === 0;
 }
 
 export function buildNpmCommand(
@@ -135,7 +145,7 @@ export function finalizeCurrentMaster(
   removePromotionBackups(sourceDir);
 
   const branch = runner("git", ["branch", "--show-current"], projectRoot);
-  if (branch.status !== 0 || branch.stdout.trim() !== "main") {
+  if (!commandSucceeded(branch) || branch.stdout.trim() !== "main") {
     return fail("Preflight", "Finalization requires the current git branch to be main.", outputOf(branch));
   }
 
@@ -152,7 +162,7 @@ export function finalizeCurrentMaster(
     ["status", "--porcelain=v1", "-z", "--untracked-files=all"],
     projectRoot,
   );
-  if (status.status !== 0) return fail("Preflight", "Could not inspect repository changes.", outputOf(status));
+  if (!commandSucceeded(status)) return fail("Preflight", "Could not inspect repository changes.", outputOf(status));
   const changedPaths = parseStatusPaths(status.stdout).filter(
     (file) => file !== "next-env.d.ts" && !isPromotionBackupPath(file),
   );
@@ -171,7 +181,7 @@ export function finalizeCurrentMaster(
     const result = runner(command.command, command.args, projectRoot);
     restoreNextEnv(projectRoot, runner);
     const output = commandOutput(command, result);
-    if (result.status !== 0) return fail(step, `${step} failed.`, output);
+    if (!commandSucceeded(result)) return fail(step, `${step} failed.`, output);
     logs.push({ step, status: "success", output: output || `${step} passed.` });
   }
 
@@ -183,14 +193,14 @@ export function finalizeCurrentMaster(
   }
 
   const stage = runner("git", ["add", "-A", "--", ...workbookChanges], projectRoot);
-  if (stage.status !== 0) return fail("Git commit", "Could not stage the current-master workbook.", outputOf(stage));
+  if (!commandSucceeded(stage)) return fail("Git commit", "Could not stage the current-master workbook.", outputOf(stage));
   const commitMessage = `Update current master workbook to Week ${week}`;
   const commit = runner("git", ["commit", "-m", commitMessage], projectRoot);
-  if (commit.status !== 0) return fail("Git commit", "Git commit failed.", outputOf(commit));
+  if (!commandSucceeded(commit)) return fail("Git commit", "Git commit failed.", outputOf(commit));
   logs.push({ step: "Git commit", status: "success", output: commitMessage });
 
   const push = runner("git", ["push", "origin", "main"], projectRoot);
-  if (push.status !== 0) return fail("Git push", "Git push failed.", outputOf(push));
+  if (!commandSucceeded(push)) return fail("Git push", "Git push failed.", outputOf(push));
   logs.push({ step: "Git push", status: "success", output: outputOf(push) || "Pushed to origin main." });
   return { ok: true, status: "success", message: `Week ${week} was saved to GitHub.`, logs };
 }
