@@ -8,6 +8,7 @@ const nav = [
 ["H2H", "/head-to-head"],
 ["Streaks", "/streaks"],
 ["Tiebreakers", "/tiebreakers"],
+["League Finals", "/league-finals"],
 ["Simulation", "/simulation"],
 ["Week Review", "/week-review"],
 ["Result Entry", "/results"],

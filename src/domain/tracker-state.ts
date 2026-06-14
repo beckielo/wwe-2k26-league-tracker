@@ -1,5 +1,6 @@
 import { calculatePoints } from "./scoring";
 import type { LeagueName, Match, StandingRow } from "./types";
+import type { FinalsNight, LeagueFinalsResult } from "./league-finals";
 
 export type ConfirmedResultType = "Winner" | "Draw" | "No Contest";
 export type ConfirmedResultSource = "Manual" | "Simulation";
@@ -27,6 +28,8 @@ export interface TrackerState {
   completedWeeks: CompletedWeek[];
   lastExportedAt: string | null;
   lastImportedAt: string | null;
+  leagueFinalsResults?: LeagueFinalsResult[];
+  completedFinalsNights?: { night: FinalsNight; completedAt: string }[];
 }
 
 export interface StateActionResult {
@@ -38,7 +41,15 @@ export interface StateActionResult {
 export const TRACKER_STATE_STORAGE_KEY = "wwe-2k26-tracker-state-v1";
 
 export function createEmptyTrackerState(): TrackerState {
-  return { version: 1, confirmedResults: [], completedWeeks: [], lastExportedAt: null, lastImportedAt: null };
+  return {
+    version: 1,
+    confirmedResults: [],
+    completedWeeks: [],
+    lastExportedAt: null,
+    lastImportedAt: null,
+    leagueFinalsResults: [],
+    completedFinalsNights: [],
+  };
 }
 
 export function isWeekLocked(state: TrackerState, week: number): boolean {
