@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { finalizeCurrentMaster } from "../current-master-finalization";
+import { buildNpmCommand, finalizeCurrentMaster } from "../current-master-finalization";
 import { CURRENT_MASTER_MARKER } from "../current-master-promotion";
 
 const directories: string[] = [];
@@ -41,6 +41,39 @@ afterEach(() => {
 });
 
 describe("current master finalization", () => {
+  it("builds npm commands with npm.cmd on Windows", () => {
+    expect(buildNpmCommand(["run", "lint"], "win32")).toEqual({
+      command: "npm.cmd",
+      args: ["run", "lint"],
+      display: "npm run lint",
+    });
+  });
+
+  it("builds npm commands with npm on non-Windows platforms", () => {
+    expect(buildNpmCommand(["test"], "linux")).toEqual({
+      command: "npm",
+      args: ["test"],
+      display: "npm test",
+    });
+  });
+
+  it("uses the platform-safe npm executable for all validation steps", () => {
+    const { root, master } = setup();
+    const run = runner(`?? ${master}\0`);
+
+    const result = finalizeCurrentMaster(root, 16, {
+      enabled: true,
+      runner: run,
+      platform: "win32",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(run).toHaveBeenCalledWith("npm.cmd", ["run", "lint"], root);
+    expect(run).toHaveBeenCalledWith("npm.cmd", ["test"], root);
+    expect(run).toHaveBeenCalledWith("npm.cmd", ["run", "build"], root);
+    expect(result.logs.find((log) => log.step === "Lint")?.output).toContain("$ npm run lint");
+  });
+
   it("returns a safe response when automation is disabled", () => {
     const { root } = setup();
     const result = finalizeCurrentMaster(root, 16, { enabled: false });
