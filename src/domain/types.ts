@@ -162,5 +162,6 @@ export interface TrackerData {
   headToHead: HeadToHeadRecord[];
   streaks: StreakRecord[];
   matchupReference: MatchupReferenceRow[];
+  hasLeagueFinalsTemplate: boolean;
   validationIssues: ValidationIssue[];
 }

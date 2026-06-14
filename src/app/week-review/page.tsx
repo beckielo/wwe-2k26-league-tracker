@@ -17,6 +17,11 @@ return (
   <WeekReview
     allMatches={data.matches}
     baselineStandings={data.standings}
+    workbookResults={data.results}
+    matchupReference={data.matchupReference}
+    leagueYear={data.meta.leagueYear}
+    split={data.meta.currentSplit}
+    hasLeagueFinalsTemplate={data.hasLeagueFinalsTemplate}
     userLeague={data.meta.userLeague}
     workbookCurrentWeek={data.meta.appBaselineCompletedThroughWeek}
     originalWorkbookCurrentWeek={data.meta.currentWeek}

@@ -352,6 +352,7 @@ export function loadTrackerData(): TrackerData {
     headToHead,
     streaks,
     matchupReference,
+    hasLeagueFinalsTemplate: Boolean(workbook.Sheets.PPV_Template_Layout),
   };
 
   return {

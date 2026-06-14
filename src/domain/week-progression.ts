@@ -34,6 +34,7 @@ export type WorkflowAction =
 | "result-entry"
 | "simulation"
 | "week-review"
+| "tiebreaker-review"
 | "complete";
 
 export interface LeagueWeekProgress {
@@ -159,6 +160,27 @@ workbookCurrentWeek: number,
 userLeague: LeagueName,
 ): WorkflowSummary {
 const resolution = detectActiveWeek(state, matches, workbookCurrentWeek);
+const effectiveCompletedThroughWeek = Math.max(
+workbookCurrentWeek,
+resolution.latestLockedWeek ?? workbookCurrentWeek,
+);
+
+if (effectiveCompletedThroughWeek >= 22 && resolution.activeWeek === null) {
+return {
+workbookCompletedThroughWeek: effectiveCompletedThroughWeek,
+activeWeek: null,
+latestLockedWeek: resolution.latestLockedWeek,
+userLeague,
+seasonComplete: false,
+progress: null,
+userLeagueProgress: null,
+nonUserLeagueProgress: [],
+recommendedAction: "tiebreaker-review",
+recommendedHref: "/week-review",
+recommendedLabel: "Opening Split regular season complete",
+recommendedReason: "Next phase: Tiebreaker Review. No normal Week 23 card will be generated.",
+};
+}
 
 if (resolution.activeWeek === null) {
 return {
