@@ -41,11 +41,15 @@ afterEach(() => {
 });
 
 describe("current master finalization", () => {
-  it("builds npm commands with npm.cmd on Windows", () => {
-    expect(buildNpmCommand(["run", "lint"], "win32")).toEqual({
-      command: "npm.cmd",
-      args: ["run", "lint"],
-      display: "npm run lint",
+  it.each([
+    [["run", "lint"], "npm run lint"],
+    [["test"], "npm test"],
+    [["run", "build"], "npm run build"],
+  ])("builds the Windows npm command %j through cmd.exe", (args, display) => {
+    expect(buildNpmCommand(args, "win32")).toEqual({
+      command: "cmd.exe",
+      args: ["/d", "/s", "/c", `"${display}"`],
+      display,
     });
   });
 
@@ -68,9 +72,9 @@ describe("current master finalization", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(run).toHaveBeenCalledWith("npm.cmd", ["run", "lint"], root);
-    expect(run).toHaveBeenCalledWith("npm.cmd", ["test"], root);
-    expect(run).toHaveBeenCalledWith("npm.cmd", ["run", "build"], root);
+    expect(run).toHaveBeenCalledWith("cmd.exe", ["/d", "/s", "/c", "\"npm run lint\""], root);
+    expect(run).toHaveBeenCalledWith("cmd.exe", ["/d", "/s", "/c", "\"npm test\""], root);
+    expect(run).toHaveBeenCalledWith("cmd.exe", ["/d", "/s", "/c", "\"npm run build\""], root);
     expect(result.logs.find((log) => log.step === "Lint")?.output).toContain("$ npm run lint");
   });
 
@@ -143,7 +147,7 @@ describe("current master finalization", () => {
   ] as const)("stops after failed %s validation on Windows", (step, args, error) => {
     const { root, master } = setup();
     const run = runner(`?? ${master}\0`, {
-      [`npm.cmd ${args.join(" ")}`]: { status: 1, stdout: "", stderr: error },
+      [`cmd.exe /d /s /c "npm ${args.join(" ")}"`]: { status: 1, stdout: "", stderr: error },
     });
 
     const result = finalizeCurrentMaster(root, 16, {

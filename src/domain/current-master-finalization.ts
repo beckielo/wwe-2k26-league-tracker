@@ -32,7 +32,7 @@ type CommandResult = {
   stderr: string;
 };
 type CommandRunner = (command: string, args: string[], cwd: string) => CommandResult;
-type NpmCommand = { command: "npm" | "npm.cmd"; args: string[]; display: string };
+type NpmCommand = { command: "npm" | "cmd.exe"; args: string[]; display: string };
 
 const runCommand: CommandRunner = (command, args, cwd) => {
   const result = spawnSync(command, args, { cwd, encoding: "utf8", shell: false });
@@ -56,8 +56,11 @@ export function buildNpmCommand(
   args: string[],
   platform: NodeJS.Platform = process.platform,
 ): NpmCommand {
-  const command = platform === "win32" ? "npm.cmd" : "npm";
-  return { command, args, display: `npm ${args.join(" ")}` };
+  const display = `npm ${args.join(" ")}`;
+  if (platform === "win32") {
+    return { command: "cmd.exe", args: ["/d", "/s", "/c", `"${display}"`], display };
+  }
+  return { command: "npm", args, display };
 }
 
 function commandOutput(command: NpmCommand, result: CommandResult): string {
