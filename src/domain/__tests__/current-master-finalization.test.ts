@@ -7,7 +7,7 @@ import { CURRENT_MASTER_MARKER } from "../current-master-promotion";
 
 const directories: string[] = [];
 
-type Reply = { status: number; stdout: string; stderr: string };
+type Reply = { status?: number | null; code?: number | null; stdout: string; stderr: string };
 
 function setup(files: Record<string, string> = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "finalize-master-"));
@@ -136,15 +136,62 @@ describe("current master finalization", () => {
     expect(fs.existsSync(path.join(root, backup))).toBe(false);
   });
 
-  it("stops after a failed validation command", () => {
+  it.each([
+    ["Lint", ["run", "lint"], "lint failed"],
+    ["Tests", ["test"], "tests failed"],
+    ["Build", ["run", "build"], "build failed"],
+  ] as const)("stops after failed %s validation on Windows", (step, args, error) => {
     const { root, master } = setup();
     const run = runner(`?? ${master}\0`, {
-      "npm test": { status: 1, stdout: "", stderr: "tests failed" },
+      [`npm.cmd ${args.join(" ")}`]: { status: 1, stdout: "", stderr: error },
     });
-    const result = finalizeCurrentMaster(root, 16, { enabled: true, runner: run });
-    expect(result).toMatchObject({ ok: false, message: "Tests failed." });
-    expect(run).not.toHaveBeenCalledWith("npm", ["run", "build"], root);
+
+    const result = finalizeCurrentMaster(root, 16, {
+      enabled: true,
+      runner: run,
+      platform: "win32",
+    });
+
+    expect(result).toMatchObject({ ok: false, status: "failed", message: `${step} failed.` });
+    expect(result.logs.at(-1)).toMatchObject({ step, status: "failed" });
+    expect(result.logs.at(-1)?.output).toContain(error);
+    expect(run).not.toHaveBeenCalledWith("git", expect.arrayContaining(["add"]), root);
     expect(run).not.toHaveBeenCalledWith("git", expect.arrayContaining(["commit"]), root);
+    expect(run).not.toHaveBeenCalledWith("git", expect.arrayContaining(["push"]), root);
+  });
+
+  it("uses a command code when status is unavailable", () => {
+    const { root, master } = setup();
+    const run = runner(`?? ${master}\0`, {
+      "npm test": { code: 1, stdout: "", stderr: "tests failed" },
+    });
+
+    const result = finalizeCurrentMaster(root, 16, {
+      enabled: true,
+      runner: run,
+      platform: "linux",
+    });
+
+    expect(result).toMatchObject({ ok: false, status: "failed", message: "Tests failed." });
+    expect(run).not.toHaveBeenCalledWith("git", expect.arrayContaining(["commit"]), root);
+    expect(run).not.toHaveBeenCalledWith("git", expect.arrayContaining(["push"]), root);
+  });
+
+  it("does not treat a missing command status and code as success", () => {
+    const { root, master } = setup();
+    const run = runner(`?? ${master}\0`, {
+      "npm run lint": { stdout: "", stderr: "command did not report an exit code" },
+    });
+
+    const result = finalizeCurrentMaster(root, 16, {
+      enabled: true,
+      runner: run,
+      platform: "linux",
+    });
+
+    expect(result).toMatchObject({ ok: false, status: "failed", message: "Lint failed." });
+    expect(run).not.toHaveBeenCalledWith("git", expect.arrayContaining(["commit"]), root);
+    expect(run).not.toHaveBeenCalledWith("git", expect.arrayContaining(["push"]), root);
   });
 
   it("returns successful structured logs", () => {
