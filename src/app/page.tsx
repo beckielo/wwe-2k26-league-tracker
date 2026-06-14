@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { PageHeader, Panel, Stat } from "@/components/ui";
-import { WorkflowSummaryBanner } from "@/components/workflow-summary-banner";
+import { AdvancedDetails, PageHeader, Panel, Stat, StatusBadge, WarningPanel } from "@/components/ui";
 import { loadTrackerData } from "@/data/workbook";
 import { DashboardActiveStatus, DashboardPhaseNotice } from "@/components/dashboard-active-status";
 
@@ -9,7 +8,6 @@ export const dynamic = "force-dynamic";
 export default function DashboardPage() {
 const data = loadTrackerData();
 const nextWeek = data.meta.appBaselineCompletedThroughWeek + 1;
-const nextUserShow = "See active browser-local workflow";
 const nextMatches = data.matchupReference
 .filter(
 (match) =>
@@ -28,8 +26,8 @@ return (
 <>
 <PageHeader
 eyebrow="Workbook baseline + local workflow"
-title="League Year 2"
-description="The workbook remains the authoritative baseline while browser-local confirmed results and week locks guide the active weekly workflow."
+title="League Command Center"
+description="One clear view of the current run, the safest next action, completed phases, active locks, and authoritative source state."
 aside={ <div className="flex items-center gap-3 border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-300"> <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
 Source connected </div>
 }
@@ -42,15 +40,15 @@ Source connected </div>
       detail="48-week calendar"
     />
     <DashboardActiveStatus />
-    <Stat
-      label="Completed through"
-      value={"Week " + data.meta.currentWeek}
+      <Stat
+      label="Workbook baseline"
+      value={"Year Week " + data.meta.currentWeek}
       detail={data.meta.currentStatus}
     />
     {data.meta.latestAppWritebackWeek !== null && (
       <Stat
-        label="App workbook baseline"
-        value={"Week " + data.meta.latestAppWritebackWeek}
+        label="Latest writeback"
+        value={"Year Week " + data.meta.latestAppWritebackWeek}
         detail="Using validated App_* writeback sheets"
       />
     )}
@@ -61,26 +59,17 @@ Source connected </div>
     />
   </div>
 
-  <div className="mt-8">
-    <WorkflowSummaryBanner
-      matches={data.matches}
-      workbookCurrentWeek={data.meta.appBaselineCompletedThroughWeek}
-      userLeague={data.meta.userLeague}
-    />
-  </div>
   <DashboardPhaseNotice />
-
-
 
   <div className="mt-8 grid gap-6 xl:grid-cols-[1.55fr_.85fr]">
     <Panel>
       <div className="flex items-start justify-between border-b border-white/10 p-6">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.2em] text-red-400">
-            Active next user show
+            Authoritative next card
           </p>
           <h2 className="mt-2 text-2xl font-black uppercase">
-            {nextUserShow}
+            {data.meta.userLeague}
           </h2>
         </div>
 
@@ -109,9 +98,7 @@ Source connected </div>
               <span className="flex-1 text-left">{match.wrestlerB}</span>
             </div>
 
-            <span className="hidden text-[10px] uppercase tracking-wider text-slate-600 sm:block">
-              Verified
-            </span>
+            <StatusBadge tone="ready">Verified</StatusBadge>
           </div>
         ))}
       </div>
@@ -123,30 +110,21 @@ Source connected </div>
           Validation monitor
         </p>
         <h2 className="mt-2 text-2xl font-black uppercase">
-          Source warnings
+          Active alerts
         </h2>
       </div>
 
       <div className="space-y-3 p-5">
-        {errors.length === 0 && (
+        {errors.length === 0 && warnings.length === 0 && (
           <div className="border border-emerald-400/20 bg-emerald-400/5 p-4 text-sm text-emerald-300">
             All roster, schedule, points, and record checks pass.
           </div>
         )}
 
-        {warnings.map((issue) => (
-          <div
-            key={issue.code + "-" + (issue.source?.sheet ?? "general")}
-            className="border-l-2 border-amber-400 bg-amber-400/5 p-4"
-          >
-            <p className="text-[10px] font-black uppercase tracking-[.15em] text-amber-400">
-              {issue.code.replaceAll("_", " ")}
-            </p>
-            <p className="mt-1 text-sm leading-5 text-slate-300">
-              {issue.message}
-            </p>
-          </div>
-        ))}
+        {errors.map((issue) => <WarningPanel key={issue.code} category="Blocking" title={issue.code.replaceAll("_", " ")}>{issue.message}</WarningPanel>)}
+        {warnings.length > 0 && <AdvancedDetails summary={`${warnings.length} source warnings · non-blocking`}>
+          <div className="space-y-3">{warnings.map((issue) => <WarningPanel key={issue.code + (issue.source?.sheet ?? "")} category="Source Warning" title={issue.code.replaceAll("_", " ")} collapsible>{issue.message}</WarningPanel>)}</div>
+        </AdvancedDetails>}
       </div>
     </Panel>
   </div>

@@ -11,6 +11,7 @@ getWorkflowSummary,
 import type { LeagueName, Match } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
+import { getWeekDisplay } from "@/domain/week-display";
 
 interface ResultEntryWorkflowProps {
 matches: Match[];
@@ -65,6 +66,7 @@ const userConfirmed = summary.userLeagueProgress?.confirmed ?? 0;
 const userMissing =
 summary.userLeagueProgress?.missing ?? userMatches.length;
 const userShowComplete = userMissing === 0;
+const display = getWeekDisplay(2, week, state.activeWorkflow?.split);
 
 return (
 <> <div className="mb-8"> <WorkflowSummaryBanner
@@ -76,9 +78,9 @@ return (
 
   <div className="mb-8 grid gap-4 sm:grid-cols-3">
     <Stat
-      label="Active app week"
-      value={"Week " + week}
-      detail="Workbook baseline + local locks"
+      label="Active card"
+      value={display.primary}
+      detail={display.secondary}
     />
     <Stat
       label="User show progress"
@@ -103,7 +105,7 @@ return (
     <div className="mb-6 flex flex-col justify-between gap-4 border border-emerald-400/25 bg-emerald-400/10 p-5 sm:flex-row sm:items-center">
       <div>
         <p className="font-black uppercase text-emerald-200">
-          Week {week} user show complete
+          {display.primary} user show complete
         </p>
         <p className="mt-1 text-sm text-slate-300">
           All {userMatches.length} {workflowUserLeague} results are confirmed.
@@ -124,10 +126,10 @@ return (
     <Panel>
       <div className="border-b border-white/10 p-6">
         <p className="text-xs font-bold uppercase tracking-[.2em] text-red-400">
-          Week {week} · next required user show
+          {display.primary} · current user show
         </p>
         <h2 className="mt-2 text-2xl font-black uppercase">
-          {workflowUserLeague} result entry
+          {workflowUserLeague} · {display.primary}
         </h2>
       </div>
 
