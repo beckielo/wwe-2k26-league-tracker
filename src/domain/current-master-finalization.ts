@@ -31,11 +31,16 @@ type CommandResult = {
   stdout: string;
   stderr: string;
 };
-type CommandRunner = (command: string, args: string[], cwd: string) => CommandResult;
+type CommandRunner = (
+  command: string,
+  args: string[],
+  cwd: string,
+  env?: NodeJS.ProcessEnv,
+) => CommandResult;
 type NpmCommand = { command: "npm" | "cmd.exe"; args: string[]; display: string };
 
-const runCommand: CommandRunner = (command, args, cwd) => {
-  const result = spawnSync(command, args, { cwd, encoding: "utf8", shell: false });
+const runCommand: CommandRunner = (command, args, cwd, env) => {
+  const result = spawnSync(command, args, { cwd, encoding: "utf8", shell: false, env });
   return {
     status: result.status ?? 1,
     stdout: result.stdout ?? "",
@@ -65,6 +70,17 @@ export function buildNpmCommand(
 
 function commandOutput(command: NpmCommand, result: CommandResult): string {
   return [`$ ${command.display}`, outputOf(result)].filter(Boolean).join("\n");
+}
+
+function productionBuildEnvironment(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return {
+    ...Object.fromEntries(
+      Object.entries(environment).filter(([key]) =>
+        key !== "NEXT_RUNTIME" && !key.startsWith("__NEXT_PRIVATE_")
+      ),
+    ),
+    NODE_ENV: "production",
+  };
 }
 
 function restoreNextEnv(projectRoot: string, runner: CommandRunner): void {
@@ -181,7 +197,9 @@ export function finalizeCurrentMaster(
     ["Build", ["run", "build"]],
   ] as const) {
     const command = buildNpmCommand([...args], platform);
-    const result = runner(command.command, command.args, projectRoot);
+    const result = step === "Build"
+      ? runner(command.command, command.args, projectRoot, productionBuildEnvironment(process.env))
+      : runner(command.command, command.args, projectRoot);
     restoreNextEnv(projectRoot, runner);
     const output = commandOutput(command, result);
     if (!commandSucceeded(result)) return fail(step, `${step} failed.`, output);
