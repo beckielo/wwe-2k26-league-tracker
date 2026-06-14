@@ -10,7 +10,7 @@ export default function LeagueFinalsPage() {
     <PageHeader
       eyebrow="Phase 9 · Week 24"
       title="League Finals"
-      description="Source-derived Night One and Night Two cards, separate event results, and guarded completion. Phase 9B remains locked."
+      description="Source-derived Night One and Night Two cards, separate event results, guarded completion, and a handoff to the Post-Finals Transition."
     />
     <LeagueFinals
       completedThroughWeek={data.meta.appBaselineCompletedThroughWeek}

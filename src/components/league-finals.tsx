@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   deriveLeagueFinalsReview,
@@ -190,7 +191,9 @@ export function LeagueFinals(props: LeagueFinalsProps) {
     <section className={`border p-6 ${finalsComplete ? "border-emerald-400/30 bg-emerald-400/10" : "border-white/10 bg-white/[.02]"}`}>
       <h2 className="font-black uppercase">{finalsComplete ? "League Finals complete. Next step: Phase 9B Post-Finals Transition." : "Post-Finals transition locked"}</h2>
       <p className="mt-2 text-sm text-slate-400">Phase 9 does not create a Closing Split roster, change league composition, or invent Week 25.</p>
-      <button type="button" disabled className="mt-4 border border-white/10 px-4 py-2 text-xs font-black uppercase opacity-40">Phase 9B unavailable</button>
+      {finalsComplete
+        ? <Link href="/post-finals-transition" className="mt-4 inline-block bg-emerald-400 px-4 py-2 text-xs font-black uppercase text-black">Open Post-Finals Transition</Link>
+        : <button type="button" disabled className="mt-4 border border-white/10 px-4 py-2 text-xs font-black uppercase opacity-40">Phase 9B unavailable</button>}
     </section>
   </div>;
 }

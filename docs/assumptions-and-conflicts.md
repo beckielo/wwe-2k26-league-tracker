@@ -168,3 +168,13 @@ The following checks found no current-data conflict:
 - The authoritative template supplies six matches per night. No filler is generated. If the game requires additional matches, the UI displays **Manual card padding required**.
 - League Finals event results are kept separately from regular league-week results in browser-local tracker state. They do not alter regular scoring, simulation, fixtures, or workbook writeback.
 - Phase 9B/Post-Finals Transition is explicitly out of scope. Completing both finals nights does not create Week 25, start the Closing Split, or create new league rosters; it only displays: “League Finals complete. Next step: Phase 9B Post-Finals Transition.”
+
+# Phase 9B — Post-Finals Transition Module
+
+- Phase 9B unlocks only after both League Finals nights are marked complete, every authoritative finals match has one valid result, consequential tiebreaker states are resolved, and the resulting roster has 48 unique wrestler assignments with exactly 12 wrestlers per league.
+- Direct promotions and relegations are applied from final ranks before/alongside the nine source-derived relegation outcomes. A relegation winner occupies the higher league and the loser occupies the lower league. A No Contest/unclear ending retains the original higher- and lower-league assignments.
+- The current League Finals result schema does not identify the wrestler who caused a DQ. A DQ/unsupported ending therefore remains **Review Required** and cannot automatically unlock Closing Split setup.
+- Post-finals ordering is only a **Proposed seed order / Review Required** view. It uses objective prior league tier, final prior rank, finals outcome, and champion/direct-promotion status; existing seed is never used to resolve a tie. Ordering ambiguity does not invalidate an otherwise valid league composition, but an unconfirmed order cannot activate schedule creation that requires final seeds.
+- Closing Split Week 25 fixtures may not be generated or activated without an authoritative Closing Split schedule or template. If none exists, the module reports: “Closing Split schedule source missing: create or import schedule before starting Week 25.”
+- History storage is fact-only: champions, Elite Cup winner/runner-up, direct movement, relegation outcomes, successful retention, and unambiguous undefeated/Beckielo facts. Workbook legacy data is preserved as factual history, while GOAT points and subjective rankings remain disabled under **Legacy formula Review Required**.
+- Phase 9B remains browser/read-only with respect to the original workbook. It does not bypass the Phase 7 promote/finalize workflow and does not automatically start the normal Week 25 workflow.

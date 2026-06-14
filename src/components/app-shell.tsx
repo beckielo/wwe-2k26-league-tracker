@@ -9,6 +9,7 @@ const nav = [
 ["Streaks", "/streaks"],
 ["Tiebreakers", "/tiebreakers"],
 ["League Finals", "/league-finals"],
+["Post-Finals", "/post-finals-transition"],
 ["Simulation", "/simulation"],
 ["Week Review", "/week-review"],
 ["Result Entry", "/results"],
