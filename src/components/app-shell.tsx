@@ -10,6 +10,7 @@ const nav = [
 ["Tiebreakers", "/tiebreakers"],
 ["League Finals", "/league-finals"],
 ["Post-Finals", "/post-finals-transition"],
+["Year Rollover", "/year-rollover"],
 ["Simulation", "/simulation"],
 ["Week Review", "/week-review"],
 ["Result Entry", "/results"],
