@@ -1,4 +1,4 @@
-import { PageHeader, Panel } from "@/components/ui";
+import { PageHeader, Panel, PhaseBadge } from "@/components/ui";
 
 const sections = [
   ["Source hierarchy", "The workbook controls current game state. Active project rules control rules and workflow. Contradictions are Review Required and are never silently resolved."],
@@ -13,7 +13,7 @@ const sections = [
 export default function RulebookPage() {
   return <>
     <PageHeader eyebrow="Read-only traceability" title="Rulebook / Changelog" description="Current active rule summary. This page does not edit rules or workbook state." />
-    <div className="grid gap-5 lg:grid-cols-2">{sections.map(([title, body]) => <Panel key={title} className="p-6"><h2 className="text-xl font-black uppercase">{title}</h2><p className="mt-3 text-sm leading-6 text-slate-300">{body}</p></Panel>)}</div>
-    <Panel className="mt-6 p-6"><h2 className="text-xl font-black uppercase">Open assumptions / conflicts</h2><p className="mt-3 text-sm text-slate-300">See <code>docs/assumptions-and-conflicts.md</code> for the authoritative conflict register, Phase 9.7 notes, and changelog history.</p></Panel>
+    <div className="grid gap-5 lg:grid-cols-2">{sections.map(([title, body], index) => <Panel key={title} className="p-6"><PhaseBadge>Rule {String(index + 1).padStart(2, "0")}</PhaseBadge><h2 className="mt-4 text-xl font-black uppercase">{title}</h2><p className="mt-3 text-sm leading-6 text-slate-300">{body}</p></Panel>)}</div>
+    <Panel className="mt-6 p-6"><PhaseBadge>Traceability</PhaseBadge><h2 className="mt-4 text-xl font-black uppercase">Changelog & open assumptions</h2><p className="mt-3 text-sm leading-6 text-slate-300">The conflict register documents source hierarchy, unresolved encoding questions, and each implemented phase. See <code>docs/assumptions-and-conflicts.md</code>; this UI remains read-only.</p></Panel>
   </>;
 }

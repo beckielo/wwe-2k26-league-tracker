@@ -222,3 +222,11 @@ The following checks found no current-data conflict:
 - Week 25 activation is explicit and browser-local. It does not mutate, promote, finalize, or otherwise change the original Excel workbook.
 - After activation, the accepted League Year 2 Closing Split snapshot is the authoritative schedule source for the active weekly workflow beginning at Year Week 25 / Split Week 1.
 - Opening Split completion, League Finals, post-finals transition, year-rollover facts, accepted-snapshot metadata, prior results, and prior locks remain preserved. Activation creates no results and locks no show or week.
+
+## Phase 10 — Professional Design, UI & UX Overhaul
+
+- Phase 10 changes presentation, navigation, display mapping, and workflow guidance only. It does not change scoring, standings, tiebreakers, movement, League Finals, schedule generation, result validation, locks, or workbook safety behavior.
+- User-facing primary week labels are split-relative. Opening Split uses Weeks 1–24; Closing Split uses Weeks 1–24. Closing Split Year Week 25 is displayed primarily as **Closing Split Week 1**.
+- Year Week remains internal continuity metadata and may be shown only as secondary context, for example: **League Year 2 · Year Week 25**.
+- The governing UX principle is: **“The UI should guide the user to the next valid action and explain locked states clearly.”**
+- Actions remain explicit. The overhaul does not auto-start a week, auto-finalize a show, mutate the source workbook, or infer a missing fixture or rule.

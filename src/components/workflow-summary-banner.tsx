@@ -5,6 +5,7 @@ import { getWorkflowSummary } from "@/domain/week-progression";
 import type { LeagueName, Match } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
+import { getWeekDisplay } from "@/domain/week-display";
 
 interface WorkflowSummaryBannerProps {
   matches: Match[];
@@ -29,6 +30,7 @@ export function WorkflowSummaryBanner({
   const workflowUserLeague = state.activeWorkflow?.userLeague ?? userLeague;
   const summary = getWorkflowSummary(state, workflowMatches, workflowBaseline, workflowUserLeague);
   const progress = summary.progress;
+  const display = summary.activeWeek === null ? null : getWeekDisplay(2, summary.activeWeek, state.activeWorkflow?.split);
 
   return (
     <section className="overflow-hidden border border-red-400/25 bg-gradient-to-r from-red-500/15 via-[#111722] to-[#111722]">
@@ -39,10 +41,10 @@ export function WorkflowSummaryBanner({
           </p>
           <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
             <h2 className="text-2xl font-black uppercase sm:text-3xl">
-              {summary.activeWeek === null ? "Season workflow complete" : `Week ${summary.activeWeek}`}
+              {display?.primary ?? "Season workflow complete"}
             </h2>
             <span className="text-sm text-slate-400">
-              Excel baseline: completed through Week {summary.workbookCompletedThroughWeek}
+              {display?.secondary ?? `Excel baseline: completed through Year Week ${summary.workbookCompletedThroughWeek}`}
             </span>
           </div>
           <p className="mt-3 text-sm leading-6 text-slate-300">
@@ -52,7 +54,7 @@ export function WorkflowSummaryBanner({
           {!compact && (
             <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-bold uppercase tracking-wider">
               <Badge label="User league" value={summary.userLeague} />
-              <Badge label="Latest local lock" value={summary.latestLockedWeek === null ? "None" : `Week ${summary.latestLockedWeek}`} />
+              <Badge label="Latest local lock" value={summary.latestLockedWeek === null ? "None" : getWeekDisplay(2, summary.latestLockedWeek).primary} />
               <Badge label="Confirmed" value={progress?.confirmed ?? "—"} />
               <Badge label="Manual" value={progress?.manual ?? "—"} />
               <Badge label="Simulation" value={progress?.simulation ?? "—"} />

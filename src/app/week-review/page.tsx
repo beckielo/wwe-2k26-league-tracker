@@ -9,7 +9,7 @@ const data = loadTrackerData();
 
 return (
 <> <PageHeader
-     eyebrow="Phase 3C · week control center"
+     eyebrow="Primary workflow · final checkpoint"
      title="Week Review"
      description="Review every league, resolve missing or invalid results, safely lock a completed week, manage local state, and inspect standings without changing Excel."
    />

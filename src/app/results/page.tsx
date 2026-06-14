@@ -9,9 +9,9 @@ const data = loadTrackerData();
 
 return (
 <> <PageHeader
-     eyebrow="Phase 3C · active user show"
+     eyebrow="Primary workflow · current show"
      title="Result Entry"
-     description="Enter and review only the user-controlled league results for the active app week. The workbook card is authoritative; browser-local state tracks progress."
+     description="Select winners for the current user-controlled show. Saved state, progression, and any lock reason remain visible without requiring a finish type."
    />
 
   <ResultEntryWorkflow

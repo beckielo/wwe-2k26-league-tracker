@@ -4,6 +4,7 @@ import { Panel } from "./ui";
 import { LEAGUE_NAMES, type Match } from "@/domain/types";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { useTrackerState } from "@/state/tracker-state-provider";
+import { getWeekDisplay } from "@/domain/week-display";
 
 const SHOW_LABELS = {
   "Regional League": "Monday",
@@ -18,9 +19,10 @@ export function ActiveSchedule({ workbookMatches, workbookCurrentWeek }: { workb
   const active = Boolean(state.activeWorkflow);
   const week = active ? 25 : workbookCurrentWeek + 1;
   const matches = getActiveWorkflowMatches(state, workbookMatches);
+  const display = getWeekDisplay(2, week, state.activeWorkflow?.split);
   return <>
     <div className="mb-6 border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-      <strong>{active ? "Closing Split Week 1" : "Workbook schedule"}</strong> · {active ? state.activeWorkflow?.scheduleSource : "Matchup_Reference"}
+      <strong>{display.primary} Card</strong> · <span className="text-slate-500">{display.secondary}</span> · {active ? state.activeWorkflow?.scheduleSource : "Matchup_Reference"}
     </div>
     <div className="grid gap-6 xl:grid-cols-2">
       {LEAGUE_NAMES.slice().reverse().map((league) => {
