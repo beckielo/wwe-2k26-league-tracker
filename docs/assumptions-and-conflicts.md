@@ -197,3 +197,14 @@ The following checks found no current-data conflict:
 - Validation checks league/roster counts, Weeks 1–22, six matches per week, wrestler appearances, both legs of every pairing, match IDs, self-matches, total counts, unknown wrestlers, and overlap with locked played weeks. Any failure is **Review Required** and blocks acceptance and next-week activation.
 - Generated and imported schedules are preview-only until Phase 9B is valid, Phase 9.5 seeds are valid, structural validation passes, and the local user explicitly accepts/promotes the snapshot. Acceptance records source, versions, sources, timestamp, target year/split, and validation metadata.
 - An accepted snapshot is a separate app-state/export artifact. It does not mutate the original Excel workbook and never overwrites already-created or already-played workbook schedules or results. Closing Split Week 1 (Year Week 25) or a new League Year Week 1 remains blocked until the correctly targeted schedule snapshot is accepted; acceptance does not auto-start or auto-lock a week.
+
+## Phase 9.7 — Manual Review, History, and Rulebook UI
+
+- Standard result entry is deliberately winner/loser only. The tracker does not require or infer Pinfall, Submission, DQ, Countout, No Contest, or any other finish type for a normal match.
+- Special circumstances are recorded only when the user explicitly opens **Manual Review / Unclear Result** and supplies a note. The review preserves league, week/event, matchup, wrestlers, note, creation time, status, and resolution time.
+- Manual Review does not invent a winner, loser, finish type, score, or rule outcome. It is not a result type, scoring rule, standings input, or tiebreaker.
+- An open review blocks the affected show/week lock or League Finals night and also blocks Post-Finals Transition, Year Rollover, and schedule activation. The user must save a valid normal winner/loser before resolving, or explicitly clear the review.
+- The History / Legacy Facts dashboard is fact-only. It may display completed champions, Elite Cup results, direct movement, relegation outcomes, retention, Beckielo facts, or an undefeated split only when app/workbook-derived data proves them. Missing achievements are not invented.
+- GOAT scores, power rankings, prestige points, and subjective legacy formulas remain inactive unless an explicitly authoritative formula is approved.
+- The Rulebook / Changelog page is read-only. It summarizes active rules and source hierarchy and points to this conflict register for traceability; it cannot modify workbook or app rules.
+- **Status:** implemented for Phase 9.7 browser-local workflow; the original workbook remains unchanged.

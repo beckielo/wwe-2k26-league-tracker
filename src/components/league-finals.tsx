@@ -11,6 +11,7 @@ import {
   type LeagueFinalsMatch,
   type LeagueFinalsResult,
 } from "@/domain/league-finals";
+import { closeManualReview, markManualReview } from "@/domain/tracker-state";
 import { deriveSplitCompletionReview } from "@/domain/split-completion";
 import type { Match, MatchResult, MatchupReferenceRow, SplitName, StandingRow } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
@@ -31,16 +32,19 @@ function MatchCard({
   results,
   disabled,
   onSave,
+  onReview,
 }: {
   match: LeagueFinalsMatch;
   results: LeagueFinalsResult[];
   disabled: boolean;
   onSave: (result: LeagueFinalsResult) => void;
+  onReview: (match: LeagueFinalsMatch, note: string) => void;
 }) {
   const existing = results.find((result) => result.matchId === match.id);
   const [participantA, participantB] = resolveFinalsParticipants(match, results);
   const [selection, setSelection] = useState(existing?.resultType === "No Contest" ? "no-contest" : existing?.winner ?? "");
   const participantsReady = Boolean(participantA && participantB);
+  const [reviewNote, setReviewNote] = useState("");
 
   return <article className="border border-white/10 bg-white/[.025] p-4">
     <div className="flex items-start justify-between gap-3">
@@ -88,6 +92,11 @@ function MatchCard({
     {existing && <p className="mt-2 text-xs font-bold text-emerald-300">
       Saved: {existing.resultType === "No Contest" ? `${participantA} remains in the higher league` : `${existing.winner} wins`}
     </p>}
+    <details className="mt-4 border-t border-white/10 pt-3">
+      <summary className="cursor-pointer text-xs font-bold uppercase text-amber-300">Mark as Manual Review</summary>
+      <textarea aria-label={`Review note for ${match.id}`} value={reviewNote} onChange={(event) => setReviewNote(event.target.value)} className="mt-3 min-h-20 w-full border border-white/10 bg-[#080b11] p-2 text-sm" placeholder="Observed issue or reason for user decision" />
+      <button type="button" disabled={disabled || !reviewNote.trim()} onClick={() => { onReview(match, reviewNote); setReviewNote(""); }} className="mt-2 border border-amber-400/40 px-3 py-2 text-xs font-black uppercase disabled:opacity-40">Open Manual Review</button>
+    </details>
   </article>;
 }
 
@@ -125,7 +134,7 @@ export function LeagueFinals(props: LeagueFinalsProps) {
   }
 
   function completeNight(night: FinalsNight) {
-    const errors = validateFinalsNightCompletion(night, allCardMatches, finalsResults);
+    const errors = validateFinalsNightCompletion(night, allCardMatches, finalsResults, state.manualReviews ?? []);
     if (errors.length) return setMessages(errors);
     updateState((current) => ({
       ...current,
@@ -135,6 +144,28 @@ export function LeagueFinals(props: LeagueFinalsProps) {
       ],
     }));
     setMessages([`${night} complete and locked.`]);
+  }
+
+  function openReview(match: LeagueFinalsMatch, note: string) {
+    const action = markManualReview(state, {
+      scope: "league-finals",
+      matchId: match.id,
+      league: match.higherLeague ?? "Global League",
+      weekOrEvent: match.night,
+      wrestlerA: resolveFinalsParticipants(match, finalsResults)[0] ?? "Unresolved participant",
+      wrestlerB: resolveFinalsParticipants(match, finalsResults)[1] ?? "Unresolved participant",
+      note,
+    });
+    if (!action.ok) return setMessages(action.errors);
+    updateState(() => action.state);
+    setMessages(["Manual Review opened. No result or finish type was assumed."]);
+  }
+
+  function clearReview(reviewId: string, status: "resolved" | "cleared") {
+    const action = closeManualReview(state, reviewId, status);
+    if (!action.ok) return setMessages(action.errors);
+    updateState(() => action.state);
+    setMessages([status === "resolved" ? "Manual Review resolved." : "Manual Review cleared."]);
   }
 
   const finalsComplete = completedNights.some((entry) => entry.night === "Night One")
@@ -178,7 +209,9 @@ export function LeagueFinals(props: LeagueFinalsProps) {
           <button type="button" disabled={!review.ready || complete} onClick={() => completeNight(night)} className="border border-white/20 px-4 py-2 text-xs font-black uppercase disabled:opacity-40">{complete ? "Complete" : `Mark ${night} complete`}</button>
         </div>
         <div className="grid gap-4 p-6 lg:grid-cols-2">
-          {card.map((match) => <MatchCard key={match.id} match={match} results={finalsResults} disabled={!review.ready || complete} onSave={saveResult} />)}
+          {card.map((match) => <div key={match.id}><MatchCard match={match} results={finalsResults} disabled={!review.ready || complete} onSave={saveResult} onReview={openReview} />
+            {(state.manualReviews ?? []).filter((item) => item.matchId === match.id && item.status === "open").map((item) => <div key={item.id} className="border border-amber-400/30 bg-amber-400/10 p-3 text-sm"><strong>Manual Review:</strong> {item.note}<div className="mt-2 flex gap-2"><button type="button" disabled={!finalsResults.some((result) => result.matchId === match.id)} onClick={() => clearReview(item.id, "resolved")} className="text-xs font-black uppercase underline disabled:opacity-40">Resolve with Winner/Loser</button><button type="button" onClick={() => clearReview(item.id, "cleared")} className="text-xs font-black uppercase underline">Clear Review</button></div></div>)}
+          </div>)}
         </div>
       </section>;
     })}

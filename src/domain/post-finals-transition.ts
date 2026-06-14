@@ -8,6 +8,7 @@ import {
 } from "./league-finals";
 import type { ConsequentialTieReview } from "./split-completion";
 import { LEAGUE_NAMES, type LeagueName, type StandingRow } from "./types";
+import type { ManualReview } from "./tracker-state";
 
 export type MovementKind =
   | "Champion/direct promotion"
@@ -84,6 +85,7 @@ export interface PostFinalsTransitionInput {
   champions: { league: LeagueName; wrestler: string }[];
   directMovements: DirectMovement[];
   hasAuthoritativeClosingSchedule: boolean;
+  manualReviews?: ManualReview[];
 }
 
 const tier = new Map<LeagueName, number>(LEAGUE_NAMES.map((league, index) => [league, index]));
@@ -153,6 +155,8 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
   invalidResults.push(...unknownResults.map((result) => `${result.matchId}: result has no authoritative League Finals match.`));
 
   const reviewRequired: string[] = [];
+  const openReviews = (input.manualReviews ?? []).filter((review) => review.status === "open");
+  if (openReviews.length) reviewRequired.push(`${openReviews.length} open Manual Review item(s) block Post-Finals Transition.`);
   const unresolvedTies = input.consequentialTies.filter(
     (tie) => tie.status === "Tiebreaker Match Required" || tie.status === "Review Required",
   );
@@ -220,7 +224,7 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
   }
 
   const openingSplitComplete = input.completedThroughWeek >= 22 && unresolvedTies.length === 0;
-  const finalsComplete = nightCompletion["Night One"] && nightCompletion["Night Two"]
+  const finalsComplete = openReviews.length === 0 && nightCompletion["Night One"] && nightCompletion["Night Two"]
     && missingResults.length === 0 && invalidResults.length === 0;
   const preliminaryCompositionErrors = validateComposition(assignments, input.standings);
   const unlocked = openingSplitComplete && finalsComplete && preliminaryCompositionErrors.length === 0;

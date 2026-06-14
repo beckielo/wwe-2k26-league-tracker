@@ -23,6 +23,23 @@ export interface CompletedWeek {
   completedAt: string;
 }
 
+export type ManualReviewStatus = "open" | "resolved" | "cleared";
+export type ManualReviewScope = "regular" | "league-finals";
+
+export interface ManualReview {
+  id: string;
+  scope: ManualReviewScope;
+  matchId: string;
+  league: LeagueName;
+  weekOrEvent: string;
+  wrestlerA: string;
+  wrestlerB: string;
+  note: string;
+  status: ManualReviewStatus;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
 export interface TrackerState {
   version: 1;
   confirmedResults: ConfirmedResult[];
@@ -32,6 +49,7 @@ export interface TrackerState {
   leagueFinalsResults?: LeagueFinalsResult[];
   completedFinalsNights?: { night: FinalsNight; completedAt: string }[];
   acceptedSchedule?: AcceptedScheduleSnapshot;
+  manualReviews?: ManualReview[];
 }
 
 export interface StateActionResult {
@@ -51,7 +69,28 @@ export function createEmptyTrackerState(): TrackerState {
     lastImportedAt: null,
     leagueFinalsResults: [],
     completedFinalsNights: [],
+    manualReviews: [],
   };
+}
+
+export function openManualReviews(state: TrackerState, scope?: ManualReviewScope): ManualReview[] {
+  return (state.manualReviews ?? []).filter((review) => review.status === "open" && (!scope || review.scope === scope));
+}
+
+export function markManualReview(state: TrackerState, review: Omit<ManualReview, "id" | "status" | "createdAt" | "resolvedAt">, createdAt = new Date().toISOString()): StateActionResult {
+  if (!review.note.trim()) return { ok: false, state, errors: ["Manual Review requires a note/reason."] };
+  if ((state.manualReviews ?? []).some((entry) => entry.matchId === review.matchId && entry.status === "open")) {
+    return { ok: false, state, errors: [`${review.matchId}: an open Manual Review already exists.`] };
+  }
+  const entry: ManualReview = { ...review, id: `review-${review.scope}-${review.matchId}-${createdAt}`, note: review.note.trim(), status: "open", createdAt, resolvedAt: null };
+  return { ok: true, errors: [], state: { ...state, manualReviews: [...(state.manualReviews ?? []), entry] } };
+}
+
+export function closeManualReview(state: TrackerState, reviewId: string, status: "resolved" | "cleared", resolvedAt = new Date().toISOString()): StateActionResult {
+  const review = (state.manualReviews ?? []).find((entry) => entry.id === reviewId);
+  if (!review) return { ok: false, state, errors: [`${reviewId}: Manual Review not found.`] };
+  if (review.status !== "open") return { ok: false, state, errors: [`${reviewId}: Manual Review is already ${review.status}.`] };
+  return { ok: true, errors: [], state: { ...state, manualReviews: (state.manualReviews ?? []).map((entry) => entry.id === reviewId ? { ...entry, status, resolvedAt } : entry) } };
 }
 
 export function isWeekLocked(state: TrackerState, week: number): boolean {
@@ -132,6 +171,9 @@ const resultByMatch = new Map(
 weekResults.map((result) => [result.matchId, result]),
 );
 const errors: string[] = [];
+for (const review of openManualReviews(state, "regular").filter((entry) => entry.weekOrEvent === `Week ${week}`)) {
+errors.push(`${review.matchId}: open Manual Review must be resolved or cleared before Week ${week} can be locked.`);
+}
 const resultCounts = new Map<string, number>();
 
 for (const result of weekResults) {

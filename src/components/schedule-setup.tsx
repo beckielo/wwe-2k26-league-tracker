@@ -19,10 +19,10 @@ export function ScheduleSetupView(props: Props) {
   const readiness = useMemo(() => {
     const splitReview = deriveSplitCompletionReview({ ...props });
     const finals = deriveLeagueFinalsReview({ completedThroughWeek: props.completedThroughWeek, standings: splitReview.finalRegularStandings, consequentialTies: splitReview.consequentialTies, hasLeagueFinalsTemplate: props.hasLeagueFinalsTemplate });
-    const transition = derivePostFinalsTransition({ completedThroughWeek: props.completedThroughWeek, standings: splitReview.finalRegularStandings, consequentialTies: splitReview.consequentialTies, matches: [...finals.nightOne, ...finals.nightTwo], results: state.leagueFinalsResults ?? [], completedNights: state.completedFinalsNights ?? [], champions: finals.champions, directMovements: finals.directMovements, hasAuthoritativeClosingSchedule: false });
+    const transition = derivePostFinalsTransition({ completedThroughWeek: props.completedThroughWeek, standings: splitReview.finalRegularStandings, consequentialTies: splitReview.consequentialTies, matches: [...finals.nightOne, ...finals.nightTwo], results: state.leagueFinalsResults ?? [], completedNights: state.completedFinalsNights ?? [], champions: finals.champions, directMovements: finals.directMovements, hasAuthoritativeClosingSchedule: false, manualReviews: state.manualReviews });
     const seeds = assignContinuitySeeds(splitReview.finalRegularStandings, transition.leagueComposition);
     return { transition, seeds };
-  }, [props, state.completedFinalsNights, state.leagueFinalsResults]);
+  }, [props, state.completedFinalsNights, state.leagueFinalsResults, state.manualReviews]);
   const targetSplit: SplitName = props.split === "Opening Split" ? "Closing Split" : "Opening Split";
   const targetYear = props.split === "Opening Split" ? props.leagueYear : props.leagueYear + 1;
   const yearWeekStart = targetSplit === "Closing Split" ? 25 : 1;
@@ -38,7 +38,7 @@ export function ScheduleSetupView(props: Props) {
   const exportJson = () => { const blob = new Blob([JSON.stringify({ matches: preview }, null, 2)], { type: "application/json" }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `league-year-${targetYear}-${targetSplit.toLowerCase().replaceAll(" ", "-")}-schedule.json`; link.click(); URL.revokeObjectURL(link.href); };
   if (!hydrated) return <p>Loading schedule readiness…</p>;
   const transitionValid = readiness.transition.unlocked && readiness.transition.compositionValid;
-  const unlocked = canActivateNextWeek({ transitionValid, seedsValid: readiness.seeds.valid, acceptedSchedule: state.acceptedSchedule, target: targetSplit === "Closing Split" ? "Closing Split Week 1" : "New League Year Week 1" });
+  const unlocked = canActivateNextWeek({ transitionValid, seedsValid: readiness.seeds.valid, acceptedSchedule: state.acceptedSchedule, target: targetSplit === "Closing Split" ? "Closing Split Week 1" : "New League Year Week 1", hasOpenManualReviews: (state.manualReviews ?? []).some((review) => review.status === "open") });
 
   return <div className="space-y-8">
     <section className="grid gap-4 md:grid-cols-3">{[["Phase 9B transition", transitionValid], ["Phase 9.5 seeds", readiness.seeds.valid], [targetSplit === "Closing Split" ? "Week 25 activation" : "New Year Week 1 activation", unlocked]].map(([label, valid]) => <div key={String(label)} className={`border p-5 ${valid ? "border-emerald-400/30 bg-emerald-400/10" : "border-amber-400/30 bg-amber-400/10"}`}><p className="text-xs font-black uppercase">{label}</p><strong className="mt-2 block">{valid ? "Ready" : "Blocked"}</strong></div>)}</section>
