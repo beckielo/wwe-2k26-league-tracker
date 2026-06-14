@@ -27,6 +27,7 @@ export type FinalizationResult = {
 
 type CommandResult = { status: number; stdout: string; stderr: string };
 type CommandRunner = (command: string, args: string[], cwd: string) => CommandResult;
+type NpmCommand = { command: "npm" | "npm.cmd"; args: string[]; display: string };
 
 const runCommand: CommandRunner = (command, args, cwd) => {
   const result = spawnSync(command, args, { cwd, encoding: "utf8", shell: false });
@@ -39,6 +40,18 @@ const runCommand: CommandRunner = (command, args, cwd) => {
 
 function outputOf(result: CommandResult): string {
   return [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
+}
+
+export function buildNpmCommand(
+  args: string[],
+  platform: NodeJS.Platform = process.platform,
+): NpmCommand {
+  const command = platform === "win32" ? "npm.cmd" : "npm";
+  return { command, args, display: `npm ${args.join(" ")}` };
+}
+
+function commandOutput(command: NpmCommand, result: CommandResult): string {
+  return [`$ ${command.display}`, outputOf(result)].filter(Boolean).join("\n");
 }
 
 function restoreNextEnv(projectRoot: string, runner: CommandRunner): void {
@@ -94,10 +107,11 @@ function isPromotionBackupPath(filePath: string): boolean {
 export function finalizeCurrentMaster(
   projectRoot: string,
   week: number,
-  options: { enabled?: boolean; runner?: CommandRunner } = {},
+  options: { enabled?: boolean; runner?: CommandRunner; platform?: NodeJS.Platform } = {},
 ): FinalizationResult {
   const enabled = options.enabled ?? process.env.ALLOW_LOCAL_GIT_AUTOMATION === "true";
   const runner = options.runner ?? runCommand;
+  const platform = options.platform ?? process.platform;
   const logs: StepLog[] = [];
   const disabledMessage =
     "Git finalization is disabled. Set ALLOW_LOCAL_GIT_AUTOMATION=true before starting npm run dev.";
@@ -153,10 +167,12 @@ export function finalizeCurrentMaster(
     ["Tests", ["test"]],
     ["Build", ["run", "build"]],
   ] as const) {
-    const result = runner("npm", [...args], projectRoot);
+    const command = buildNpmCommand([...args], platform);
+    const result = runner(command.command, command.args, projectRoot);
     restoreNextEnv(projectRoot, runner);
-    if (result.status !== 0) return fail(step, `${step} failed.`, outputOf(result));
-    logs.push({ step, status: "success", output: outputOf(result) || `${step} passed.` });
+    const output = commandOutput(command, result);
+    if (result.status !== 0) return fail(step, `${step} failed.`, output);
+    logs.push({ step, status: "success", output: output || `${step} passed.` });
   }
 
   const workbookChanges = changedPaths.filter(isAllowedWorkbookPath);
