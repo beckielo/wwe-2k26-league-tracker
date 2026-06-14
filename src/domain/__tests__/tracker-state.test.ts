@@ -139,6 +139,32 @@ describe("standings and state portability", () => {
     expect(imported.state.lastImportedAt).toBe("2026-06-12T03:00:00.000Z");
   });
 
+  it("preserves an accepted schedule snapshot through state rehydration", () => {
+    const original = {
+      ...createEmptyTrackerState(),
+      acceptedSchedule: {
+        matches: [],
+        acceptedAt: "2026-06-14T12:00:00.000Z",
+        acceptedBy: "local user workflow" as const,
+        source: "Generated" as const,
+        leagueYear: 2,
+        split: "Closing Split" as const,
+        seedSource: "Phase 9.5 continuity seeds",
+        rosterSource: "Phase 9B post-finals composition",
+        generatorVersion: "1.0.0",
+        validation: { valid: true, status: "Valid" as const, errors: [], warnings: [], totalMatches: 528 },
+      },
+    };
+
+    const stored = JSON.stringify(original);
+    const rehydrated = JSON.parse(stored);
+    expect(rehydrated.acceptedSchedule).toEqual(original.acceptedSchedule);
+
+    const imported = importTrackerState(stored, [], "National League", "2026-06-14T13:00:00.000Z");
+    expect(imported.ok).toBe(true);
+    expect(imported.state.acceptedSchedule).toEqual(original.acceptedSchedule);
+  });
+
   it("resets local tracker state", () => {
     expect(resetTrackerState()).toEqual(createEmptyTrackerState());
   });
