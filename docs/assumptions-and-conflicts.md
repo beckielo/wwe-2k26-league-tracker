@@ -198,6 +198,14 @@ The following checks found no current-data conflict:
 - Generated and imported schedules are preview-only until Phase 9B is valid, Phase 9.5 seeds are valid, structural validation passes, and the local user explicitly accepts/promotes the snapshot. Acceptance records source, versions, sources, timestamp, target year/split, and validation metadata.
 - An accepted snapshot is a separate app-state/export artifact. It does not mutate the original Excel workbook and never overwrites already-created or already-played workbook schedules or results. Closing Split Week 1 (Year Week 25) or a new League Year Week 1 remains blocked until the correctly targeted schedule snapshot is accepted; acceptance does not auto-start or auto-lock a week.
 
+## Phase 9.6.1 — Schedule Acceptance, Persistence, and Feedback
+
+- A generated or imported preview is transient and is **not authoritative**. It can be promoted only by an explicit **Accept / promote snapshot** click after Phase 9B Transition, Phase 9.5 seeds, all 528 fixtures, schedule validation, and blocking Manual Review checks are ready.
+- Acceptance is blocked when no preview exists, validation is not valid, a blocking Manual Review is open, either prerequisite phase is not ready, or an existing accepted snapshot has not been explicitly approved for replacement. The Schedule Setup UI displays the applicable blocking reason instead of silently disabling the action.
+- The accepted snapshot is persisted in the existing browser tracker state and displayed separately from any transient preview. It records acceptance time, target league year and split, match count, validation status, source, and the available generator/importer version.
+- After explicit acceptance, the persisted snapshot becomes the schedule source for the next split/year and makes the applicable Week 25 or new-year Week 1 activation available. Acceptance does not start a week, lock a week, mutate the source workbook, or bypass the existing safe promotion/finalization workflow.
+- Reloading before acceptance may discard the transient preview; in that case the UI reports that no preview exists. Reloading after acceptance retains the accepted snapshot and activation readiness without requiring schedule regeneration.
+
 ## Phase 9.7 — Manual Review, History, and Rulebook UI
 
 - Standard result entry is deliberately winner/loser only. The tracker does not require or infer Pinfall, Submission, DQ, Countout, No Contest, or any other finish type for a normal match.

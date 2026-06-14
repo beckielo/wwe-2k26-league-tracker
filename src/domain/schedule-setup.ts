@@ -8,7 +8,7 @@ export interface GeneratedScheduleMatch {
   id: string; leagueYear: number; split: SplitName; splitWeek: number; yearWeek?: number;
   league: LeagueName; wrestlerA: string; wrestlerB: string; seedA: number; seedB: number;
   leg: "Hinrunde" | "Rückrunde"; source: "Generated" | "Imported";
-  generatedAt: string; generatorVersion: string; validationStatus: "Preview" | "Valid" | "Review Required";
+  generatedAt: string; generatorVersion?: string; importerVersion?: string; validationStatus: "Preview" | "Valid" | "Review Required";
 }
 export interface ScheduleSetupInput {
   leagueYear: number; split: SplitName; seeds: Record<LeagueName, ScheduleSeed[]>;
@@ -22,6 +22,21 @@ export interface AcceptedScheduleSnapshot {
   matches: GeneratedScheduleMatch[]; acceptedAt: string; acceptedBy: "local user workflow";
   generatorVersion?: string; importerVersion?: string; source: "Generated" | "Imported";
   leagueYear: number; split: SplitName; seedSource: string; rosterSource: string; validation: ScheduleValidation;
+}
+
+export interface ScheduleAcceptanceInput {
+  transitionReady: boolean;
+  seedsReady: boolean;
+  preview: GeneratedScheduleMatch[];
+  validation: ScheduleValidation;
+  hasBlockingManualReview: boolean;
+  hasAcceptedSnapshot: boolean;
+  replaceConfirmed: boolean;
+}
+
+export interface ScheduleAcceptanceStatus {
+  enabled: boolean;
+  disabledReason: string | null;
 }
 
 const slug = (value: string) => value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -114,9 +129,42 @@ export function importScheduleJson(json: string, context: ScheduleValidationCont
   const matches = rows.map((raw) => {
     const row = raw as Partial<GeneratedScheduleMatch>;
     const league = leagueLookup.get(String(row.league ?? "").trim().toLowerCase()) ?? row.league as LeagueName;
-    return { ...row, league, wrestlerA: nameLookup.get(`${league}:${String(row.wrestlerA ?? "").trim().toLowerCase()}`) ?? String(row.wrestlerA ?? "").trim(), wrestlerB: nameLookup.get(`${league}:${String(row.wrestlerB ?? "").trim().toLowerCase()}`) ?? String(row.wrestlerB ?? "").trim(), source: "Imported", generatorVersion: row.generatorVersion ?? SCHEDULE_IMPORTER_VERSION } as GeneratedScheduleMatch;
+    return { ...row, league, wrestlerA: nameLookup.get(`${league}:${String(row.wrestlerA ?? "").trim().toLowerCase()}`) ?? String(row.wrestlerA ?? "").trim(), wrestlerB: nameLookup.get(`${league}:${String(row.wrestlerB ?? "").trim().toLowerCase()}`) ?? String(row.wrestlerB ?? "").trim(), source: "Imported", importerVersion: row.importerVersion ?? SCHEDULE_IMPORTER_VERSION } as GeneratedScheduleMatch;
   });
   return { matches, validation: validateSchedule(matches, context) };
+}
+
+export function getScheduleAcceptanceStatus(input: ScheduleAcceptanceInput): ScheduleAcceptanceStatus {
+  if (!input.transitionReady) return { enabled: false, disabledReason: "Phase 9B Transition must be ready." };
+  if (!input.seedsReady) return { enabled: false, disabledReason: "Phase 9.5 Seeds must be ready." };
+  if (input.preview.length === 0) return { enabled: false, disabledReason: "Generate or import a valid schedule preview first." };
+  if (!input.validation.valid || input.validation.totalMatches !== 528) return { enabled: false, disabledReason: "Validation must be valid before acceptance." };
+  if (input.hasBlockingManualReview) return { enabled: false, disabledReason: "Resolve blocking Manual Review items first." };
+  if (input.hasAcceptedSnapshot && !input.replaceConfirmed) return { enabled: false, disabledReason: "Existing accepted snapshot present — check replace box to overwrite." };
+  return { enabled: true, disabledReason: null };
+}
+
+export function createAcceptedScheduleSnapshot(input: {
+  preview: GeneratedScheduleMatch[];
+  validation: ScheduleValidation;
+  acceptedAt?: string;
+  leagueYear: number;
+  split: SplitName;
+}): AcceptedScheduleSnapshot {
+  const source = input.preview[0]?.source ?? "Generated";
+  return {
+    matches: input.preview.map((match) => ({ ...match, validationStatus: "Valid" })),
+    acceptedAt: input.acceptedAt ?? new Date().toISOString(),
+    acceptedBy: "local user workflow",
+    source,
+    leagueYear: input.leagueYear,
+    split: input.split,
+    seedSource: "Phase 9.5 continuity seeds",
+    rosterSource: "Phase 9B post-finals composition",
+    generatorVersion: source === "Generated" ? input.preview[0]?.generatorVersion : undefined,
+    importerVersion: source === "Imported" ? input.preview[0]?.importerVersion : undefined,
+    validation: input.validation,
+  };
 }
 
 export function canActivateNextWeek(input: { transitionValid: boolean; seedsValid: boolean; acceptedSchedule?: AcceptedScheduleSnapshot; target: "Closing Split Week 1" | "New League Year Week 1"; hasOpenManualReviews?: boolean }): boolean {

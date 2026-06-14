@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LEAGUE_NAMES, type LeagueName } from "../types";
-import { canActivateNextWeek, generateSchedule, importScheduleJson, validateSchedule, type ScheduleSeed } from "../schedule-setup";
+import { canActivateNextWeek, createAcceptedScheduleSnapshot, generateSchedule, getScheduleAcceptanceStatus, importScheduleJson, validateSchedule, type ScheduleSeed } from "../schedule-setup";
 
 const seeds = Object.fromEntries(LEAGUE_NAMES.map((league, leagueIndex) => [league, Array.from({ length: 12 }, (_, i) => ({ seed: i + 1, wrestler: `L${leagueIndex + 1} Wrestler ${i + 1}` }))])) as Record<LeagueName, ScheduleSeed[]>;
 const rosters = Object.fromEntries(LEAGUE_NAMES.map((league) => [league, seeds[league].map((row) => row.wrestler)])) as Record<LeagueName, string[]>;
@@ -69,5 +69,58 @@ describe("Phase 9.6 schedule setup", () => {
     expect(canActivateNextWeek({ transitionValid: false, seedsValid: true, acceptedSchedule: accepted, target: "Closing Split Week 1" })).toBe(false);
     expect(canActivateNextWeek({ transitionValid: true, seedsValid: true, acceptedSchedule: accepted, target: "Closing Split Week 1" })).toBe(true);
     expect(canActivateNextWeek({ transitionValid: true, seedsValid: true, acceptedSchedule: accepted, target: "New League Year Week 1" })).toBe(false);
+  });
+
+  it("uses explicit, complete acceptance gating for generated and imported previews", () => {
+    const preview = build();
+    const validation = validateSchedule(preview, { rosters });
+    const ready = {
+      transitionReady: true,
+      seedsReady: true,
+      preview,
+      validation,
+      hasBlockingManualReview: false,
+      hasAcceptedSnapshot: false,
+      replaceConfirmed: false,
+    };
+
+    expect(getScheduleAcceptanceStatus({ ...ready, preview: [], validation: validateSchedule([], { rosters }) })).toEqual({
+      enabled: false,
+      disabledReason: "Generate or import a valid schedule preview first.",
+    });
+    expect(getScheduleAcceptanceStatus({ ...ready, preview: preview.slice(1), validation: validateSchedule(preview.slice(1), { rosters }) }).disabledReason).toBe("Validation must be valid before acceptance.");
+    expect(getScheduleAcceptanceStatus(ready)).toEqual({ enabled: true, disabledReason: null });
+
+    const imported = importScheduleJson(JSON.stringify(preview), { rosters });
+    expect(getScheduleAcceptanceStatus({ ...ready, preview: imported.matches, validation: imported.validation }).enabled).toBe(true);
+    expect(getScheduleAcceptanceStatus({ ...ready, hasBlockingManualReview: true }).disabledReason).toBe("Resolve blocking Manual Review items first.");
+    expect(getScheduleAcceptanceStatus({ ...ready, hasAcceptedSnapshot: true }).disabledReason).toBe("Existing accepted snapshot present — check replace box to overwrite.");
+    expect(getScheduleAcceptanceStatus({ ...ready, hasAcceptedSnapshot: true, replaceConfirmed: true }).enabled).toBe(true);
+  });
+
+  it("creates accepted snapshot metadata without mutating the preview", () => {
+    const preview = build();
+    const original = structuredClone(preview);
+    const validation = validateSchedule(preview, { rosters });
+    const accepted = createAcceptedScheduleSnapshot({
+      preview,
+      validation,
+      acceptedAt: "2026-06-14T12:00:00.000Z",
+      leagueYear: 2,
+      split: "Closing Split",
+    });
+
+    expect(preview).toEqual(original);
+    expect(accepted).toMatchObject({
+      acceptedAt: "2026-06-14T12:00:00.000Z",
+      leagueYear: 2,
+      split: "Closing Split",
+      source: "Generated",
+      generatorVersion: "1.0.0",
+      validation: { valid: true, status: "Valid", totalMatches: 528 },
+    });
+    expect(accepted.matches).toHaveLength(528);
+    expect(accepted.matches.every((match) => match.validationStatus === "Valid")).toBe(true);
+    expect(canActivateNextWeek({ transitionValid: true, seedsValid: true, acceptedSchedule: accepted, target: "Closing Split Week 1" })).toBe(true);
   });
 });
