@@ -58,7 +58,7 @@ export function buildNpmCommand(
 ): NpmCommand {
   const display = `npm ${args.join(" ")}`;
   if (platform === "win32") {
-    return { command: "cmd.exe", args: ["/d", "/s", "/c", `"${display}"`], display };
+    return { command: "cmd.exe", args: ["/d", "/s", "/c", "npm.cmd", ...args], display };
   }
   return { command: "npm", args, display };
 }
