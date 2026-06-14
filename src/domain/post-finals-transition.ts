@@ -248,10 +248,20 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
     const runnerUp = eliteParticipants.find((participant) => participant && participant !== eliteResult.winner);
     if (runnerUp) legacyFacts.push({ label: "Global Elite Cup Runner-up", wrestler: runnerUp, detail: "Elite Cup finalist." });
   }
+  for (const movement of input.directMovements) {
+    legacyFacts.push({
+      label: movement.reason === "Direct promotion" ? "Direct Promotion" : "Direct Relegation",
+      wrestler: movement.wrestler,
+      detail: `${movement.fromLeague} → ${movement.toLeague}.`,
+    });
+  }
   for (const outcome of relegationOutcomes) {
     if (outcome.winner && outcome.loser) {
       legacyFacts.push({ label: "Relegation Match Winner", wrestler: outcome.winner, detail: outcome.matchId });
       legacyFacts.push({ label: "Relegation Match Loser", wrestler: outcome.loser, detail: outcome.matchId });
+      if (outcome.outcome === "Higher retained") {
+        legacyFacts.push({ label: "Successful League Retention", wrestler: outcome.higherLeagueWrestler, detail: outcome.matchId });
+      }
     } else if (outcome.outcome === "No Contest retention") {
       legacyFacts.push({ label: "Successful League Retention", wrestler: outcome.higherLeagueWrestler, detail: "Retained higher league after No Contest / unclear ending." });
     }
