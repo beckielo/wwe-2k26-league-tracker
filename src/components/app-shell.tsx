@@ -23,7 +23,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           <nav aria-label="Main navigation">
             {groups.map((group) => <div className="nav-group" key={group.label}>
               <p>{group.label}</p>
-              <div>{group.links.map(([label, href]) => <Link key={href} href={href} className={pathname === href ? "active" : ""} aria-current={pathname === href ? "page" : undefined}>{label}</Link>)}</div>
+              <div>{group.links.map(([label, href]) => {
+                const active = pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
+                return <Link key={href} href={href} className={active ? "active" : ""} aria-current={active ? "page" : undefined}>{label}</Link>;
+              })}</div>
             </div>)}
           </nav>
         </details>
