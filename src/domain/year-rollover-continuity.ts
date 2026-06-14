@@ -66,6 +66,7 @@ interface YearRolloverInput {
   previousFinalStandings: StandingRow[];
   transition: PostFinalsTransition;
   nextSchedule: Match[];
+  hasOpenManualReviews?: boolean;
 }
 
 const tier = new Map<LeagueName, number>(LEAGUE_NAMES.map((league, index) => [league, index]));
@@ -189,13 +190,13 @@ export function deriveYearRolloverContinuity(input: YearRolloverInput): YearRoll
   const postFinalsTransitionValid = input.transition.unlocked && input.transition.compositionValid;
   const seedContinuity = assignContinuitySeeds(input.previousFinalStandings, input.transition.leagueComposition);
   const scheduleReadiness = validateNextSplitSchedule(input.nextSchedule, input.transition.leagueComposition);
-  const setupAllowed = input.transition.finalsComplete
+  const setupAllowed = !input.hasOpenManualReviews && input.transition.finalsComplete
     && postFinalsTransitionValid
     && seedContinuity.valid
     && scheduleReadiness.ready;
   const nextSplit = input.split === "Opening Split" ? "Closing Split" : "Opening Split";
   const nextLeagueYear = input.split === "Closing Split" ? input.leagueYear + 1 : input.leagueYear;
-  const nextAction: NextContinuityAction = !input.transition.finalsComplete
+  const nextAction: NextContinuityAction = input.hasOpenManualReviews || !input.transition.finalsComplete
     ? "Complete League Finals first"
     : !postFinalsTransitionValid
       ? "Complete Post-Finals Transition first"

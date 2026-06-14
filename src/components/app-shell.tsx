@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { ManualReviewBanner } from "./manual-review-banner";
 
 const nav = [
 ["Dashboard", "/"],
@@ -15,6 +16,8 @@ const nav = [
 ["Simulation", "/simulation"],
 ["Week Review", "/week-review"],
 ["Result Entry", "/results"],
+["History", "/history"],
+["Rulebook", "/rulebook"],
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -44,6 +47,7 @@ return ( <div className="min-h-screen"> <header className="sticky top-0 z-20 bor
       </nav>
     </div>
   </header>
+  <ManualReviewBanner />
 
   <main className="mx-auto max-w-[1500px] px-5 py-8 lg:px-10 lg:py-12">
     {children}

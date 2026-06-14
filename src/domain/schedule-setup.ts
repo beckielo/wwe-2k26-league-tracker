@@ -119,7 +119,7 @@ export function importScheduleJson(json: string, context: ScheduleValidationCont
   return { matches, validation: validateSchedule(matches, context) };
 }
 
-export function canActivateNextWeek(input: { transitionValid: boolean; seedsValid: boolean; acceptedSchedule?: AcceptedScheduleSnapshot; target: "Closing Split Week 1" | "New League Year Week 1" }): boolean {
-  return input.transitionValid && input.seedsValid && Boolean(input.acceptedSchedule?.validation.valid)
+export function canActivateNextWeek(input: { transitionValid: boolean; seedsValid: boolean; acceptedSchedule?: AcceptedScheduleSnapshot; target: "Closing Split Week 1" | "New League Year Week 1"; hasOpenManualReviews?: boolean }): boolean {
+  return !input.hasOpenManualReviews && input.transitionValid && input.seedsValid && Boolean(input.acceptedSchedule?.validation.valid)
     && (input.target === "Closing Split Week 1" ? input.acceptedSchedule?.split === "Closing Split" : input.acceptedSchedule?.split === "Opening Split");
 }

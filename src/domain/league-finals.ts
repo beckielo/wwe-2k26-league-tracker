@@ -1,5 +1,6 @@
 import type { ConsequentialTieReview } from "./split-completion";
 import type { LeagueName, StandingRow } from "./types";
+import type { ManualReview } from "./tracker-state";
 
 export type FinalsNight = "Night One" | "Night Two";
 export type FinalsMatchKind = "Relegation" | "Elite Cup Semifinal" | "Elite Cup Final";
@@ -236,9 +237,13 @@ export function validateFinalsNightCompletion(
   night: FinalsNight,
   matches: LeagueFinalsMatch[],
   results: LeagueFinalsResult[],
+  manualReviews: ManualReview[] = [],
 ): string[] {
-  return matches.filter((match) => match.night === night && match.authoritative).flatMap((match) => {
+  const errors = matches.filter((match) => match.night === night && match.authoritative).flatMap((match) => {
     const result = results.find((candidate) => candidate.matchId === match.id);
     return result ? validateLeagueFinalsResult(result, matches, results) : [`${match.id}: result is required.`];
   });
+  errors.push(...manualReviews.filter((review) => review.scope === "league-finals" && review.status === "open" && review.weekOrEvent === night)
+    .map((review) => `${review.matchId}: open Manual Review must be resolved or cleared before ${night} can be completed.`));
+  return errors;
 }

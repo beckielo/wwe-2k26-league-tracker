@@ -3,7 +3,9 @@
 import { useMemo, useState, type FormEvent } from "react";
 import {
 confirmResult,
+closeManualReview,
 isWeekLocked,
+markManualReview,
 removeResult,
 upsertResult,
 type ConfirmedResultType,
@@ -28,6 +30,7 @@ const [message, setMessage] = useState<{
 tone: "success" | "error";
 text: string;
 } | null>(null);
+const [reviewNote, setReviewNote] = useState("");
 
 const selected = useMemo(
 () => matches.find((match) => match.id === matchId),
@@ -47,6 +50,9 @@ const effectiveWinner = dirty
 : existing?.winner ?? winner;
 
 const weekLocked = selected ? isWeekLocked(state, selected.week) : false;
+const openReview = (state.manualReviews ?? []).find(
+(review) => review.matchId === matchId && review.status === "open",
+);
 
 function chooseMatch(id: string) {
 const match = matches.find((item) => item.id === id);
@@ -130,6 +136,35 @@ setMessage({
 
 }
 
+function createReview() {
+if (!selected) return;
+const action = markManualReview(state, {
+scope: "regular",
+matchId: selected.id,
+league: selected.league,
+weekOrEvent: `Week ${selected.week}`,
+wrestlerA: selected.wrestlerA,
+wrestlerB: selected.wrestlerB,
+note: reviewNote,
+});
+if (!action.ok) return setMessage({ tone: "error", text: action.errors.join(" ") });
+replaceState(action.state);
+setReviewNote("");
+setMessage({ tone: "success", text: "Manual Review opened. No result or finish type was assumed." });
+}
+
+function closeReview(status: "resolved" | "cleared") {
+if (!openReview) return;
+if (status === "resolved" && !existing) {
+setMessage({ tone: "error", text: "Select and save a normal winner/loser before resolving this review." });
+return;
+}
+const action = closeManualReview(state, openReview.id, status);
+if (!action.ok) return setMessage({ tone: "error", text: action.errors.join(" ") });
+replaceState(action.state);
+setMessage({ tone: "success", text: status === "resolved" ? "Review resolved with the saved winner/loser." : "Review cleared; any valid saved result remains unchanged." });
+}
+
 if (!hydrated) {
 return ( <div className="p-6 text-sm text-slate-500">
 Loading local tracker state… </div>
@@ -163,30 +198,8 @@ Review before editing. </div>
     </select>
   </div>
 
-  <div>
-    <label
-      className="mb-2 block text-[11px] font-bold uppercase tracking-[.16em] text-slate-500"
-      htmlFor="result-type"
-    >
-      Result type
-    </label>
-    <select
-      id="result-type"
-      value={effectiveResultType}
-      disabled={weekLocked}
-      onChange={(event) => {
-        setResultType(event.target.value as ConfirmedResultType);
-        setDirty(true);
-      }}
-      className="w-full border border-white/15 bg-[#0b1019] px-4 py-3 text-white disabled:opacity-50"
-    >
-      <option value="Winner">Winner</option>
-      <option value="Draw">Draw</option>
-      <option value="No Contest">No Contest</option>
-    </select>
-  </div>
-
-  {effectiveResultType === "Winner" && (
+  <p className="text-sm text-slate-400">Standard result entry records winner and loser only. No finish type or special outcome is assumed.</p>
+  {
     <fieldset disabled={weekLocked}>
       <legend className="mb-2 text-[11px] font-bold uppercase tracking-[.16em] text-slate-500">
         Winner
@@ -220,7 +233,7 @@ Review before editing. </div>
           ))}
       </div>
     </fieldset>
-  )}
+  }
 
   <div className="flex flex-wrap gap-3">
     <button
@@ -249,6 +262,27 @@ Review before editing. </div>
       {new Date(existing.confirmedAt).toLocaleString()}.
     </div>
   )}
+
+  <div className="border-t border-white/10 pt-5">
+    {openReview ? (
+      <div className="border border-amber-400/30 bg-amber-400/10 p-4">
+        <p className="text-xs font-black uppercase tracking-wider text-amber-300">Manual Review / Unclear Result</p>
+        <p className="mt-2 text-sm text-slate-200">{openReview.note}</p>
+        <p className="mt-1 text-xs text-slate-500">Opened {new Date(openReview.createdAt).toLocaleString()}</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button type="button" disabled={weekLocked || !existing} onClick={() => closeReview("resolved")} className="bg-emerald-500 px-3 py-2 text-xs font-black uppercase disabled:opacity-40">Resolve with Winner/Loser</button>
+          <button type="button" disabled={weekLocked} onClick={() => closeReview("cleared")} className="border border-white/20 px-3 py-2 text-xs font-black uppercase disabled:opacity-40">Clear Review</button>
+        </div>
+      </div>
+    ) : (
+      <details>
+        <summary className="cursor-pointer text-sm font-bold text-amber-300">Mark as Manual Review</summary>
+        <label htmlFor="review-note" className="mt-4 block text-xs font-bold uppercase tracking-wider text-slate-500">Review note</label>
+        <textarea id="review-note" value={reviewNote} onChange={(event) => setReviewNote(event.target.value)} className="mt-2 min-h-24 w-full border border-white/15 bg-[#0b1019] p-3" placeholder="Describe only what was observed or why a user decision is needed." />
+        <button type="button" disabled={weekLocked || !reviewNote.trim()} onClick={createReview} className="mt-3 border border-amber-400/40 px-4 py-2 text-xs font-black uppercase text-amber-200 disabled:opacity-40">Mark as Manual Review</button>
+      </details>
+    )}
+  </div>
 
   {message && (
     <div

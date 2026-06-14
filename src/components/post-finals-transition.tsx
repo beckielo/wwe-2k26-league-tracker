@@ -47,6 +47,7 @@ export function PostFinalsTransitionView(props: Props) {
     champions: finals.champions,
     directMovements: finals.directMovements,
     hasAuthoritativeClosingSchedule: props.hasAuthoritativeClosingSchedule,
+    manualReviews: state.manualReviews,
   }), [finals, props.completedThroughWeek, props.hasAuthoritativeClosingSchedule, splitReview, state]);
 
   if (!hydrated) return <div className="border border-white/10 p-6 text-slate-400">Loading Post-Finals Transition state…</div>;

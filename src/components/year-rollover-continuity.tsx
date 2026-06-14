@@ -49,6 +49,7 @@ export function YearRolloverContinuityView(props: Props) {
       champions: finals.champions,
       directMovements: finals.directMovements,
       hasAuthoritativeClosingSchedule: props.nextSchedule.length > 0,
+      manualReviews: state.manualReviews,
     });
     return deriveYearRolloverContinuity({
       leagueYear: props.leagueYear,
@@ -57,6 +58,7 @@ export function YearRolloverContinuityView(props: Props) {
       previousFinalStandings: splitReview.finalRegularStandings,
       transition,
       nextSchedule: props.nextSchedule,
+      hasOpenManualReviews: (state.manualReviews ?? []).some((review) => review.status === "open"),
     });
   }, [props, state]);
 
