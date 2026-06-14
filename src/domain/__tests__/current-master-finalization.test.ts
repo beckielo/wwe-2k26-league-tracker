@@ -37,6 +37,7 @@ function runner(statusOutput: string, overrides: Record<string, Reply> = {}) {
 }
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   for (const directory of directories.splice(0)) fs.rmSync(directory, { recursive: true, force: true });
 });
 
@@ -75,8 +76,36 @@ describe("current master finalization", () => {
     expect(result.ok).toBe(true);
     expect(run).toHaveBeenCalledWith("cmd.exe", ["/d", "/s", "/c", "npm.cmd", "run", "lint"], root);
     expect(run).toHaveBeenCalledWith("cmd.exe", ["/d", "/s", "/c", "npm.cmd", "test"], root);
-    expect(run).toHaveBeenCalledWith("cmd.exe", ["/d", "/s", "/c", "npm.cmd", "run", "build"], root);
+    expect(run).toHaveBeenCalledWith(
+      "cmd.exe",
+      ["/d", "/s", "/c", "npm.cmd", "run", "build"],
+      root,
+      expect.objectContaining({ NODE_ENV: "production" }),
+    );
     expect(result.logs.find((log) => log.step === "Lint")?.output).toContain("$ npm run lint");
+  });
+
+  it("uses a clean production environment only for the build", () => {
+    const { root, master } = setup();
+    const run = runner(`?? ${master}\0`);
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("NEXT_RUNTIME", "nodejs");
+    vi.stubEnv("__NEXT_PRIVATE_ORIGIN", "http://localhost:3000");
+
+    finalizeCurrentMaster(root, 16, {
+      enabled: true,
+      runner: run,
+      platform: "linux",
+    });
+
+    const lintCall = run.mock.calls.find(([, args]) => args.join(" ") === "run lint");
+    const testCall = run.mock.calls.find(([, args]) => args.join(" ") === "test");
+    const buildCall = run.mock.calls.find(([, args]) => args.join(" ") === "run build");
+    expect(lintCall).toHaveLength(3);
+    expect(testCall).toHaveLength(3);
+    expect(buildCall?.[3]).toMatchObject({ NODE_ENV: "production" });
+    expect(buildCall?.[3]).not.toHaveProperty("NEXT_RUNTIME");
+    expect(buildCall?.[3]).not.toHaveProperty("__NEXT_PRIVATE_ORIGIN");
   });
 
   it("returns a safe response when automation is disabled", () => {
@@ -163,6 +192,35 @@ describe("current master finalization", () => {
     expect(run).not.toHaveBeenCalledWith("git", expect.arrayContaining(["add"]), root);
     expect(run).not.toHaveBeenCalledWith("git", expect.arrayContaining(["commit"]), root);
     expect(run).not.toHaveBeenCalledWith("git", expect.arrayContaining(["push"]), root);
+  });
+
+  it("restores next-env.d.ts after a build modifies it", () => {
+    const { root, master } = setup();
+    const run = runner(`?? ${master}\0`);
+    run.mockImplementation((command: string, args: string[]) => {
+      const key = `${command} ${args.join(" ")}`;
+      if (key === "git branch --show-current") return { status: 0, stdout: "main\n", stderr: "" };
+      if (key === "git status --porcelain=v1 -z --untracked-files=all") {
+        return { status: 0, stdout: `?? ${master}\0`, stderr: "" };
+      }
+      if (key === "npm run build") {
+        fs.writeFileSync(path.join(root, "next-env.d.ts"), "modified by build");
+      }
+      if (key === "git restore -- next-env.d.ts") {
+        fs.writeFileSync(path.join(root, "next-env.d.ts"), "restored");
+      }
+      return { status: 0, stdout: "ok", stderr: "" };
+    });
+
+    const result = finalizeCurrentMaster(root, 16, {
+      enabled: true,
+      runner: run,
+      platform: "linux",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(fs.readFileSync(path.join(root, "next-env.d.ts"), "utf8")).toBe("restored");
+    expect(run).toHaveBeenCalledWith("git", ["restore", "--", "next-env.d.ts"], root);
   });
 
   it("uses a command code when status is unavailable", () => {
