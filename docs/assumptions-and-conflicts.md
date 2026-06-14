@@ -38,11 +38,13 @@ The next user show is National League, Opening Split Week 14. Its six matchups a
 ### C-003: Tiebreaker hierarchy differs from the old rulebook — resolved for League Year 2
 
 - **Historical PDF structure:** relevant tied positions proceed to decision matches without defining the active Year-2 pre-match hierarchy.
-- **Active League Year 2 order:** (1) points, (2) head-to-head, (3) longest winning streak, and (4) a tiebreaker match only if the wrestlers remain tied.
-- **Resolution:** implement this order for League Year 2 standings and tiebreak qualification. Seed is not an automatic tiebreak criterion.
-- **Remaining boundary:** the exact calculation of head-to-head for a tie involving three or more wrestlers is not specified. The application may identify the tied group and available head-to-head evidence, but must not invent a mini-table formula. If the first three active criteria still do not resolve a consequential tie, use a tiebreaker match; the exact multi-person match format remains case-specific unless documented.
-- **Phase 2A handling:** two-wrestler ties apply the active order directly. A 1–1 head-to-head advances to longest winning streak; if that is also tied, the UI marks `Tiebreaker match required`. Point-tie groups of three or more are shown as requiring review because no aggregation formula is documented. Winning-streak calculations treat a draw as a non-win that ends a streak, while no-contest and unclear outcomes are ignored until their encoding is confirmed.
-- **Status:** **resolved for two-wrestler ordered criteria; multi-wrestler head-to-head calculation and match format remain open**.
+- **Active two-wrestler order:** (1) points, (2) head-to-head, (3) longest winning streak, and (4) a tiebreaker match if still tied.
+- **Active multi-wrestler order (Phase 8.1):** (1) points, (2) longest winning streak, then (3) head-to-head only inside a remaining clean two-wrestler subgroup. Aggregate multi-man head-to-head mini-table formulas are not used unless explicitly documented later.
+- **Resolution:** seed never resolves a tie. A multi-man group fully separated by longest winning streak is `Resolved by Winning Streak`; a clean two-person streak subgroup may be `Resolved by Head-to-Head`. Remaining groups require a tiebreaker recommendation/status only, without fixture generation.
+- **Recommended unresolved formats:** three wrestlers use `Triple Threat Tiebreaker`, four use `Mini-Tournament` (semifinals + final), five use `Fatal 5-Way Tiebreaker`, and six use `Review Required` unless an explicit rule/template is added.
+- **Outcome handling:** draws end winning streaks. No Contest and unclear outcomes remain excluded from H2H/streak formulas unless authoritative workbook/app result rules encode them otherwise.
+- **Source boundary:** without an authoritative Week 23 schedule or matchup template, the application reviews and labels ties but does not generate fixtures.
+- **Status:** **resolved by the Phase 8.1 multi-man tiebreaker rule update**.
 
 ### C-004: Global Elite Cup semifinal seeding is explicitly open in the rulebook but fixed in the workbook template
 

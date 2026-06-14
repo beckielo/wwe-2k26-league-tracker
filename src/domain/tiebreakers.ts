@@ -58,6 +58,26 @@ export interface TiebreakDecision {
   longestStreakB: number;
 }
 
+export type MultiWrestlerTiebreakStatus =
+  | "Resolved by Winning Streak"
+  | "Resolved by Head-to-Head"
+  | "Tiebreaker Match Required"
+  | "Review Required";
+
+export type MultiWrestlerTiebreakFormat =
+  | "Triple Threat Tiebreaker"
+  | "Mini-Tournament"
+  | "Fatal 5-Way Tiebreaker"
+  | "Review Required";
+
+export interface MultiWrestlerTiebreakDecision {
+  status: MultiWrestlerTiebreakStatus;
+  orderedWrestlers: string[];
+  winner: string | null;
+  recommendedFormat: MultiWrestlerTiebreakFormat | null;
+  explanation: string;
+}
+
 export function calculateHeadToHead(
   wrestlerA: string,
   wrestlerB: string,
@@ -207,5 +227,79 @@ export function decideTwoWrestlerTiebreak(
     headToHead,
     longestStreakA,
     longestStreakB,
+  };
+}
+
+function recommendedMultiWrestlerFormat(count: number): MultiWrestlerTiebreakFormat {
+  if (count === 3) return "Triple Threat Tiebreaker";
+  if (count === 4) return "Mini-Tournament";
+  if (count === 5) return "Fatal 5-Way Tiebreaker";
+  return "Review Required";
+}
+
+export function decideMultiWrestlerTiebreak(
+  wrestlers: StandingRow[],
+  headToHeadRecords: HeadToHeadRecord[],
+  streakRecords: StreakRecord[],
+): MultiWrestlerTiebreakDecision {
+  const streakByWrestler = new Map(
+    streakRecords
+      .filter((record) => record.league === wrestlers[0]?.league)
+      .map((record) => [record.wrestler, record.longestWinningStreak]),
+  );
+  const streakGroups = new Map<number, StandingRow[]>();
+
+  for (const wrestler of wrestlers) {
+    const streak = streakByWrestler.get(wrestler.wrestler) ?? 0;
+    streakGroups.set(streak, [...(streakGroups.get(streak) ?? []), wrestler]);
+  }
+
+  const orderedGroups = [...streakGroups.entries()].sort(([streakA], [streakB]) => streakB - streakA);
+  const orderedWrestlers: string[] = [];
+  let usedHeadToHead = false;
+  let unresolved = false;
+
+  for (const [, group] of orderedGroups) {
+    if (group.length === 1) {
+      orderedWrestlers.push(group[0].wrestler);
+      continue;
+    }
+    if (group.length === 2) {
+      const headToHead = calculateHeadToHead(group[0].wrestler, group[1].wrestler, headToHeadRecords);
+      if (headToHead.leader) {
+        orderedWrestlers.push(
+          headToHead.leader,
+          headToHead.leader === group[0].wrestler ? group[1].wrestler : group[0].wrestler,
+        );
+        usedHeadToHead = true;
+        continue;
+      }
+    }
+    unresolved = true;
+    orderedWrestlers.push(...group.map((row) => row.wrestler));
+  }
+
+  if (!unresolved) {
+    return {
+      status: usedHeadToHead ? "Resolved by Head-to-Head" : "Resolved by Winning Streak",
+      orderedWrestlers,
+      winner: orderedWrestlers[0] ?? null,
+      recommendedFormat: null,
+      explanation: usedHeadToHead
+        ? "Longest winning streak ranked the group first; head-to-head resolved a remaining clean two-wrestler subgroup."
+        : "Longest winning streak separated every tied wrestler. Seed was not used.",
+    };
+  }
+
+  const recommendedFormat = recommendedMultiWrestlerFormat(wrestlers.length);
+  const status = recommendedFormat === "Review Required"
+    ? "Review Required"
+    : "Tiebreaker Match Required";
+  return {
+    status,
+    orderedWrestlers,
+    winner: null,
+    recommendedFormat,
+    explanation: "Longest winning streak did not fully separate the group. Aggregate multi-wrestler head-to-head mini-table formulas are not used.",
   };
 }
