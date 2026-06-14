@@ -1,0 +1,35 @@
+"use client";
+
+import { Panel } from "./ui";
+import { LEAGUE_NAMES, type Match } from "@/domain/types";
+import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
+import { useTrackerState } from "@/state/tracker-state-provider";
+
+const SHOW_LABELS = {
+  "Regional League": "Monday",
+  "National League": "Tuesday",
+  "Continental League": "Wednesday",
+  "Global League": "Friday",
+} as const;
+
+export function ActiveSchedule({ workbookMatches, workbookCurrentWeek }: { workbookMatches: Match[]; workbookCurrentWeek: number }) {
+  const { state, hydrated } = useTrackerState();
+  if (!hydrated) return <p className="text-slate-500">Loading active schedule…</p>;
+  const active = Boolean(state.activeWorkflow);
+  const week = active ? 25 : workbookCurrentWeek + 1;
+  const matches = getActiveWorkflowMatches(state, workbookMatches);
+  return <>
+    <div className="mb-6 border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+      <strong>{active ? "Closing Split Week 1" : "Workbook schedule"}</strong> · {active ? state.activeWorkflow?.scheduleSource : "Matchup_Reference"}
+    </div>
+    <div className="grid gap-6 xl:grid-cols-2">
+      {LEAGUE_NAMES.slice().reverse().map((league) => {
+        const rows = matches.filter((match) => match.league === league && match.week === week).sort((a, b) => a.matchNumber - b.matchNumber);
+        return <Panel key={league}>
+          <div className="flex items-center justify-between border-b border-white/10 p-5"><div><p className="text-[10px] font-bold uppercase tracking-[.2em] text-red-400">{SHOW_LABELS[league]}</p><h2 className="mt-1 text-xl font-black uppercase">{league}</h2></div><span className="text-xs text-slate-500">{rows.length} matches</span></div>
+          <div className="divide-y divide-white/10">{rows.map((match) => <div key={match.id} className="grid grid-cols-[2rem_1fr] gap-3 px-5 py-4"><span className="text-xs font-black text-slate-600">{match.matchNumber}</span><div><div className="flex items-center gap-2 font-bold"><span>{match.wrestlerA}</span><span className="text-[10px] italic text-red-400">VS</span><span>{match.wrestlerB}</span></div><p className="mt-1 text-[10px] uppercase tracking-wider text-slate-600">{active ? "Accepted snapshot · scheduled" : "Workbook reference · scheduled"}</p></div></div>)}</div>
+        </Panel>;
+      })}
+    </div>
+  </>;
+}

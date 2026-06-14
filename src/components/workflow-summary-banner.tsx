@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getWorkflowSummary } from "@/domain/week-progression";
 import type { LeagueName, Match } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
+import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 
 interface WorkflowSummaryBannerProps {
   matches: Match[];
@@ -23,7 +24,10 @@ export function WorkflowSummaryBanner({
     return <div className="border border-white/10 bg-[#111722] p-6 text-sm text-slate-500">Loading active workflow…</div>;
   }
 
-  const summary = getWorkflowSummary(state, matches, workbookCurrentWeek, userLeague);
+  const workflowMatches = getActiveWorkflowMatches(state, matches);
+  const workflowBaseline = state.activeWorkflow ? 24 : workbookCurrentWeek;
+  const workflowUserLeague = state.activeWorkflow?.userLeague ?? userLeague;
+  const summary = getWorkflowSummary(state, workflowMatches, workflowBaseline, workflowUserLeague);
   const progress = summary.progress;
 
   return (

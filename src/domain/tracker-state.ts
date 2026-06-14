@@ -49,7 +49,19 @@ export interface TrackerState {
   leagueFinalsResults?: LeagueFinalsResult[];
   completedFinalsNights?: { night: FinalsNight; completedAt: string }[];
   acceptedSchedule?: AcceptedScheduleSnapshot;
+  activeWorkflow?: ActiveWorkflow;
   manualReviews?: ManualReview[];
+}
+
+export interface ActiveWorkflow {
+  leagueYear: 2;
+  split: "Closing Split";
+  yearWeek: 25;
+  splitWeek: 1;
+  scheduleSource: "accepted generated snapshot" | "accepted imported snapshot";
+  acceptedScheduleAt: string;
+  activatedAt: string;
+  userLeague: LeagueName;
 }
 
 export interface StateActionResult {

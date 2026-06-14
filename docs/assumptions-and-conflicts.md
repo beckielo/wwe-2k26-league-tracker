@@ -216,3 +216,9 @@ The following checks found no current-data conflict:
 - GOAT scores, power rankings, prestige points, and subjective legacy formulas remain inactive unless an explicitly authoritative formula is approved.
 - The Rulebook / Changelog page is read-only. It summarizes active rules and source hierarchy and points to this conflict register for traceability; it cannot modify workbook or app rules.
 - **Status:** implemented for Phase 9.7 browser-local workflow; the original workbook remains unchanged.
+# Phase 9.6.2 — accepted schedule activation
+
+- A generated or imported schedule remains only a preview/accepted browser-local snapshot until the user explicitly selects **Start Closing Split / Activate Week 25**.
+- Week 25 activation is explicit and browser-local. It does not mutate, promote, finalize, or otherwise change the original Excel workbook.
+- After activation, the accepted League Year 2 Closing Split snapshot is the authoritative schedule source for the active weekly workflow beginning at Year Week 25 / Split Week 1.
+- Opening Split completion, League Finals, post-finals transition, year-rollover facts, accepted-snapshot metadata, prior results, and prior locks remain preserved. Activation creates no results and locks no show or week.

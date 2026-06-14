@@ -10,6 +10,7 @@ getWorkflowSummary,
 } from "@/domain/week-progression";
 import type { LeagueName, Match } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
+import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 
 interface ResultEntryWorkflowProps {
 matches: Match[];
@@ -32,11 +33,14 @@ Loading local tracker state… </div>
 );
 }
 
+const workflowMatches = getActiveWorkflowMatches(state, matches);
+const workflowBaseline = state.activeWorkflow ? 24 : workbookCurrentWeek;
+const workflowUserLeague = state.activeWorkflow?.userLeague ?? userLeague;
 const summary = getWorkflowSummary(
 state,
-matches,
-workbookCurrentWeek,
-userLeague,
+workflowMatches,
+workflowBaseline,
+workflowUserLeague,
 );
 
 const week = summary.activeWeek;
@@ -52,9 +56,9 @@ return ( <WorkflowSummaryBanner
 
 const userMatches = getActiveUserLeagueMatches(
 state,
-matches,
-workbookCurrentWeek,
-userLeague,
+workflowMatches,
+workflowBaseline,
+workflowUserLeague,
 );
 
 const userConfirmed = summary.userLeagueProgress?.confirmed ?? 0;
@@ -64,9 +68,9 @@ const userShowComplete = userMissing === 0;
 
 return (
 <> <div className="mb-8"> <WorkflowSummaryBanner
-       matches={matches}
-       workbookCurrentWeek={workbookCurrentWeek}
-       userLeague={userLeague}
+       matches={workflowMatches}
+       workbookCurrentWeek={workflowBaseline}
+       userLeague={workflowUserLeague}
        compact
      /> </div>
 
@@ -90,7 +94,7 @@ return (
     />
     <Stat
       label="Controlled league"
-      value={userLeague.replace(" League", "")}
+      value={workflowUserLeague.replace(" League", "")}
       detail={userWrestler}
     />
   </div>
@@ -102,7 +106,7 @@ return (
           Week {week} user show complete
         </p>
         <p className="mt-1 text-sm text-slate-300">
-          All {userMatches.length} {userLeague} results are confirmed.
+          All {userMatches.length} {workflowUserLeague} results are confirmed.
           Existing results remain editable until the week is locked.
         </p>
       </div>
@@ -123,12 +127,12 @@ return (
           Week {week} · next required user show
         </p>
         <h2 className="mt-2 text-2xl font-black uppercase">
-          {userLeague} result entry
+          {workflowUserLeague} result entry
         </h2>
       </div>
 
       {userMatches.length > 0 ? (
-        <ResultEntryForm matches={userMatches} userLeague={userLeague} />
+        <ResultEntryForm matches={userMatches} userLeague={workflowUserLeague} />
       ) : (
         <div className="p-6 text-slate-400">
           No authoritative user-league matches exist for this week.
@@ -148,7 +152,7 @@ return (
 
       <div className="space-y-4 p-6 text-sm leading-6 text-slate-300">
         <p>
-          Only the six authoritative {userLeague} matchups for active Week{" "}
+          Only the six authoritative {workflowUserLeague} matchups for active Week{" "}
           {week} are available here.
         </p>
         <p>
