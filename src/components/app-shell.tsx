@@ -11,6 +11,7 @@ const nav = [
 ["League Finals", "/league-finals"],
 ["Post-Finals", "/post-finals-transition"],
 ["Year Rollover", "/year-rollover"],
+["Schedule Setup", "/schedule-setup"],
 ["Simulation", "/simulation"],
 ["Week Review", "/week-review"],
 ["Result Entry", "/results"],

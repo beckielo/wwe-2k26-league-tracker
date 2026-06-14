@@ -1,6 +1,7 @@
 import { calculatePoints } from "./scoring";
 import type { LeagueName, Match, StandingRow } from "./types";
 import type { FinalsNight, LeagueFinalsResult } from "./league-finals";
+import type { AcceptedScheduleSnapshot } from "./schedule-setup";
 
 export type ConfirmedResultType = "Winner" | "Draw" | "No Contest";
 export type ConfirmedResultSource = "Manual" | "Simulation";
@@ -30,6 +31,7 @@ export interface TrackerState {
   lastImportedAt: string | null;
   leagueFinalsResults?: LeagueFinalsResult[];
   completedFinalsNights?: { night: FinalsNight; completedAt: string }[];
+  acceptedSchedule?: AcceptedScheduleSnapshot;
 }
 
 export interface StateActionResult {
