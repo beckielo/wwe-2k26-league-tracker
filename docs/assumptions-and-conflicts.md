@@ -275,3 +275,14 @@ The following checks found no current-data conflict:
 - Decorative league, event, and GWF assets are optional presentation layers with image-error fallbacks. They are used as masked, darkened, low-opacity environmental art rather than authoritative data.
 - The Schedule match preview reads only existing authoritative `Match` records and exposes split, split week, league, bout, wrestlers, show day, round, and source context. Its controls only browse the supplied card and do not generate matches.
 - The Dashboard remains compact and workflow-focused. It receives one controlled decorative hero accent but does not host the full match-preview experience.
+
+## Phase 10.7 — Legacy Table Visibility & Journalist Commentary
+
+- The workbook `Legacy_Tracker` sheet is the sole source for the restored `/legacy` table. Every existing workbook column is preserved: wrestler, current league, source GOAT status tier, league wins, Global Champion wins, Elite Cup wins, doubles, invincible splits, invincible Hinrunden, invincible Rückrunden, longest overall win streak, and the original journalist/GOAT note.
+- `/legacy` is linked directly from both the Dashboard and main navigation. The separate `/history` fact archive remains available and unchanged.
+- The source workbook's existing tier and row order are displayed as source data. Phase 10.7 does not create a new GOAT score, reorder the source table with a new formula, or change league rules.
+- New journalist commentary is derived only from populated legacy fields and optional, explicitly supplied historical checkpoints. Supported signals include recorded titles, Global titles, Elite Cup wins, doubles, winning streaks, invincible split/Hinrunde/Rückrunde runs, current league, and checkpoint-based improvement or decline.
+- Commentary categories are selected by a deterministic weighted priority model. Current categories include Dominant Champion, Elite Cup Specialist, Streak-Based Threat, Invincible Run Candidate, Hinrunde Dominance, Rückrunde Surge, Late-Season Collapse, Split-to-Split Improvement, Year-to-Year Legacy Growth, Global League Mainstay, and Lower League Climber.
+- Text and voice selection are deterministic for the complete source profile: a reload with unchanged stats returns the same comment, while a relevant source-stat change updates the output on the next render. No random reload behavior is used.
+- Evidence pills are emitted only for facts present in the profile. Missing titles, cups, promotions, relegations, finals, placements, or historical checkpoints are never inferred or mentioned as achievements.
+- The commentary input supports Hinrunde, mid-split, final, previous-split, and previous-year placements when authoritative checkpoint data becomes available. The current workbook does not expose those checkpoints in `Legacy_Tracker`, so Phase 10.7 does not fabricate or display them.

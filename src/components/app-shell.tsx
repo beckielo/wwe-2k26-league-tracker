@@ -10,7 +10,7 @@ const groups = [
   { label: "Workflow", links: [["Dashboard", "/", "shield"], ["Schedule", "/schedule", "calendar"], ["Result Entry", "/results", "result"], ["Week Review", "/week-review", "review"]] },
   { label: "Competition", links: [["Live Standings", "/live-standings", "table"], ["Standings", "/standings", "table"], ["H2H", "/head-to-head", "fight-card"], ["Streaks", "/streaks", "result"], ["Tiebreakers", "/tiebreakers", "belt"]] },
   { label: "Finals & Transition", links: [["League Finals", "/league-finals", "finals"], ["Post-Finals", "/post-finals-transition", "result"], ["Year Rollover", "/year-rollover", "history"], ["Schedule Setup", "/schedule-setup", "calendar"]] },
-  { label: "Records & Admin", links: [["History", "/history", "history"], ["Rulebook", "/rulebook", "rulebook"], ["Simulation", "/simulation", "simulation"]] },
+  { label: "Records & Admin", links: [["Legacy", "/legacy", "history"], ["History", "/history", "history"], ["Rulebook", "/rulebook", "rulebook"], ["Simulation", "/simulation", "simulation"]] },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {

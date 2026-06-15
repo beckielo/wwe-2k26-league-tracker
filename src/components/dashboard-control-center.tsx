@@ -76,6 +76,12 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
       <b aria-hidden>→</b>
     </InteractivePanel>
 
+    <InteractivePanel href="/legacy" className="legacy-quick-link league-global">
+      <span className="legacy-quick-rank" aria-hidden>Ⅰ</span>
+      <span><small>Career honours · streaks · invincible runs</small><strong>Open Legacy Table</strong></span>
+      <b aria-hidden>→</b>
+    </InteractivePanel>
+
     <div className="dashboard-primary-grid">
       <section className="fight-card-panel">
         <header className="fight-card-header">
