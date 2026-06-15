@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
+import { getWorkflowSummary } from "@/domain/week-progression";
 import { getWeekDisplay } from "@/domain/week-display";
 import type { LeagueName, Match, ValidationIssue } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
@@ -27,7 +28,9 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
   if (!hydrated) return <div className="dashboard-loading">Loading active league control…</div>;
 
   const matches = getActiveWorkflowMatches(state, props.workbookMatches);
-  const yearWeek = state.activeWorkflow?.yearWeek ?? props.workbookCompletedThroughWeek + 1;
+  const workflowBaseline = state.activeWorkflow ? 24 : props.workbookCompletedThroughWeek;
+  const summary = getWorkflowSummary(state, matches, workflowBaseline, state.activeWorkflow?.userLeague ?? props.userLeague);
+  const yearWeek = summary.activeWeek ?? state.activeWorkflow?.yearWeek ?? props.workbookCompletedThroughWeek + 1;
   const leagueYear = state.activeWorkflow?.leagueYear ?? props.leagueYear;
   const split = state.activeWorkflow?.split;
   const userLeague = state.activeWorkflow?.userLeague ?? props.userLeague;

@@ -650,25 +650,25 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
 
   <WeekReviewExports
     state={state}
-    allMatches={allMatches}
+    allMatches={workflowMatches}
     baselineStandings={baselineStandings}
-    userLeague={userLeague}
+    userLeague={workflowUserLeague}
     workbookCompletedThroughWeek={workbookCurrentWeek}
     source={sourceFile}
   />
   <SafeWorkbookUpdate
     state={state}
-    allMatches={allMatches}
+    allMatches={workflowMatches}
     baselineStandings={baselineStandings}
-    userLeague={userLeague}
+    userLeague={workflowUserLeague}
     workbookCompletedThroughWeek={workbookCurrentWeek}
     source={sourceFile}
   />
   <PromoteCurrentMaster
     state={state}
-    allMatches={allMatches}
+    allMatches={workflowMatches}
     baselineStandings={baselineStandings}
-    userLeague={userLeague}
+    userLeague={workflowUserLeague}
     workbookCompletedThroughWeek={workbookCurrentWeek}
     source={sourceFile}
   />
