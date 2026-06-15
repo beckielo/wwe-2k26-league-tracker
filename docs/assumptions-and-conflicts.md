@@ -258,3 +258,13 @@ The following checks found no current-data conflict:
 - Live Standings remains a dedicated `/live-standings` route, is visible in the main Competition navigation, has an `Open Live Table` Dashboard shortcut, and is linked from the detailed `/standings` page.
 - Placement styling remains presentation-only: ranks 1, 2, 3, and 4 have distinct gold, cyan/silver, bronze/blue, and purple treatments; ranks 5–8 share graphite; ranks 9, 10, 11, and 12 have distinct amber, orange, red-orange, and deep-red treatments. Existing standings and league-rule calculations were not changed.
 - Shared `radius-sm`, `radius-md`, `radius-lg`, and `radius-xl` tokens now cover controls, cards, tables, forms, expandable panels, major hero panels, and Finals panels. Clickable panels and enabled controls receive hover, focus, shadow, and pressed feedback; disabled controls retain no lift and a `not-allowed` cursor.
+
+## Phase 10.6.1 — brand polish, warning language, and logo cropping
+
+- Brand usage now has explicit `hero`, `panel`, `watermark`, `header`, `crest`, `compact`, and `micro` modes. Full poster-style league artwork is limited to hero, panel, header, and watermark contexts.
+- Full square league/event logos must not be compressed into tiny foreground badges. Crest, compact, and micro modes render readable league-color monograms instead: Global League `GL`, Continental League `CL`, National League `NL`, and Regional League `RL`.
+- Live Standings uses one compact monogram crest in each league header and at most one subdued full-art watermark behind it. Dashboard foreground marks use the same compact crest system while the active league artwork remains a low-opacity large watermark.
+- League Finals full Night One and Night Two artwork remains limited to the larger event panels. Compact event labels use text or the existing `N1` / `N2` fallback identity rather than miniature poster thumbnails.
+- Dashboard validation items with warning severity are presented as **Source Warnings** or **Historical / Non-blocking**, not errors. They remain summarized/collapsed with “Non-blocking · details contained”; only error-severity validation issues are presented as blocking issues.
+- “Blocked” is reserved for a workflow that cannot continue. An available current card is labeled `Ready` before its first result and `In Progress` after results are recorded; an incomplete card is not itself treated as blocked.
+- Phase 10.6.1 changes presentation and status-label mapping only. It does not alter workbook data, scoring, standings, schedules, result entry, simulation, Finals, promotion/relegation, rollover, or writeback safety.

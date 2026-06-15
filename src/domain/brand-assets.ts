@@ -1,6 +1,6 @@
 import type { LeagueName } from "./types";
 
-export type BrandUsage = "primary" | "secondary" | "ambient";
+export type BrandUsage = "hero" | "panel" | "watermark" | "header" | "crest" | "compact" | "micro";
 
 export interface LeagueBrandAsset {
   id: string;
@@ -31,7 +31,7 @@ export const LEAGUE_BRAND_ASSETS: Record<LeagueName, LeagueBrandAsset> = {
     accentColor: "#8f1f2d",
     shortLabel: "Global",
     fallbackCrest: "GL",
-    usageVariants: ["primary", "secondary", "ambient"],
+    usageVariants: ["hero", "panel", "watermark", "header", "crest", "compact", "micro"],
   },
   "Continental League": {
     id: "continental",
@@ -41,7 +41,7 @@ export const LEAGUE_BRAND_ASSETS: Record<LeagueName, LeagueBrandAsset> = {
     accentColor: "#365f88",
     shortLabel: "Continental",
     fallbackCrest: "CL",
-    usageVariants: ["primary", "secondary", "ambient"],
+    usageVariants: ["hero", "panel", "watermark", "header", "crest", "compact", "micro"],
   },
   "National League": {
     id: "national",
@@ -51,7 +51,7 @@ export const LEAGUE_BRAND_ASSETS: Record<LeagueName, LeagueBrandAsset> = {
     accentColor: "#9e3028",
     shortLabel: "National",
     fallbackCrest: "NL",
-    usageVariants: ["primary", "secondary", "ambient"],
+    usageVariants: ["hero", "panel", "watermark", "header", "crest", "compact", "micro"],
   },
   "Regional League": {
     id: "regional",
@@ -61,7 +61,7 @@ export const LEAGUE_BRAND_ASSETS: Record<LeagueName, LeagueBrandAsset> = {
     accentColor: "#3e5960",
     shortLabel: "Regional",
     fallbackCrest: "RL",
-    usageVariants: ["primary", "secondary", "ambient"],
+    usageVariants: ["hero", "panel", "watermark", "header", "crest", "compact", "micro"],
   },
 };
 
@@ -72,7 +72,7 @@ export const EVENT_BRAND_ASSETS: Record<EventBrandAsset["id"], EventBrandAsset> 
     assetPath: "/brand-assets/events/league-finals-night-one.jpg",
     shortLabel: "Night One",
     fallbackCrest: "N1",
-    usageVariants: ["primary", "secondary", "ambient"],
+    usageVariants: ["hero", "panel", "watermark", "header", "crest", "compact", "micro"],
   },
   "league-finals-night-two": {
     id: "league-finals-night-two",
@@ -80,7 +80,7 @@ export const EVENT_BRAND_ASSETS: Record<EventBrandAsset["id"], EventBrandAsset> 
     assetPath: "/brand-assets/events/league-finals-night-two.jpg",
     shortLabel: "Night Two",
     fallbackCrest: "N2",
-    usageVariants: ["primary", "secondary", "ambient"],
+    usageVariants: ["hero", "panel", "watermark", "header", "crest", "compact", "micro"],
   },
 };
 

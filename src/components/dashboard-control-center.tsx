@@ -39,6 +39,8 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
   const currentWarnings = sourceWarnings.filter((issue) => !historical.includes(issue));
   const nextHref = card.length ? "/results" : "/schedule-setup";
   const nextLabel = card.length ? "Enter card results" : "Open schedule setup";
+  const workflowBlocked = blocking.length > 0 || card.length === 0;
+  const workflowStatus = workflowBlocked ? "Blocked" : completed > 0 ? "In Progress" : "Ready";
 
   return <>
     <section className={`command-deck league-${LEAGUE_VISUALS[userLeague].key}`} aria-labelledby="command-title">
@@ -47,17 +49,17 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
         <p className="broadcast-kicker">Live league control</p>
         <div className="command-title-row">
           <div className="command-brand-title">
-            <LeagueBrandMark league={userLeague} usage="primary" />
+            <LeagueBrandMark league={userLeague} usage="crest" />
             <div>
             <p className="command-season">League Year {leagueYear}</p>
             <h2 id="command-title">{display.primary}</h2>
             </div>
           </div>
-          <StatusBadge tone={blocking.length || openReviews.length ? "review" : "current"}>
-            {blocking.length || openReviews.length ? "Action blocked" : "In progress"}
+          <StatusBadge tone={workflowBlocked ? "locked" : completed > 0 ? "current" : "ready"}>
+            {workflowStatus}
           </StatusBadge>
         </div>
-        <p className="command-subline">{userLeague} · {card[0]?.showDay ?? "Show pending"} · {completed}/{card.length || 6} results recorded</p>
+        <p className="command-subline">{userLeague} · {card[0]?.showDay ?? "Show pending"} · {completed} / {card.length || 6} results recorded</p>
       </div>
       <div className="next-action-block">
         <span>Next action</span>
@@ -68,7 +70,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
     </section>
 
     <InteractivePanel href="/live-standings" className={`live-table-quick-link league-${LEAGUE_VISUALS[userLeague].key}`}>
-      <LeagueBrandMark league={userLeague} usage="secondary" />
+      <LeagueBrandMark league={userLeague} usage="compact" />
       <span><small>All four divisions · current positions</small><strong>Open Live Table</strong></span>
       <b aria-hidden>→</b>
     </InteractivePanel>
@@ -125,7 +127,7 @@ function AlertCenter({ blocking, reviews, sourceWarnings, historical }: {
     {sourceWarnings.length > 0 && <AlertDetails title="Source Warnings" count={sourceWarnings.length} items={sourceWarnings.map((issue) => issue.message)} />}
     {historical.length > 0 && <AlertDetails title="Historical / Legacy Warnings" count={historical.length} items={historical.map((issue) => issue.message)} />}
     {!blocking.length && !reviews.length && !sourceWarnings.length && !historical.length && <p className="alert-clear">All current workflow and source checks pass.</p>}
-    <p className="alert-footnote">{countLabel(sourceWarnings.length + historical.length, "source warning")} hidden by default to keep the next action clear.</p>
+    <p className="alert-footnote">{countLabel(sourceWarnings.length + historical.length, "source warning")} · Non-blocking · details contained.</p>
   </aside>;
 }
 

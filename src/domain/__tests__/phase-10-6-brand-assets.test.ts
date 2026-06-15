@@ -16,7 +16,7 @@ describe("Phase 10.6 brand assets and live table polish", () => {
       const asset = LEAGUE_BRAND_ASSETS[league];
       expect(asset.assetPath).toMatch(/^\/brand-assets\/leagues\/.+-league\.jpg$/);
       expect(asset.fallbackCrest).toHaveLength(2);
-      expect(asset.usageVariants).toEqual(["primary", "secondary", "ambient"]);
+      expect(asset.usageVariants).toEqual(["hero", "panel", "watermark", "header", "crest", "compact", "micro"]);
       expect(asset.primaryColor).toMatch(/^#/);
     }
   });
@@ -48,7 +48,7 @@ describe("Phase 10.6 brand assets and live table polish", () => {
 
   it("renders branded four-league tables and event panels with alt text", () => {
     expect(source("src/components/live-standings.tsx")).toContain("LEAGUE_NAMES.map");
-    expect(source("src/components/live-standings.tsx")).toContain("<LeagueBrandMark");
+    expect(source("src/components/live-standings.tsx")).toContain('<LeagueBrandMark league={league} usage="crest"');
     expect(source("src/components/league-finals.tsx")).toContain("<EventBrandPanel");
     expect(source("src/components/brand-assets.tsx")).toContain('alt={`${league} custom league logo`}');
     expect(source("src/components/brand-assets.tsx")).toContain('alt={`${asset.name} custom event logo`}');
