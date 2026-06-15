@@ -15,6 +15,7 @@ import { closeManualReview, markManualReview } from "@/domain/tracker-state";
 import { deriveSplitCompletionReview } from "@/domain/split-completion";
 import type { Match, MatchResult, MatchupReferenceRow, SplitName, StandingRow } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
+import { EventBrandPanel } from "./brand-assets";
 
 interface LeagueFinalsProps {
   completedThroughWeek: number;
@@ -203,9 +204,9 @@ export function LeagueFinals(props: LeagueFinalsProps) {
     {(["Night One", "Night Two"] as const).map((night) => {
       const card = night === "Night One" ? review.nightOne : review.nightTwo;
       const complete = completedNights.some((entry) => entry.night === night);
-      return <section key={night} className="border border-white/10 bg-[#111722]">
-        <div className="flex items-center justify-between border-b border-white/10 p-6">
-          <div><p className="text-xs font-black uppercase tracking-[.18em] text-red-400">Week 24</p><h2 className="text-2xl font-black uppercase">{night} card</h2></div>
+      return <section key={night} className="finals-night-panel border border-white/10 bg-[#111722]">
+        <div className="flex items-center justify-between gap-5 border-b border-white/10 p-6">
+          <EventBrandPanel night={night} />
           <button type="button" disabled={!review.ready || complete} onClick={() => completeNight(night)} className="border border-white/20 px-4 py-2 text-xs font-black uppercase disabled:opacity-40">{complete ? "Complete" : `Mark ${night} complete`}</button>
         </div>
         <div className="grid gap-4 p-6 lg:grid-cols-2">

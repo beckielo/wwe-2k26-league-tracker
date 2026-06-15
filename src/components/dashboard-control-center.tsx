@@ -6,6 +6,8 @@ import { getWeekDisplay } from "@/domain/week-display";
 import type { LeagueName, Match, ValidationIssue } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { EmptyState, StatusBadge } from "./ui";
+import { InteractivePanel, LeagueBrandMark, LeagueWatermark } from "./brand-assets";
+import { LEAGUE_VISUALS } from "@/domain/visual-identity";
 
 interface DashboardControlCenterProps {
   workbookMatches: Match[];
@@ -39,13 +41,17 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
   const nextLabel = card.length ? "Enter card results" : "Open schedule setup";
 
   return <>
-    <section className="command-deck" aria-labelledby="command-title">
+    <section className={`command-deck league-${LEAGUE_VISUALS[userLeague].key}`} aria-labelledby="command-title">
+      <LeagueWatermark league={userLeague} />
       <div className="command-context">
         <p className="broadcast-kicker">Live league control</p>
         <div className="command-title-row">
-          <div>
+          <div className="command-brand-title">
+            <LeagueBrandMark league={userLeague} usage="primary" />
+            <div>
             <p className="command-season">League Year {leagueYear}</p>
             <h2 id="command-title">{display.primary}</h2>
+            </div>
           </div>
           <StatusBadge tone={blocking.length || openReviews.length ? "review" : "current"}>
             {blocking.length || openReviews.length ? "Action blocked" : "In progress"}
@@ -60,6 +66,12 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
         <Link href={nextHref} className="action-button action-primary">{nextLabel}<span aria-hidden>→</span></Link>
       </div>
     </section>
+
+    <InteractivePanel href="/live-standings" className={`live-table-quick-link league-${LEAGUE_VISUALS[userLeague].key}`}>
+      <LeagueBrandMark league={userLeague} usage="secondary" />
+      <span><small>All four divisions · current positions</small><strong>Open Live Table</strong></span>
+      <b aria-hidden>→</b>
+    </InteractivePanel>
 
     <div className="dashboard-primary-grid">
       <section className="fight-card-panel">
