@@ -238,3 +238,12 @@ The following checks found no current-data conflict:
 - Year Week remains internal continuity metadata and may be shown only as secondary context, for example: **League Year 2 · Year Week 25**.
 - The governing UX principle is: **“The UI should guide the user to the next valid action and explain locked states clearly.”**
 - Actions remain explicit. The overhaul does not auto-start a week, auto-finalize a show, mutate the source workbook, or infer a missing fixture or rule.
+
+## Phase 10.5 — Visual Identity, Interactive Polish & Live Standings
+
+- Phase 10.5 is a display-only design upgrade. It does not alter scoring, tiebreakers, promotion/relegation, League Finals, schedule generation, result calculations, workbook writeback, or workbook safety behavior.
+- `/live-standings` is the quick-view live table for all four leagues. It starts from the authoritative workbook standings and applies only confirmed browser-local results through the existing standings projection; it does not infer fixtures, outcomes, or tiebreakers.
+- The live page identifies whether its active schedule context is the workbook or an explicitly accepted generated/imported schedule snapshot and displays the active split, split week, user league, and latest available lock/update timestamp.
+- League visual identities are intentionally restrained accents: Global uses gold/deep red, Continental uses silver/steel blue, National uses bronze/red-orange, and Regional uses green/graphite.
+- Placement styling is presentational: ranks 1, 2, 3, and 4 have distinct classes; ranks 5–8 share a mid-table class; and ranks 9, 10, 11, and 12 each have distinct danger classes. Labels describe broad position context and do not claim a place is mathematically clinched.
+- All new crests, belt plates, shields, table marks, and navigation pictograms are original SVG/CSS motifs. Official WWE, WWE 2K, 2K, or other trademarked logos are not copied or introduced unless a separately authorized existing repository asset is explicitly designated for use.
