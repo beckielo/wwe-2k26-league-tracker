@@ -5,6 +5,7 @@ import path from "node:path";
 import * as XLSX from "xlsx";
 import { validateTrackerData } from "@/domain/validation";
 import { parseAppWorkbookBaseline } from "@/domain/app-workbook-baseline";
+import { parseLegacyTracker, type LegacyTableData } from "@/domain/legacy";
 import {
   LEAGUE_NAMES,
   type HeadToHeadRecord,
@@ -43,6 +44,13 @@ export function loadMasterWorkbookBuffer(): { buffer: Buffer; sourceFile: string
     buffer: fs.readFileSync(workbookPath),
     sourceFile: path.basename(workbookPath),
   };
+}
+
+export function loadLegacyTableData(): LegacyTableData & { sourceFile: string; sourceSheet: "Legacy_Tracker" } {
+  const workbookPath = findMasterWorkbook();
+  const sourceFile = path.basename(workbookPath);
+  const workbook = XLSX.read(fs.readFileSync(workbookPath), { type: "buffer", cellDates: false });
+  return { ...parseLegacyTracker(workbook), sourceFile, sourceSheet: "Legacy_Tracker" };
 }
 
 type CellValue = string | number | boolean | null | undefined;
