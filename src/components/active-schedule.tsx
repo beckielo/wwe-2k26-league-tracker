@@ -5,6 +5,7 @@ import { LEAGUE_NAMES, type Match } from "@/domain/types";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { getWeekDisplay } from "@/domain/week-display";
+import { detectActiveWeek } from "@/domain/week-progression";
 import { LeagueBrandMark, LeagueDecorativeArt } from "./brand-assets";
 import { WeekMatchPreview } from "./week-match-preview";
 
@@ -19,8 +20,9 @@ export function ActiveSchedule({ workbookMatches, workbookCurrentWeek }: { workb
   const { state, hydrated } = useTrackerState();
   if (!hydrated) return <p className="text-slate-500">Loading active schedule…</p>;
   const active = Boolean(state.activeWorkflow);
-  const week = active ? 25 : workbookCurrentWeek + 1;
   const matches = getActiveWorkflowMatches(state, workbookMatches);
+  const workflowBaseline = active ? 24 : workbookCurrentWeek;
+  const week = detectActiveWeek(state, matches, workflowBaseline).activeWeek ?? state.activeWorkflow?.yearWeek ?? workbookCurrentWeek + 1;
   const display = getWeekDisplay(2, week, state.activeWorkflow?.split);
   const weekMatches = matches.filter((match) => match.week === week);
   return <>

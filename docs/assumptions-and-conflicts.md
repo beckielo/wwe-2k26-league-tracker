@@ -305,3 +305,14 @@ The following checks found no current-data conflict:
 - Previous split standings remain historical source data and may still be used for seed/order logic where the rulebook requires it, but previous split points must not carry into active Closing Split standings.
 - Legacy and History views may aggregate historical data when explicitly labeled as legacy/history/year archive data. Active standings, Week Review, weekly close exports, and Live Standings must not use legacy or prior-split totals as current split points.
 - Phase 10.8 does not change 3/1/0 scoring, workbook source data, result entry, simulation, week locks, or safe workbook writeback behavior.
+
+# Phase 10.8.1 — active week advancement, schedule sync, and safe export availability
+
+- After a regular week is completed and locked, that locked week becomes archive/export/writeback source only; it must not remain the active Dashboard, Result Entry, Simulation, Schedule, or Week Review card.
+- Closing Split week mapping is fixed as Split Week 1 = Year Week 25, Split Week 2 = Year Week 26, continuing through Split Week 22 = Year Week 46.
+- When Closing Split Week 1 / Year Week 25 is locked, local workflow state advances to Closing Split Week 2 / Year Week 26 while preserving locked Week 25 results and split-scoped Closing Split standings.
+- Dashboard, Schedule, Full Schedule, Result Entry, Simulation, Week Review, Safe Workbook Update, Weekly Close Package, and Promote Current Master must derive active card display and latest locked week from the same browser-local tracker state plus the accepted schedule snapshot.
+- Once a Closing Split schedule snapshot has been accepted and activated, the accepted generated/imported snapshot is the authoritative schedule source for Closing Split workflow pages; pages must not fall back to Opening Split workbook rows for active Closing Split cards.
+- A complete, valid locked week is immediately exportable. Close package JSON, weekly results CSV, and app-state standings CSV are available for the latest locked week (for example, locked Year Week 25 / Closing Split Week 1) and do not require the next active week to be completed.
+- Safe Workbook Update availability is based on the latest complete and valid locked app-state week plus the normal safe writeback checks. Before workbook writeback, the source workbook may still be completed through an earlier week, but the local overlay can still produce a safe updated workbook for the validated locked week.
+- Promote Current Master remains subject to the existing branch/main and updated-workbook safety checks, but it must not be blocked by a stale “Latest locked week: None” state when the tracker has a valid locked week.
