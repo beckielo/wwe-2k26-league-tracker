@@ -13,7 +13,7 @@ describe("Phase 10.5 UI wiring", () => {
     expect(page).toContain("<LiveStandings");
     expect(component).toContain("LEAGUE_NAMES.map");
     expect(component).toContain("is-user-league");
-    expect(component).toContain("calculateStandingsWithConfirmedResults");
+    expect(component).toContain("calculateActiveSplitStandingsWithConfirmedResults");
   });
 
   it("keeps the detailed standings route and adds Live Standings navigation", () => {

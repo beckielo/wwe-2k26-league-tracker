@@ -1,5 +1,5 @@
 import { calculatePoints } from "./scoring";
-import type { LeagueName, Match, StandingRow } from "./types";
+import type { LeagueName, Match, SplitName, StandingRow } from "./types";
 import type { FinalsNight, LeagueFinalsResult } from "./league-finals";
 import type { AcceptedScheduleSnapshot } from "./schedule-setup";
 
@@ -225,6 +225,34 @@ export function completeWeek(
 
 export function unlockWeek(state: TrackerState, week: number): TrackerState {
   return { ...state, completedWeeks: state.completedWeeks.filter((entry) => entry.week !== week) };
+}
+
+function resetRowsForSplit(rows: StandingRow[], split: SplitName): StandingRow[] {
+  if (split !== "Closing Split") return rows;
+  return rows.map((row) => ({
+    ...row,
+    matches: 0,
+    wins: 0,
+    draws: 0,
+    losses: 0,
+    points: 0,
+    status: row.status ? `${row.status} · active split reset` : "active split reset",
+  }));
+}
+
+export function calculateActiveSplitStandingsWithConfirmedResults(
+  baseline: StandingRow[],
+  scheduledMatches: Match[],
+  confirmedResults: ConfirmedResult[],
+  split: SplitName,
+): StandingRow[] {
+  const splitMatches = scheduledMatches.filter((match) => match.split === split);
+  const splitMatchIds = new Set(splitMatches.map((match) => match.id));
+  return calculateStandingsWithConfirmedResults(
+    resetRowsForSplit(baseline, split),
+    splitMatches,
+    confirmedResults.filter((result) => splitMatchIds.has(result.matchId)),
+  );
 }
 
 export function calculateStandingsWithConfirmedResults(

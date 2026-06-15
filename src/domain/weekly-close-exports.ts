@@ -1,4 +1,4 @@
-import { calculateStandingsWithConfirmedResults, type ConfirmedResult, type TrackerState } from "./tracker-state";
+import { calculateActiveSplitStandingsWithConfirmedResults, type ConfirmedResult, type TrackerState } from "./tracker-state";
 import { getWeekProgress } from "./week-progression";
 import type { LeagueName, Match, StandingRow } from "./types";
 
@@ -124,10 +124,12 @@ export function createWeeklyCloseExports(
         (matchA?.matchNumber ?? 0) - (matchB?.matchNumber ?? 0)
       );
     });
-  const standings = calculateStandingsWithConfirmedResults(
+  const activeSplit = state.activeWorkflow?.split ?? matches.find((match) => match.week === completedWeek.week)?.split ?? "Opening Split";
+  const standings = calculateActiveSplitStandingsWithConfirmedResults(
     baselineStandings,
     matches,
     state.confirmedResults.filter((result) => result.week <= completedWeek.week),
+    activeSplit,
   );
   const closePackage: WeeklyClosePackage = {
     version: 1,

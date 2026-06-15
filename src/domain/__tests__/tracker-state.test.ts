@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  calculateActiveSplitStandingsWithConfirmedResults,
   calculateStandingsWithConfirmedResults,
   completeWeek,
   confirmResult,
@@ -167,5 +168,54 @@ describe("standings and state portability", () => {
 
   it("resets local tracker state", () => {
     expect(resetTrackerState()).toEqual(createEmptyTrackerState());
+  });
+});
+
+describe("Phase 10.8 active split standings", () => {
+  it("resets Closing Split standings to zero before Week 25 results", () => {
+    const scheduled = { ...match("National League", 1, 25), split: "Closing Split" as const, wrestlerA: "Closer A", wrestlerB: "Closer B" };
+    const baseline: StandingRow[] = [
+      { league: "National League", rank: 1, wrestler: "Closer A", seed: 1, matches: 22, wins: 22, draws: 0, losses: 0, points: 66, status: "Opening Split final" },
+      { league: "National League", rank: 2, wrestler: "Closer B", seed: 2, matches: 22, wins: 21, draws: 0, losses: 1, points: 63, status: "Opening Split final" },
+    ];
+
+    const updated = calculateActiveSplitStandingsWithConfirmedResults(baseline, [scheduled], [], "Closing Split");
+
+    expect(updated).toEqual(expect.arrayContaining([
+      expect.objectContaining({ wrestler: "Closer A", matches: 0, wins: 0, draws: 0, losses: 0, points: 0 }),
+      expect.objectContaining({ wrestler: "Closer B", matches: 0, wins: 0, draws: 0, losses: 0, points: 0 }),
+    ]));
+  });
+
+  it("keeps Closing Split Week 1 max points at 3 and excludes Opening Split points", () => {
+    const closing = { ...match("National League", 1, 25), split: "Closing Split" as const, wrestlerA: "Closer A", wrestlerB: "Closer B" };
+    const opening = { ...match("National League", 1, 24), split: "Opening Split" as const, wrestlerA: "Closer A", wrestlerB: "Closer B" };
+    const baseline: StandingRow[] = [
+      { league: "National League", rank: 1, wrestler: "Closer A", seed: 1, matches: 22, wins: 22, draws: 0, losses: 0, points: 66, status: "Opening Split final" },
+      { league: "National League", rank: 2, wrestler: "Closer B", seed: 2, matches: 22, wins: 21, draws: 0, losses: 1, points: 63, status: "Opening Split final" },
+    ];
+
+    const updated = calculateActiveSplitStandingsWithConfirmedResults(
+      baseline,
+      [opening, closing],
+      [result(opening), result(closing)],
+      "Closing Split",
+    );
+
+    expect(Math.max(...updated.map((row) => row.points))).toBe(3);
+    expect(updated.find((row) => row.wrestler === "Closer A")).toMatchObject({ matches: 1, wins: 1, points: 3 });
+    expect(updated.find((row) => row.wrestler === "Closer B")).toMatchObject({ matches: 1, losses: 1, points: 0 });
+  });
+
+  it("leaves historical Opening Split standings projection available for seed/order logic", () => {
+    const scheduled = match("National League");
+    const baseline: StandingRow[] = [
+      { league: "National League", rank: 1, wrestler: scheduled.wrestlerA, seed: 1, matches: 22, wins: 22, draws: 0, losses: 0, points: 66, status: "Opening Split final" },
+      { league: "National League", rank: 2, wrestler: scheduled.wrestlerB, seed: 2, matches: 22, wins: 21, draws: 0, losses: 1, points: 63, status: "Opening Split final" },
+    ];
+
+    const historical = calculateStandingsWithConfirmedResults(baseline, [scheduled], []);
+
+    expect(historical.find((row) => row.wrestler === scheduled.wrestlerA)).toMatchObject({ points: 66, matches: 22 });
   });
 });
