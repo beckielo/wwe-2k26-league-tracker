@@ -71,7 +71,11 @@ export function WorkflowSummaryBanner({
           )}
           {summary.activeWeek !== null && (
             <>
-              <Link href="/results" className="border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">Result Entry</Link>
+              {summary.recommendedHref !== "/results" && (
+                <Link href="/results" className="border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">
+                  Enter {workflowUserLeague} Results
+                </Link>
+              )}
               <Link href="/simulation" className="border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">Simulation</Link>
             </>
           )}

@@ -160,6 +160,14 @@ The following checks found no current-data conflict:
 * **Simulation boundary:** simulation is restricted to open, authoritative non-user-league matches in the active app week. Browser-confirmed matches are excluded, and the workbook-defined user-controlled league remains ineligible.
 * **Persistence compatibility:** Phase 3B keeps tracker state version 1 and the existing JSON export/import format. Existing confirmed results, completed-week locks, and timestamps remain usable.
 * **Season complete behavior:** if every later authoritative scheduled week is locked, the workflow reports that no active week remains. It does not invent a subsequent card or infer League Finals fixtures.
+
+## Phase 10.2 — workflow CTA and simulation preview cleanup
+
+* **CTA consolidation:** the active workflow action cluster exposes one primary user-league result-entry action. It does not repeat a secondary Result Entry link to the same route; Simulation and Week Review remain separate actions.
+* **Active simulation schedule:** Simulation resolves the browser-local active workflow before building previews. When Closing Split Week 1 is active, the accepted generated or imported schedule snapshot is authoritative, so workbook Week 25 rows are neither required nor invented.
+* **Simulation scope:** previews exclude the active workflow's user-controlled league and include only open non-user matches for the active split week. Accepted snapshots are validated before activation and therefore do not require a duplicate legacy `Matchup_Reference` row.
+* **Profile continuity:** when post-finals movement changes a wrestler's league, simulation reuses that wrestler's unique workbook-derived rating inputs while the accepted snapshot supplies the authoritative new matchup and league assignment.
+* **User-facing naming:** Simulation uses split-relative labels such as `Closing Split Week 1`; `League Year 2 · Year Week 25` is secondary metadata. Old internal phase labels are hidden from the user-facing page.
 # Phase 9 — League Finals Module
 
 - Phase 9 derives Week 24 League Finals from the final resolved Opening Split standings. It covers league champions, direct promotions/relegations, the nine relegation matches, the Global Elite Cup qualified field/card, browser-local League Finals result entry, and guarded Night One/Night Two completion.

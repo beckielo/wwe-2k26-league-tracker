@@ -15,6 +15,8 @@ StandingRow,
 StreakRecord,
 } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
+import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
+import { getWeekDisplay } from "@/domain/week-display";
 
 interface SimulationWorkflowProps {
 matches: Match[];
@@ -37,11 +39,14 @@ Loading local tracker state… </div>
 );
 }
 
+const workflowMatches = getActiveWorkflowMatches(state, props.matches);
+const workflowBaseline = state.activeWorkflow ? 24 : props.workbookCurrentWeek;
+const workflowUserLeague = state.activeWorkflow?.userLeague ?? props.userLeague;
 const summary = getWorkflowSummary(
 state,
-props.matches,
-props.workbookCurrentWeek,
-props.userLeague,
+workflowMatches,
+workflowBaseline,
+workflowUserLeague,
 );
 
 const week = summary.activeWeek;
@@ -56,16 +61,18 @@ return ( <WorkflowSummaryBanner
 }
 
 const simulation = buildSimulationCandidates({
-matches: props.matches,
+matches: workflowMatches,
 matchupReference: props.matchupReference,
 leagues: props.leagues,
 standings: props.standings,
 streaks: props.streaks,
 existingResults: props.existingResults,
-userLeague: props.userLeague,
+userLeague: workflowUserLeague,
 targetWeek: week,
 confirmedMatchIds: state.confirmedResults.map((result) => result.matchId),
+scheduleSource: state.activeWorkflow && state.acceptedSchedule ? "accepted-snapshot" : "workbook",
 });
+const display = getWeekDisplay(state.activeWorkflow?.leagueYear ?? 2, week, state.activeWorkflow?.split);
 
 const eligibleLeagues = [
 ...new Set(simulation.candidates.map((candidate) => candidate.match.league)),
@@ -82,8 +89,8 @@ return (
   <div className="mb-8 grid gap-4 sm:grid-cols-3">
     <Stat
       label="Active simulation week"
-      value={"Week " + week}
-      detail={(summary.progress?.simulation ?? 0) + "/18 non-user results confirmed"}
+      value={display.primary}
+      detail={display.secondary}
     />
     <Stat
       label="Open simulation matches"
@@ -94,7 +101,7 @@ return (
     />
     <Stat
       label="Excluded user league"
-      value={props.userLeague.replace(" League", "")}
+      value={workflowUserLeague.replace(" League", "")}
       detail={props.userWrestler}
     />
   </div>
@@ -141,8 +148,8 @@ return (
       <div>
         <p className="font-black uppercase text-white">Active week only</p>
         <p className="text-slate-500">
-          Candidates are limited to open Week {week} fixtures in
-          Schedule_22W and Matchup_Reference.
+          Candidates are limited to open {display.primary} fixtures in the
+          active authoritative schedule.
         </p>
       </div>
 
@@ -161,7 +168,7 @@ return (
           User league protected
         </p>
         <p className="text-slate-500">
-          {props.userLeague} is never eligible for simulation.
+          {workflowUserLeague} is never eligible for simulation.
         </p>
       </div>
     </div>
@@ -173,17 +180,18 @@ return (
         Simulation card complete
       </h2>
       <p className="mt-2 text-slate-500">
-        No open authoritative non-user matchups remain for Week {week}.
+        No open authoritative non-user matchups remain for {display.primary}.
         Continue to Week Review.
       </p>
     </div>
   ) : (
     <SimulationWorkbench
       week={week}
+      weekLabel={display.primary}
       candidates={simulation.candidates}
-      scheduledMatches={props.matches}
+      scheduledMatches={workflowMatches}
       existingResults={props.existingResults}
-      userLeague={props.userLeague}
+      userLeague={workflowUserLeague}
     />
   )}
 </>

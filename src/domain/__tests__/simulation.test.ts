@@ -8,6 +8,8 @@ import {
   type SimulationCandidate,
 } from "../simulation";
 import type { League, Match, MatchupReferenceRow, StandingRow, StreakRecord } from "../types";
+import { acceptedScheduleMatches, generateSchedule } from "../schedule-setup";
+import { LEAGUE_NAMES } from "../types";
 
 function match(league: Match["league"], week = 14, matchNumber = 1, wrestlerA = "Alpha", wrestlerB = "Beta"): Match {
   return { id: `${league}-${week}-${matchNumber}`, leagueYear: 2, split: "Opening Split", week, roundType: "Rückrunde", league, showDay: league === "Regional League" ? "Montag" : league === "Continental League" ? "Mittwoch" : league === "Global League" ? "Freitag" : "Dienstag", matchNumber, wrestlerA, wrestlerB, matchupKey: [wrestlerA, wrestlerB].sort().join(" vs "), status: "scheduled", source: { file: "test.xlsx", sheet: "Schedule_22W" } };
@@ -42,6 +44,80 @@ function candidate(): SimulationCandidate {
 }
 
 describe("simulation eligibility", () => {
+  it("loads all six Closing Split Week 1 matches for each non-user league from an accepted snapshot", () => {
+    const seeds = Object.fromEntries(LEAGUE_NAMES.map((leagueName) => [
+      leagueName,
+      Array.from({ length: 12 }, (_, index) => ({ seed: index + 1, wrestler: `${leagueName} Wrestler ${index + 1}` })),
+    ])) as Parameters<typeof generateSchedule>[0]["seeds"];
+    const generated = generateSchedule({
+      leagueYear: 2,
+      split: "Closing Split",
+      yearWeekStart: 25,
+      seeds,
+      generatedAt: "2026-06-15T00:00:00.000Z",
+    });
+    const activeMatches = acceptedScheduleMatches({
+      matches: generated,
+      acceptedAt: "2026-06-15T00:00:00.000Z",
+      acceptedBy: "local user workflow",
+      source: "Generated",
+      leagueYear: 2,
+      split: "Closing Split",
+      seedSource: "test",
+      rosterSource: "test",
+      validation: { valid: true, status: "Valid", errors: [], warnings: [], totalMatches: generated.length },
+    });
+    const leagues: League[] = LEAGUE_NAMES.map((leagueName) => ({
+      id: leagueName,
+      name: leagueName,
+      showDay: activeMatches.find((entry) => entry.league === leagueName)!.showDay,
+      wrestlers: seeds[leagueName].map((entry) => ({
+        wrestler: { id: entry.wrestler, name: entry.wrestler },
+        seed: entry.seed,
+        startStatus: null,
+      })),
+    }));
+    const standings: StandingRow[] = leagues.flatMap((entry) => entry.wrestlers.map((membership) => ({
+      league: entry.name,
+      rank: membership.seed,
+      wrestler: membership.wrestler.name,
+      seed: membership.seed,
+      matches: 0,
+      wins: 0,
+      draws: 0,
+      losses: 0,
+      points: 0,
+      status: "Closing Split start",
+    })));
+    const streaks: StreakRecord[] = standings.map((entry) => ({
+      league: entry.league,
+      wrestler: entry.wrestler,
+      seed: entry.seed,
+      currentStreak: 0,
+      longestWinningStreak: 0,
+      lastResult: "",
+      notes: null,
+    }));
+
+    const result = buildSimulationCandidates({
+      matches: activeMatches,
+      matchupReference: [],
+      leagues,
+      standings,
+      streaks,
+      existingResults: [],
+      userLeague: "National League",
+      targetWeek: 25,
+      scheduleSource: "accepted-snapshot",
+    });
+
+    expect(result.candidates).toHaveLength(18);
+    expect(result.candidates.some((entry) => entry.match.league === "National League")).toBe(false);
+    for (const leagueName of LEAGUE_NAMES.filter((entry) => entry !== "National League")) {
+      expect(result.candidates.filter((entry) => entry.match.league === leagueName)).toHaveLength(6);
+    }
+  });
+
   it("excludes the user-controlled league", () => {
     const national = match("National League");
     const regional = match("Regional League");

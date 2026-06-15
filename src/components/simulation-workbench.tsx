@@ -14,6 +14,7 @@ import { useTrackerState } from "@/state/tracker-state-provider";
 
 interface SimulationWorkbenchProps {
 week: number;
+weekLabel: string;
 candidates: SimulationCandidate[];
 scheduledMatches: Match[];
 existingResults: MatchResult[];
@@ -22,6 +23,7 @@ userLeague: LeagueName;
 
 export function SimulationWorkbench({
 week,
+weekLabel,
 candidates,
 scheduledMatches,
 existingResults,
@@ -181,7 +183,7 @@ Loading local tracker state… </div>
 }
 
 return ( <div className="space-y-6"> <div className="flex flex-col justify-between gap-4 border border-white/10 bg-[#111722] p-5 sm:flex-row sm:items-center"> <div> <p className="text-xs font-bold uppercase tracking-[.18em] text-red-400">
-Simulation Week {week} </p> <p className="mt-1 text-sm text-slate-400">
+{weekLabel} · Simulation </p> <p className="mt-1 text-sm text-slate-400">
 {availableCandidates.length} unconfirmed scheduled matches across{" "}
 {leagues.length} eligible leagues. {userLeague} is excluded. </p> </div>
 
@@ -220,7 +222,7 @@ Simulation Week {week} </p> <p className="mt-1 text-sm text-slate-400">
 
   {weekLocked && (
     <div className="border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-200">
-      Week {week} is complete and locked. Unlock it in Week Review before changing confirmed simulations.
+      {weekLabel} is complete and locked. Unlock it in Week Review before changing confirmed simulations.
     </div>
   )}
 
