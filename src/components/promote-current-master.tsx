@@ -25,6 +25,12 @@ export function PromoteCurrentMaster(props: PromoteCurrentMasterProps) {
     kind: "success" | "error";
     lines: string[];
   } | null>(null);
+  const scheduleSourceLabel = props.state.acceptedSchedule
+    ? props.state.acceptedSchedule.source === "Generated"
+      ? "Schedule Source: accepted generated snapshot"
+      : "Schedule Source: accepted imported snapshot"
+    : "Schedule Source: original workbook";
+
   const exports = createWeeklyCloseExports(
     props.state,
     props.allMatches,
@@ -126,6 +132,7 @@ export function PromoteCurrentMaster(props: PromoteCurrentMasterProps) {
       <p className="mt-2 text-sm text-slate-400">
         Promotes the locked updated workbook as the local current master file.
       </p>
+      <p className="mt-2 text-sm font-bold text-violet-100">{scheduleSourceLabel}</p>
       {!exports.ok && (
         <p className="mt-3 text-sm text-amber-300">{exports.reason}</p>
       )}

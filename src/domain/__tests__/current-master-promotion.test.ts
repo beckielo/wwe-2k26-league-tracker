@@ -7,6 +7,7 @@ import {
   CURRENT_MASTER_MARKER,
   promoteCurrentMaster,
 } from "../current-master-promotion";
+import { acceptedScheduleMatches, createAcceptedScheduleSnapshot, generateSchedule, validateSchedule } from "../schedule-setup";
 import type { ConfirmedResult } from "../tracker-state";
 import type { LeagueName, Match, StandingRow } from "../types";
 import type { WeeklyClosePackage } from "../weekly-close-exports";
@@ -35,6 +36,44 @@ const schedule: Match[] = leagues.flatMap((league, leagueIndex) =>
     source: { file: "master.xlsx", sheet: "Schedule_22W", row: index + 2 },
   })),
 );
+
+const closingSeeds = Object.fromEntries(leagues.map((league) => [
+  league,
+  Array.from({ length: 12 }, (_, index) => ({ seed: index + 1, wrestler: `${league} Wrestler ${index + 1}` })),
+])) as Record<LeagueName, Array<{ seed: number; wrestler: string }>>;
+const closingPreview = generateSchedule({ leagueYear: 2, split: "Closing Split", yearWeekStart: 25, seeds: closingSeeds, generatedAt: "2026-06-14T00:00:00.000Z" });
+const acceptedClosingSchedule = createAcceptedScheduleSnapshot({
+  preview: closingPreview,
+  validation: validateSchedule(closingPreview, { rosters: Object.fromEntries(leagues.map((league) => [league, closingSeeds[league].map((seed) => seed.wrestler)])) as Record<LeagueName, string[]> }),
+  acceptedAt: "2026-06-14T01:00:00.000Z",
+  leagueYear: 2,
+  split: "Closing Split",
+});
+const closingWeek25Matches = acceptedScheduleMatches(acceptedClosingSchedule).filter((match) => match.week === 25);
+const closingResults: ConfirmedResult[] = closingWeek25Matches.map((match) => ({
+  league: match.league,
+  week: 25,
+  matchId: match.id,
+  wrestlerA: match.wrestlerA,
+  wrestlerB: match.wrestlerB,
+  resultType: "Winner",
+  winner: match.wrestlerA,
+  source: "Simulation",
+  confirmedAt: "2026-06-15T10:00:00.000Z",
+}));
+const closingStandings: StandingRow[] = leagues.flatMap((league) => closingSeeds[league].map((seed, index) => ({
+  league,
+  rank: index + 1,
+  wrestler: seed.wrestler,
+  seed: seed.seed,
+  matches: 1,
+  wins: index % 2 === 0 ? 1 : 0,
+  draws: 0,
+  losses: index % 2 === 1 ? 1 : 0,
+  points: index % 2 === 0 ? 3 : 0,
+  status: "active split reset",
+})));
+
 const results: ConfirmedResult[] = schedule.map((match) => ({
   league: match.league,
   week: 14,
@@ -60,6 +99,24 @@ const standings: StandingRow[] = schedule.flatMap((match) =>
     status: "",
   })),
 );
+
+function closingClosePackage(): WeeklyClosePackage {
+  const pkg = closePackage();
+  return {
+    ...pkg,
+    week: 25,
+    completedAt: "2026-06-15T11:00:00.000Z",
+    workbookCompletedThroughWeek: 24,
+    latestLockedWeek: 25,
+    latestLockedCompletedAt: "2026-06-15T11:00:00.000Z",
+    validation: { ...pkg.validation, manual: 0, simulation: 24 },
+    summary: { scheduled: 24, confirmed: 24, manual: 0, simulation: 24 },
+    results: structuredClone(closingResults),
+    standings: structuredClone(closingStandings),
+    acceptedSchedule: structuredClone(acceptedClosingSchedule),
+    scheduleAuthority: { source: "accepted generated snapshot", closingSplitAccepted: true, closingSplitWrittenToWorkbook: false },
+  };
+}
 
 function closePackage(): WeeklyClosePackage {
   return {
@@ -148,6 +205,42 @@ describe("current master promotion", () => {
     ).toEqual({
       ok: false,
       errors: ["Expected exactly one current master workbook, found 2."],
+    });
+  });
+
+  it("promotes Week 25 using the accepted Closing Split schedule instead of a stale original workbook schedule", () => {
+    const fixture = setup();
+    const result = promoteCurrentMaster(
+      fixture.sourceDir,
+      { ...fixture.baseline, schedule },
+      closingClosePackage(),
+      "2026-06-15T13:00:00.000Z",
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const workbook = XLSX.read(fs.readFileSync(path.join(fixture.sourceDir, result.filename)), { type: "buffer" });
+    const scheduleRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets.App_Accepted_Schedule);
+    expect(scheduleRows.filter((row) => row.yearWeek === 25)).toHaveLength(24);
+    expect(new Set(scheduleRows.filter((row) => row.yearWeek === 25).map((row) => row.matchId))).toEqual(new Set(closingResults.map((row) => row.matchId)));
+  });
+
+  it("still refuses Week 25 promotion without an accepted schedule or with incomplete results", () => {
+    const fixture = setup();
+    const noSchedule = closingClosePackage();
+    delete noSchedule.acceptedSchedule;
+    expect(promoteCurrentMaster(fixture.sourceDir, fixture.baseline, noSchedule)).toMatchObject({
+      ok: false,
+      errors: expect.arrayContaining(["Accepted Closing Split schedule could not be written to workbook: no accepted Closing Split schedule snapshot was supplied."]),
+    });
+
+    const fixture2 = setup();
+    const incomplete = closingClosePackage();
+    incomplete.results.pop();
+    incomplete.validation.confirmed = 23;
+    incomplete.validation.missing = 1;
+    expect(promoteCurrentMaster(fixture2.sourceDir, fixture2.baseline, incomplete)).toMatchObject({
+      ok: false,
+      errors: expect.arrayContaining(["Close package must report 24 confirmed matches."]),
     });
   });
 
