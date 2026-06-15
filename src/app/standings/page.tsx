@@ -1,5 +1,6 @@
 import { PageHeader, Panel } from "@/components/ui";
 import { loadTrackerData } from "@/data/workbook";
+import Link from "next/link";
 import { LEAGUE_NAMES } from "@/domain/types";
 
 function zoneClass(rank: number) {
@@ -15,7 +16,12 @@ export const dynamic = "force-dynamic";
 export default function StandingsPage() {
   const data = loadTrackerData();
   return <>
-    <PageHeader eyebrow={`Through Week ${data.meta.currentWeek}`} title="All Standings" description="Records and points are imported from Standings_Current and reconciled against the completed schedule results. Zone labels are source values and remain provisional until clinching is explicitly encoded." />
+    <PageHeader
+      eyebrow={`Through Week ${data.meta.currentWeek}`}
+      title="All Standings"
+      description="Records and points are imported from Standings_Current and reconciled against the completed schedule results. Zone labels are source values and remain provisional until clinching is explicitly encoded."
+      aside={<Link href="/live-standings" className="action-button action-primary">Open Live Table <span aria-hidden>→</span></Link>}
+    />
     <div className="space-y-8">
       {LEAGUE_NAMES.map((league) => {
         const rows = data.standings.filter((row) => row.league === league).sort((a,b) => a.rank-b.rank);

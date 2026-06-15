@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { LeagueCrest, LeagueIcon } from "./league-icon";
+import { LeagueIcon } from "./league-icon";
+import { LeagueBrandMark } from "./brand-assets";
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { calculateStandingsWithConfirmedResults } from "@/domain/tracker-state";
@@ -32,7 +33,7 @@ function LeagueTable({ league, rows, userLeague }: { league: LeagueName; rows: S
   const isUserLeague = league === userLeague;
   return <section className={`live-league-panel league-${visual.key}${isUserLeague ? " is-user-league" : ""}`} aria-label={`${league} live standings`}>
     <header className="live-league-header">
-      <LeagueCrest league={league} size="large" />
+      <LeagueBrandMark league={league} usage="primary" />
       <div>
         <p>{isUserLeague ? "Your division · live" : "Live division table"}</p>
         <h2>{league}</h2>
