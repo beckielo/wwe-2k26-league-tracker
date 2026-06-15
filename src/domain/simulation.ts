@@ -90,6 +90,7 @@ export function buildSimulationCandidates(input: {
   userLeague: LeagueName;
 targetWeek?: number | null;
 confirmedMatchIds?: Iterable<string>;
+scheduleSource?: "workbook" | "accepted-snapshot";
 }): {
 week: number | null;
 candidates: SimulationCandidate[];
@@ -124,11 +125,17 @@ input.targetWeek === undefined
       .filter((reference) => reference.week === week)
       .map((reference) => `${reference.league}:${reference.week}:${reference.matchNumber}:${reference.matchupKey}`),
   );
+  const acceptedSnapshotIsAuthoritative = input.scheduleSource === "accepted-snapshot";
 
   function profile(match: Match, wrestler: string): SimulationProfile {
-    const membership = leagueByName.get(match.league)?.wrestlers.find((entry) => entry.wrestler.name === wrestler);
-    const standing = standingByWrestler.get(`${match.league}:${wrestler}`);
-    const streak = streakByWrestler.get(`${match.league}:${wrestler}`);
+    const membership = leagueByName.get(match.league)?.wrestlers.find((entry) => entry.wrestler.name === wrestler)
+      ?? (acceptedSnapshotIsAuthoritative
+        ? input.leagues.flatMap((league) => league.wrestlers).find((entry) => entry.wrestler.name === wrestler)
+        : undefined);
+    const standing = standingByWrestler.get(`${match.league}:${wrestler}`)
+      ?? (acceptedSnapshotIsAuthoritative ? input.standings.find((row) => row.wrestler === wrestler) : undefined);
+    const streak = streakByWrestler.get(`${match.league}:${wrestler}`)
+      ?? (acceptedSnapshotIsAuthoritative ? input.streaks.find((row) => row.wrestler === wrestler) : undefined);
     if (!membership || !standing || !streak) {
       throw new Error(`Missing simulation profile data for ${wrestler} in ${match.league}.`);
     }
@@ -144,7 +151,8 @@ input.targetWeek === undefined
 
   const candidates = openMatches
     .filter((match) => match.week === week && match.league !== input.userLeague)
-    .filter((match) => referenceKeys.has(`${match.league}:${match.week}:${match.matchNumber}:${match.matchupKey}`))
+    .filter((match) => acceptedSnapshotIsAuthoritative
+      || referenceKeys.has(`${match.league}:${match.week}:${match.matchNumber}:${match.matchupKey}`))
     .sort((a, b) => a.showDay.localeCompare(b.showDay) || a.matchNumber - b.matchNumber)
     .map((match) => ({ match, wrestlerA: profile(match, match.wrestlerA), wrestlerB: profile(match, match.wrestlerB) }));
 

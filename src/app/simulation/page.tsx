@@ -10,8 +10,8 @@ const data = loadTrackerData();
 return (
 <>
 <PageHeader
-eyebrow="Phase 3C · active non-user shows"
-title="Simulation Studio"
+eyebrow="Non-user shows"
+title="Simulation"
 description={
 "Review progress by league and generate editable previews only for open non-user matches in the active app week. " +
 data.meta.userLeague +
