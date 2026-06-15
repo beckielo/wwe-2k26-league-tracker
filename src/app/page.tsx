@@ -42,8 +42,8 @@ Workbook connected </div>
     />
     <Stat
       label="Control status"
-      value={errors.length ? errors.length + " errors" : "Verified"}
-      detail={`${warnings.length} source warnings contained`}
+      value={errors.length ? `${errors.length} Blocking ${errors.length === 1 ? "Issue" : "Issues"}` : warnings.length ? `${warnings.length} Source Warnings` : "Verified"}
+      detail={errors.length ? "Workflow blockers require attention" : warnings.length ? "Non-blocking · details contained" : "No blocking or source issues"}
     />
   </div>
 

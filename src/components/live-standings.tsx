@@ -33,7 +33,8 @@ function LeagueTable({ league, rows, userLeague }: { league: LeagueName; rows: S
   const isUserLeague = league === userLeague;
   return <section className={`live-league-panel league-${visual.key}${isUserLeague ? " is-user-league" : ""}`} aria-label={`${league} live standings`}>
     <header className="live-league-header">
-      <LeagueBrandMark league={league} usage="primary" />
+      <LeagueBrandMark league={league} usage="watermark" className="live-league-watermark" />
+      <LeagueBrandMark league={league} usage="crest" />
       <div>
         <p>{isUserLeague ? "Your division · live" : "Live division table"}</p>
         <h2>{league}</h2>
