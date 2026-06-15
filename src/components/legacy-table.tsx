@@ -22,7 +22,10 @@ export function LegacyTable({ profiles }: { profiles: LegacyProfile[] }) {
       </header>
       <div className="legacy-table-wrap">
         <table className="legacy-table">
-          <thead><tr><th>Rank</th><th>Wrestler / League</th><th>Tier</th><th>League Titles</th><th>Global Titles</th><th>Elite Cups</th><th>Doubles</th><th>Inv. Splits</th><th>Inv. Hin.</th><th>Inv. Rück.</th><th>Longest Streak</th><th>Analysis</th></tr></thead>
+          <thead>
+            <tr className="legacy-column-groups"><th colSpan={3}>Legacy identity</th><th colSpan={4}>Championship résumé</th><th colSpan={4}>Invincible runs & form</th><th>Desk analysis</th></tr>
+            <tr><th>Rank</th><th>Wrestler / League</th><th>Tier</th><th>League Titles</th><th>Global Titles</th><th>Elite Cups</th><th>Doubles</th><th>Inv. Splits</th><th>Inv. Hin.</th><th>Inv. Rück.</th><th>Longest Streak</th><th>Commentary</th></tr>
+          </thead>
           <tbody>{profiles.map((profile, index) => {
             const active = profile.wrestler === selectedProfile?.wrestler;
             const rowCommentary = generateLegacyCommentary(profile);
@@ -30,10 +33,14 @@ export function LegacyTable({ profiles }: { profiles: LegacyProfile[] }) {
               <td><span className="legacy-rank">{index + 1}</span></td>
               <td><button className="legacy-wrestler-button" onClick={() => setSelected(profile.wrestler)} aria-pressed={active}><LeagueBrandMark league={profile.currentLeague} usage="micro" /><span><strong>{profile.wrestler}</strong><small>{profile.currentLeague}</small></span></button></td>
               <td>{profile.goatStatusTier ? <span className={`legacy-tier tier-${profile.goatStatusTier.toLowerCase()}`}>{profile.goatStatusTier}</span> : <span className="legacy-empty">—</span>}</td>
-              <td>{profile.leagueWinsTotal}</td><td>{profile.globalChampionWins}</td><td>{profile.eliteCupWins}</td><td>{profile.doubles}</td>
-              <td>{profile.invincibleSplits}</td><td>{profile.invincibleHinrunden}</td><td>{profile.invincibleRueckrunden}</td>
+              <td><span className="legacy-stat-chip">{profile.leagueWinsTotal}</span></td><td><span className="legacy-stat-chip is-global">{profile.globalChampionWins}</span></td><td><span className="legacy-stat-chip is-cup">{profile.eliteCupWins}</span></td><td><span className="legacy-stat-chip">{profile.doubles}</span></td>
+              <td><span className="legacy-stat-chip">{profile.invincibleSplits}</span></td><td><span className="legacy-stat-chip">{profile.invincibleHinrunden}</span></td><td><span className="legacy-stat-chip">{profile.invincibleRueckrunden}</span></td>
               <td><strong className="legacy-streak">{profile.longestWinStreakOverall}</strong></td>
-              <td><button className="legacy-analysis-button" onClick={() => setSelected(profile.wrestler)}>{journalistView ? rowCommentary.category : "View source note"} <span aria-hidden>→</span></button></td>
+              <td><button className="legacy-analysis-button" onClick={() => setSelected(profile.wrestler)}>
+                <span>{journalistView ? rowCommentary.category : "Workbook source note"}</span>
+                <small>{journalistView ? rowCommentary.excerpt : (profile.sourceCommentary ?? "No source note recorded.")}</small>
+                <b>Read full analysis <span aria-hidden>→</span></b>
+              </button></td>
             </tr>;
           })}</tbody>
         </table>
@@ -41,10 +48,15 @@ export function LegacyTable({ profiles }: { profiles: LegacyProfile[] }) {
     </section>
 
     {selectedProfile && commentary && <aside className={`legacy-commentary league-${LEAGUE_VISUALS[selectedProfile.currentLeague].key}`} aria-live="polite">
-      <div className="legacy-commentary-top"><LeagueBrandMark league={selectedProfile.currentLeague} usage="crest" /><div><p>{commentary.voice}</p><h2>{selectedProfile.wrestler}</h2><span>{commentary.category}</span></div></div>
+      <div className="legacy-commentary-top"><LeagueBrandMark league={selectedProfile.currentLeague} usage="crest" /><div><p>{commentary.voice}</p><h2>{selectedProfile.wrestler}</h2><span className="commentary-category">{commentary.category}</span></div></div>
+      <p className="commentary-rankline">Rank #{profiles.indexOf(selectedProfile) + 1} · {selectedProfile.currentLeague} · Tier {selectedProfile.goatStatusTier ?? "not recorded"}</p>
       {journalistView
         ? <blockquote>{commentary.text}</blockquote>
         : <blockquote>{selectedProfile.sourceCommentary ?? "No source commentary is recorded for this wrestler."}</blockquote>}
+      {commentary.statCallouts.length > 0 && <div className="commentary-callouts" aria-label="Selected legacy statistics">
+        {commentary.statCallouts.map((item) => <div key={item.label}><strong>{item.value}</strong><span>{item.label}</span></div>)}
+      </div>}
+      <h3>Recorded evidence</h3>
       <div className="evidence-tags" aria-label="Commentary evidence">
         {commentary.evidenceTags.length
           ? commentary.evidenceTags.map((tag) => <span key={tag}>{tag}</span>)

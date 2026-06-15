@@ -1,11 +1,12 @@
 import { PageHeader, Stat } from "@/components/ui";
-import { loadTrackerData } from "@/data/workbook";
+import { loadLegacyTableData, loadTrackerData } from "@/data/workbook";
 import { DashboardControlCenter } from "@/components/dashboard-control-center";
 
 export const dynamic = "force-dynamic";
 
 export default function DashboardPage() {
 const data = loadTrackerData();
+const legacy = loadLegacyTableData();
 const errors = data.validationIssues.filter(
 (issue) => issue.severity === "error",
 );
@@ -47,7 +48,18 @@ Workbook connected </div>
     />
   </div>
 
-  <DashboardControlCenter workbookMatches={data.matches} workbookCompletedThroughWeek={data.meta.appBaselineCompletedThroughWeek} leagueYear={data.meta.leagueYear} userLeague={data.meta.userLeague} validationIssues={data.validationIssues} />
+  <DashboardControlCenter
+    workbookMatches={data.matches}
+    workbookCompletedThroughWeek={data.meta.appBaselineCompletedThroughWeek}
+    leagueYear={data.meta.leagueYear}
+    userLeague={data.meta.userLeague}
+    validationIssues={data.validationIssues}
+    legacySummary={{
+      leader: legacy.profiles[0]?.wrestler ?? null,
+      leagueWinners: legacy.profiles.filter((profile) => profile.leagueWinsTotal > 0).length,
+      eliteCupWinners: legacy.profiles.filter((profile) => profile.eliteCupWins > 0).length,
+    }}
+  />
 
   <div className="mt-8 flex flex-col justify-between gap-3 border border-white/10 bg-white/[.025] px-5 py-4 text-xs text-slate-500 sm:flex-row">
     <span>Source: {data.sourceFile}</span>
