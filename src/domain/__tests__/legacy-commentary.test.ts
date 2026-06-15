@@ -34,7 +34,16 @@ describe("legacy journalist commentary", () => {
     const after = generateLegacyCommentary({ ...base, eliteCupWins: 1 });
     expect(after).not.toEqual(before);
     expect(after.category).toBe("Elite Cup Specialist");
-    expect(after.evidenceTags).toContain("Elite Cup Winner");
+    expect(after.evidenceTags).toContain("1 Elite Cup Win");
+  });
+
+  it("separates a category badge, row excerpt, and full-sentence commentary", () => {
+    const commentary = generateLegacyCommentary(base);
+    expect(commentary.category).toBe("Lower League Climber");
+    expect(commentary.text).toMatch(/[.!?]$/);
+    expect(commentary.text.split(/[.!?]+/).filter((sentence) => sentence.trim()).length).toBeGreaterThanOrEqual(1);
+    expect(commentary.excerpt).not.toBe(commentary.category);
+    expect(commentary.excerpt).toMatch(/[.!?…]$/);
   });
 
   it("does not claim unavailable titles, cups, promotions, or invincible runs", () => {
@@ -44,19 +53,26 @@ describe("legacy journalist commentary", () => {
   });
 
   it("weights titles, Elite Cup wins, streaks, and invincible runs from actual fields", () => {
-    expect(generateLegacyCommentary({ ...base, leagueWinsTotal: 1 }).category).toBe("Dominant Champion");
+    expect(generateLegacyCommentary({ ...base, leagueWinsTotal: 1 }).category).toBe("League Title Standard");
+    expect(generateLegacyCommentary({ ...base, leagueWinsTotal: 1, globalChampionWins: 1 }).category).toBe("Global Championship Standard");
     expect(generateLegacyCommentary({ ...base, eliteCupWins: 1 }).category).toBe("Elite Cup Specialist");
     expect(generateLegacyCommentary({ ...base, longestWinStreakOverall: 9 }).category).toBe("Streak-Based Threat");
     expect(generateLegacyCommentary({ ...base, invincibleSplits: 1 }).category).toBe("Invincible Run Candidate");
+  });
+
+  it("does not overuse streak commentary when stronger title or trophy evidence exists", () => {
+    expect(generateLegacyCommentary({ ...base, longestWinStreakOverall: 12, leagueWinsTotal: 1 }).category).toBe("League Title Standard");
+    expect(generateLegacyCommentary({ ...base, longestWinStreakOverall: 12, eliteCupWins: 1 }).category).toBe("Elite Cup Specialist");
+    expect(generateLegacyCommentary({ ...base, longestWinStreakOverall: 12, globalChampionWins: 1 }).category).toBe("Global Championship Standard");
   });
 
   it("uses checkpoint trends only when supplied", () => {
     const collapse = generateLegacyCommentary({ ...base, checkpoints: { hinrundePosition: 1, finalPosition: 6 } });
     const improvement = generateLegacyCommentary({ ...base, checkpoints: { previousSplitPosition: 9, finalPosition: 3 } });
     expect(collapse.category).toBe("Late-Season Collapse");
-    expect(collapse.evidenceTags).toContain("Late Collapse");
+    expect(collapse.evidenceTags).toContain("Finished P6 from P1");
     expect(improvement.category).toBe("Split-to-Split Improvement");
-    expect(improvement.evidenceTags).toContain("Previous Split Improvement");
+    expect(improvement.evidenceTags).toContain("Improved P9 to P3");
   });
 
   it("produces different analysis for clearly different profiles", () => {
@@ -64,6 +80,31 @@ describe("legacy journalist commentary", () => {
     const streaker = generateLegacyCommentary({ ...base, wrestler: "Streaker", longestWinStreakOverall: 8 });
     expect(champion.text).not.toBe(streaker.text);
     expect(champion.category).not.toBe(streaker.category);
+  });
+
+  it("gives a top achievement profile two to three evidence-based sentences", () => {
+    const commentary = generateLegacyCommentary({
+      ...base,
+      wrestler: "Archive Leader",
+      currentLeague: "Global League",
+      leagueWinsTotal: 2,
+      globalChampionWins: 1,
+      eliteCupWins: 1,
+      longestWinStreakOverall: 8,
+    });
+    const sentences = commentary.text.split(/[.!?]+/).filter((sentence) => sentence.trim());
+    expect(sentences.length).toBeGreaterThanOrEqual(2);
+    expect(sentences.length).toBeLessThanOrEqual(3);
+    expect(commentary.text).toMatch(/Global Championship|Global title/i);
+    expect(commentary.evidenceTags).toEqual(expect.arrayContaining(["1 Global Title", "2 League Titles", "1 Elite Cup Win", "8-Match Win Streak"]));
+    expect(commentary.statCallouts).toContainEqual({ label: "Global titles", value: "1" });
+  });
+
+  it("keeps evidence tags aligned with recorded fields", () => {
+    const commentary = generateLegacyCommentary({ ...base, eliteCupWins: 2, invincibleRueckrunden: 1 });
+    expect(commentary.evidenceTags).toContain("2 Elite Cup Wins");
+    expect(commentary.evidenceTags).toContain("1 Invincible Rückrunde");
+    expect(commentary.evidenceTags.join(" ")).not.toMatch(/Global|League Title|Streak/);
   });
 });
 
@@ -91,6 +132,9 @@ describe("Phase 10.7 legacy table integration", () => {
     expect(source("src/app/legacy/page.tsx")).toContain("LegacyTable");
     expect(source("src/components/dashboard-control-center.tsx")).toContain('href="/legacy"');
     expect(source("src/components/dashboard-control-center.tsx")).toContain("Open Legacy Table");
+    expect(source("src/components/dashboard-control-center.tsx")).toContain("GOAT / Legacy Rankings");
+    expect(source("src/components/dashboard-control-center.tsx")).toContain("Career Archive");
+    expect(source("src/components/dashboard-control-center.tsx")).toContain("Current legacy leader");
     expect(source("src/components/app-shell.tsx")).toContain('["Legacy", "/legacy"');
     expect(source("src/components/app-shell.tsx")).toContain('["History", "/history"');
     expect(source("src/app/history/page.tsx")).toContain("HistoryDashboard");
@@ -102,5 +146,9 @@ describe("Phase 10.7 legacy table integration", () => {
     expect(component).toContain("legacy-commentary");
     expect(component).toContain("Journalist view");
     expect(component).toContain("evidence-tags");
+    expect(component).toContain("rowCommentary.excerpt");
+    expect(component).toContain("commentary.statCallouts");
+    expect(component).toContain("Recorded evidence");
+    expect(component).toContain("legacy-column-groups");
   });
 });
