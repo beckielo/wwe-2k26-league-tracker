@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { LeagueIcon } from "./league-icon";
-import { LeagueBrandMark } from "./brand-assets";
+import { LeagueBrandMark, LeagueDecorativeArt } from "./brand-assets";
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { calculateStandingsWithConfirmedResults } from "@/domain/tracker-state";
@@ -33,6 +33,7 @@ function LeagueTable({ league, rows, userLeague }: { league: LeagueName; rows: S
   const isUserLeague = league === userLeague;
   return <section className={`live-league-panel league-${visual.key}${isUserLeague ? " is-user-league" : ""}`} aria-label={`${league} live standings`}>
     <header className="live-league-header">
+      <LeagueDecorativeArt league={league} className="live-league-decoration" />
       <LeagueBrandMark league={league} usage="watermark" className="live-league-watermark" />
       <LeagueBrandMark league={league} usage="crest" />
       <div>

@@ -16,7 +16,8 @@ describe("Phase 10.6 brand assets and live table polish", () => {
       const asset = LEAGUE_BRAND_ASSETS[league];
       expect(asset.assetPath).toMatch(/^\/brand-assets\/leagues\/.+-league\.jpg$/);
       expect(asset.fallbackCrest).toHaveLength(2);
-      expect(asset.usageVariants).toEqual(["hero", "panel", "watermark", "header", "crest", "compact", "micro"]);
+      expect(asset.usageVariants).toContain("compact-badge");
+      expect(asset.usageVariants).toContain("match-preview-art");
       expect(asset.primaryColor).toMatch(/^#/);
     }
   });

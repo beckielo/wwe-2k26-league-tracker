@@ -6,7 +6,7 @@ import { getWeekDisplay } from "@/domain/week-display";
 import type { LeagueName, Match, ValidationIssue } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { EmptyState, StatusBadge } from "./ui";
-import { InteractivePanel, LeagueBrandMark, LeagueWatermark } from "./brand-assets";
+import { InteractivePanel, LeagueBrandMark, LeagueDecorativeArt, LeagueWatermark } from "./brand-assets";
 import { LEAGUE_VISUALS } from "@/domain/visual-identity";
 
 interface DashboardControlCenterProps {
@@ -44,6 +44,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
 
   return <>
     <section className={`command-deck league-${LEAGUE_VISUALS[userLeague].key}`} aria-labelledby="command-title">
+      <LeagueDecorativeArt league={userLeague} className="command-decorative-art" />
       <LeagueWatermark league={userLeague} />
       <div className="command-context">
         <p className="broadcast-kicker">Live league control</p>
