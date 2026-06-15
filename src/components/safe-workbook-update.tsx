@@ -17,6 +17,12 @@ interface SafeWorkbookUpdateProps {
 export function SafeWorkbookUpdate(props: SafeWorkbookUpdateProps) {
   const [errors, setErrors] = useState<string[]>([]);
   const [downloading, setDownloading] = useState(false);
+  const scheduleSourceLabel = props.state.acceptedSchedule
+    ? props.state.acceptedSchedule.source === "Generated"
+      ? "Schedule Source: accepted generated snapshot"
+      : "Schedule Source: accepted imported snapshot"
+    : "Schedule Source: original workbook";
+
   const exports = createWeeklyCloseExports(
     props.state,
     props.allMatches,
@@ -66,6 +72,7 @@ export function SafeWorkbookUpdate(props: SafeWorkbookUpdateProps) {
         <p>Latest locked week: {exports.ok ? exports.week : "None"}</p>
         <p>Source workbook completed through Week {props.workbookCompletedThroughWeek}</p>
         <p>Close package exportable: {exports.ok ? "Yes" : "No"}</p>
+        <p>{scheduleSourceLabel}</p>
       </div>
       <p className="mt-3 text-sm font-bold text-emerald-200">
         Original Excel workbook will not be modified.

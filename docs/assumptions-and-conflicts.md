@@ -316,3 +316,11 @@ The following checks found no current-data conflict:
 - A complete, valid locked week is immediately exportable. Close package JSON, weekly results CSV, and app-state standings CSV are available for the latest locked week (for example, locked Year Week 25 / Closing Split Week 1) and do not require the next active week to be completed.
 - Safe Workbook Update availability is based on the latest complete and valid locked app-state week plus the normal safe writeback checks. Before workbook writeback, the source workbook may still be completed through an earlier week, but the local overlay can still produce a safe updated workbook for the validated locked week.
 - Promote Current Master remains subject to the existing branch/main and updated-workbook safety checks, but it must not be blocked by a stale “Latest locked week: None” state when the tracker has a valid locked week.
+
+## Phase 10.8.2 — Closing Split schedule writeback and promotion authority
+
+- The accepted generated/imported League Year 2 Closing Split schedule snapshot is the authoritative app schedule for Closing Split before workbook writeback. It is not a guessed or regenerated schedule, and validation must continue to compare locked results by match id and matchup identity.
+- Safe Workbook Update must write the accepted Closing Split schedule snapshot into the updated workbook as `App_Accepted_Schedule` for Year Weeks 25–46, preserving League Year 2, Closing Split, split week, year week, league name, match ids, and matchup metadata.
+- After Safe Workbook Update, the updated workbook schedule is authoritative for Closing Split promotion and future Closing Split validation. Promote Current Master must not validate Year Week 25+ against a stale original workbook schedule that has no Closing Split rows when an accepted/written schedule is available.
+- If Year Week 25+ is being written or promoted without an accepted Closing Split schedule snapshot, the blocking reason is schedule writeback failure: “Accepted Closing Split schedule could not be written to workbook,” not a silent bypass of schedule validation.
+- Schedule validation is not bypassed. Week results must still be complete, must contain exactly the expected scheduled match ids, must match the scheduled wrestlers/leagues/weeks, and invalid or incomplete Closing Split result packages must still fail promotion.

@@ -5,6 +5,7 @@ import path from "node:path";
 import * as XLSX from "xlsx";
 import { validateTrackerData } from "@/domain/validation";
 import { parseAppWorkbookBaseline } from "@/domain/app-workbook-baseline";
+import { ACCEPTED_SCHEDULE_SHEET } from "@/domain/workbook-writeback";
 import { parseLegacyTracker, type LegacyTableData } from "@/domain/legacy";
 import {
   LEAGUE_NAMES,
@@ -218,7 +219,7 @@ export function loadTrackerData(): TrackerData {
   });
 
   const scheduleRows = readRows(workbook, "Schedule_22W");
-  const matches: Match[] = scheduleRows.map((row, index) => {
+  const workbookMatches: Match[] = scheduleRows.map((row, index) => {
     const matchLeague = league(row.League);
     const matchWeek = number(row.Week);
     const wrestlerA = text(row["Wrestler A"]);
@@ -241,6 +242,31 @@ export function loadTrackerData(): TrackerData {
       source: { file: sourceFile, sheet: "Schedule_22W", row: index + 2 },
     };
   });
+
+  const appScheduleRows = workbook.Sheets[ACCEPTED_SCHEDULE_SHEET]
+    ? XLSX.utils.sheet_to_json<SheetRow>(workbook.Sheets[ACCEPTED_SCHEDULE_SHEET], { defval: null, raw: true })
+    : [];
+  const appScheduleMatches: Match[] = appScheduleRows.map((row, index) => {
+    const wrestlerA = text(row.wrestlerA);
+    const wrestlerB = text(row.wrestlerB);
+    return {
+      id: text(row.matchId),
+      leagueYear: number(row.leagueYear),
+      split: split(row.split),
+      week: number(row.yearWeek),
+      roundType: roundType(row.roundType),
+      league: league(row.league),
+      showDay: text(row.showDay) as League["showDay"],
+      matchNumber: number(row.matchNumber),
+      wrestlerA,
+      wrestlerB,
+      matchupKey: text(row.matchupKey) || [wrestlerA, wrestlerB].sort().join("::"),
+      status: "scheduled",
+      source: { file: sourceFile, sheet: ACCEPTED_SCHEDULE_SHEET, row: index + 2 },
+    };
+  });
+  const appScheduleIds = new Set(appScheduleMatches.map((match) => match.id));
+  const matches = [...workbookMatches.filter((match) => !appScheduleIds.has(match.id)), ...appScheduleMatches];
 
   const matchById = new Map(matches.map((match) => [match.id, match]));
   const results: MatchResult[] = scheduleRows.flatMap((row, index) => {

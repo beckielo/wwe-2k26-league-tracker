@@ -7,7 +7,9 @@ import {
   LOG_SHEET,
   RESULTS_SHEET,
   STANDINGS_SHEET,
+  ACCEPTED_SCHEDULE_SHEET,
 } from "../workbook-writeback";
+import { acceptedScheduleMatches, createAcceptedScheduleSnapshot, generateSchedule, validateSchedule } from "../schedule-setup";
 import type { LeagueName, Match, StandingRow } from "../types";
 
 const leagues: LeagueName[] = ["Global League", "Continental League", "National League", "Regional League"];
@@ -53,6 +55,57 @@ const standings: StandingRow[] = schedule.flatMap((match) =>
     status: "",
   })),
 );
+
+
+const closingSeeds = Object.fromEntries(leagues.map((league) => [
+  league,
+  Array.from({ length: 12 }, (_, index) => ({ seed: index + 1, wrestler: `${league} Wrestler ${index + 1}` })),
+])) as Record<LeagueName, Array<{ seed: number; wrestler: string }>>;
+const closingPreview = generateSchedule({ leagueYear: 2, split: "Closing Split", yearWeekStart: 25, seeds: closingSeeds, generatedAt: "2026-06-14T00:00:00.000Z" });
+const closingValidation = validateSchedule(closingPreview, { rosters: Object.fromEntries(leagues.map((league) => [league, closingSeeds[league].map((seed) => seed.wrestler)])) as Record<LeagueName, string[]> });
+const acceptedClosingSchedule = createAcceptedScheduleSnapshot({ preview: closingPreview, validation: closingValidation, acceptedAt: "2026-06-14T01:00:00.000Z", leagueYear: 2, split: "Closing Split" });
+const closingMatches = acceptedScheduleMatches(acceptedClosingSchedule);
+const closingWeek25Results: ConfirmedResult[] = closingMatches.filter((match) => match.week === 25).map((match) => ({
+  league: match.league,
+  week: 25,
+  matchId: match.id,
+  wrestlerA: match.wrestlerA,
+  wrestlerB: match.wrestlerB,
+  resultType: "Winner",
+  winner: match.wrestlerA,
+  source: "Simulation",
+  confirmedAt: "2026-06-15T10:00:00.000Z",
+}));
+const closingStandings: StandingRow[] = leagues.flatMap((league) => closingSeeds[league].map((seed, index) => ({
+  league,
+  rank: index + 1,
+  wrestler: seed.wrestler,
+  seed: seed.seed,
+  matches: index < 12 ? 1 : 0,
+  wins: index % 2 === 0 ? 1 : 0,
+  draws: 0,
+  losses: index % 2 === 1 ? 1 : 0,
+  points: index % 2 === 0 ? 3 : 0,
+  status: "active split reset",
+})));
+
+function closingClosePackage(): WeeklyClosePackage {
+  const pkg = closePackage();
+  return {
+    ...pkg,
+    exportedAt: "2026-06-15T12:00:00.000Z",
+    week: 25,
+    completedAt: "2026-06-15T11:00:00.000Z",
+    workbookCompletedThroughWeek: 24,
+    latestLockedWeek: 25,
+    latestLockedCompletedAt: "2026-06-15T11:00:00.000Z",
+    safety: { ...pkg.safety, source: "source.xlsx" },
+    results: structuredClone(closingWeek25Results),
+    standings: structuredClone(closingStandings),
+    acceptedSchedule: structuredClone(acceptedClosingSchedule),
+    scheduleAuthority: { source: "accepted generated snapshot", closingSplitAccepted: true, closingSplitWrittenToWorkbook: false },
+  };
+}
 
 function closePackage(): WeeklyClosePackage {
   return {
@@ -164,6 +217,41 @@ describe("safe workbook writeback", () => {
         originalWorkbookSource: "source.xlsx",
       }),
     ]);
+  });
+
+  it("writes the accepted Closing Split schedule snapshot for Year Weeks 25-46", () => {
+    expect(closingMatches.filter((match) => match.week === 25)).toHaveLength(24);
+    const result = createWorkbookWriteback(
+      { workbook: baselineWorkbook(), sourceFile: "source.xlsx", schedule },
+      closingClosePackage(),
+      "2026-06-15T13:00:00.000Z",
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.metadata.sheets).toContain(ACCEPTED_SCHEDULE_SHEET);
+    const workbook = XLSX.read(result.workbook, { type: "array" });
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[ACCEPTED_SCHEDULE_SHEET]);
+    expect(rows).toHaveLength(528);
+    expect(rows.filter((row) => row.yearWeek === 25)).toHaveLength(24);
+    for (const league of leagues) expect(rows.filter((row) => row.yearWeek === 25 && row.league === league)).toHaveLength(6);
+    expect(rows[0]).toMatchObject({ split: "Closing Split", leagueYear: 2, scheduleSource: "accepted generated snapshot" });
+    expect(new Set(rows.filter((row) => row.yearWeek === 25).map((row) => row.matchId))).toEqual(new Set(closingWeek25Results.map((result) => result.matchId)));
+  });
+
+  it("rejects Closing Split writeback when no accepted schedule exists or result ids do not match", () => {
+    const missing = closingClosePackage();
+    delete missing.acceptedSchedule;
+    expect(createWorkbookWriteback({ workbook: baselineWorkbook(), sourceFile: "source.xlsx", schedule }, missing)).toMatchObject({
+      ok: false,
+      errors: expect.arrayContaining(["Accepted Closing Split schedule could not be written to workbook: no accepted Closing Split schedule snapshot was supplied."]),
+    });
+
+    const mismatch = closingClosePackage();
+    mismatch.results[0].matchId = "not-authoritative";
+    expect(createWorkbookWriteback({ workbook: baselineWorkbook(), sourceFile: "source.xlsx", schedule }, mismatch)).toMatchObject({
+      ok: false,
+      errors: expect.arrayContaining(["not-authoritative: match is not in the authoritative Week 25 schedule."]),
+    });
   });
 
   it("does not mutate workbook baseline, schedule, or close package inputs", () => {

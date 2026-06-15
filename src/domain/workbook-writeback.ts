@@ -1,10 +1,12 @@
 import * as XLSX from "xlsx";
 import type { WeeklyClosePackage } from "./weekly-close-exports";
+import { acceptedScheduleMatches } from "./schedule-setup";
 import type { Match } from "./types";
 
 export const RESULTS_SHEET = "App_Confirmed_Results";
 export const STANDINGS_SHEET = "App_State_Standings";
 export const LOG_SHEET = "App_Writeback_Log";
+export const ACCEPTED_SCHEDULE_SHEET = "App_Accepted_Schedule";
 
 export interface WorkbookWritebackBaseline {
   workbook: Uint8Array;
@@ -39,6 +41,24 @@ const RESULT_HEADERS = [
   "confirmedAt",
 ];
 
+const ACCEPTED_SCHEDULE_HEADERS = [
+  "matchId",
+  "leagueYear",
+  "split",
+  "splitWeek",
+  "yearWeek",
+  "roundType",
+  "league",
+  "showDay",
+  "matchNumber",
+  "wrestlerA",
+  "wrestlerB",
+  "matchupKey",
+  "scheduleSource",
+  "acceptedAt",
+  "writtenAt",
+];
+
 const STANDINGS_HEADERS = [
   "league",
   "rank",
@@ -62,7 +82,13 @@ export function validateWorkbookWriteback(
 ): string[] {
   const errors: string[] = [];
   const week = closePackage.week;
-  const weekSchedule = baseline.schedule.filter((match) => match.week === week);
+  const acceptedMatches = closePackage.acceptedSchedule?.validation.valid
+    ? acceptedScheduleMatches(closePackage.acceptedSchedule)
+    : [];
+  const authoritySchedule = acceptedMatches.length > 0
+    ? [...baseline.schedule.filter((match) => !acceptedMatches.some((accepted) => accepted.id === match.id)), ...acceptedMatches]
+    : baseline.schedule;
+  const weekSchedule = authoritySchedule.filter((match) => match.week === week);
   const matchById = new Map(weekSchedule.map((match) => [match.id, match]));
   const seen = new Set<string>();
 
@@ -79,7 +105,12 @@ export function validateWorkbookWriteback(
     errors.push(`Week ${week} is not the latest locked week in the close package.`);
   }
   if (!validTimestamp(closePackage.completedAt)) errors.push("Close package completedAt is invalid.");
-  if (weekSchedule.length !== 24) errors.push(`Workbook schedule has ${weekSchedule.length} matches for Week ${week}; expected 24.`);
+  if (week >= 25 && acceptedMatches.length === 0) errors.push("Accepted Closing Split schedule could not be written to workbook: no accepted Closing Split schedule snapshot was supplied.");
+  if (weekSchedule.length !== 24) {
+    errors.push(acceptedMatches.length > 0
+      ? `Accepted Closing Split schedule has ${weekSchedule.length} matches for Week ${week}; expected 24. Schedule writeback is required before promotion.`
+      : `Workbook schedule has ${weekSchedule.length} matches for Week ${week}; expected 24.`);
+  }
   if (closePackage.results.length !== 24) errors.push("Close package must contain exactly 24 results.");
   if (closePackage.standings.length !== 48) errors.push("Close package must contain exactly 48 standings rows.");
 
@@ -130,7 +161,11 @@ export function createWorkbookWriteback(
   if (errors.length) return { ok: false, errors };
 
   const workbook = XLSX.read(baseline.workbook, { type: "array", cellDates: false });
-  const matchById = new Map(baseline.schedule.map((match) => [match.id, match]));
+  const acceptedMatches = closePackage.acceptedSchedule?.validation.valid ? acceptedScheduleMatches(closePackage.acceptedSchedule) : [];
+  const authoritySchedule = acceptedMatches.length > 0
+    ? [...baseline.schedule.filter((match) => !acceptedMatches.some((accepted) => accepted.id === match.id)), ...acceptedMatches]
+    : baseline.schedule;
+  const matchById = new Map(authoritySchedule.map((match) => [match.id, match]));
   replaceSheet(workbook, RESULTS_SHEET, [
     RESULT_HEADERS,
     ...closePackage.results.map((result) => [
@@ -162,6 +197,29 @@ export function createWorkbookWriteback(
     ]),
   ]);
 
+  if (acceptedMatches.length > 0) {
+    replaceSheet(workbook, ACCEPTED_SCHEDULE_SHEET, [
+      ACCEPTED_SCHEDULE_HEADERS,
+      ...acceptedMatches.map((match) => [
+        match.id,
+        match.leagueYear,
+        match.split,
+        match.week - 24,
+        match.week,
+        match.roundType,
+        match.league,
+        match.showDay,
+        match.matchNumber,
+        match.wrestlerA,
+        match.wrestlerB,
+        match.matchupKey,
+        closePackage.acceptedSchedule?.source === "Imported" ? "accepted imported snapshot" : "accepted generated snapshot",
+        closePackage.acceptedSchedule?.acceptedAt ?? "",
+        generatedAt,
+      ]),
+    ]);
+  }
+
   const existingLog = workbook.Sheets[LOG_SHEET]
     ? XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[LOG_SHEET], { header: 1, defval: "" })
     : [[
@@ -173,6 +231,9 @@ export function createWorkbookWriteback(
         "sourceClosePackage",
         "excelModified",
         "originalWorkbookSource",
+        "scheduleSource",
+        "closingSplitScheduleAccepted",
+        "closingSplitScheduleWrittenToWorkbook",
       ]];
   existingLog.push([
     closePackage.week,
@@ -183,6 +244,9 @@ export function createWorkbookWriteback(
     `weekly-close-package-v${closePackage.version}-week-${closePackage.week}`,
     false,
     baseline.sourceFile,
+    acceptedMatches.length > 0 ? "updated workbook" : "original workbook",
+    Boolean(closePackage.acceptedSchedule?.split === "Closing Split"),
+    acceptedMatches.length > 0,
   ]);
   replaceSheet(workbook, LOG_SHEET, existingLog);
 
@@ -195,7 +259,7 @@ export function createWorkbookWriteback(
       week: closePackage.week,
       resultCount: closePackage.results.length,
       standingsCount: closePackage.standings.length,
-      sheets: [RESULTS_SHEET, STANDINGS_SHEET, LOG_SHEET],
+      sheets: acceptedMatches.length > 0 ? [RESULTS_SHEET, STANDINGS_SHEET, LOG_SHEET, ACCEPTED_SCHEDULE_SHEET] : [RESULTS_SHEET, STANDINGS_SHEET, LOG_SHEET],
     },
   };
 }

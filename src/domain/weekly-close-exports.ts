@@ -1,4 +1,5 @@
 import { calculateActiveSplitStandingsWithConfirmedResults, type ConfirmedResult, type TrackerState } from "./tracker-state";
+import type { AcceptedScheduleSnapshot } from "./schedule-setup";
 import { getWeekProgress } from "./week-progression";
 import type { LeagueName, Match, StandingRow } from "./types";
 
@@ -33,6 +34,8 @@ export interface WeeklyClosePackage {
   };
   results: ConfirmedResult[];
   standings: StandingRow[];
+  acceptedSchedule?: AcceptedScheduleSnapshot;
+  scheduleAuthority?: { source: "original workbook" | "accepted generated snapshot" | "accepted imported snapshot" | "updated workbook"; closingSplitAccepted: boolean; closingSplitWrittenToWorkbook: boolean; };
 }
 
 export type WeeklyCloseExportResult =
@@ -162,6 +165,14 @@ export function createWeeklyCloseExports(
     },
     results,
     standings,
+    acceptedSchedule: state.acceptedSchedule ? structuredClone(state.acceptedSchedule) : undefined,
+    scheduleAuthority: {
+      source: state.acceptedSchedule
+        ? (state.acceptedSchedule.source === "Generated" ? "accepted generated snapshot" : "accepted imported snapshot")
+        : "original workbook",
+      closingSplitAccepted: Boolean(state.acceptedSchedule?.split === "Closing Split"),
+      closingSplitWrittenToWorkbook: false,
+    },
   };
 
   const resultsCsv = toCsv(
