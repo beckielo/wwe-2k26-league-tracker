@@ -268,3 +268,10 @@ The following checks found no current-data conflict:
 - Dashboard validation items with warning severity are presented as **Source Warnings** or **Historical / Non-blocking**, not errors. They remain summarized/collapsed with “Non-blocking · details contained”; only error-severity validation issues are presented as blocking issues.
 - “Blocked” is reserved for a workflow that cannot continue. An available current card is labeled `Ready` before its first result and `In Progress` after results are recorded; an incomplete card is not itself treated as blocked.
 - Phase 10.6.1 changes presentation and status-label mapping only. It does not alter workbook data, scoring, standings, schedules, result entry, simulation, Finals, promotion/relegation, rollover, or writeback safety.
+# Phase 10.6.2 — Decorative Asset Integration & Match Preview Overhaul
+
+- Original user-provided league and League Finals images remain the primary assets for large identity contexts. Decorative art supports those originals and does not replace them.
+- Dedicated `deco-*-batch.png` assets now provide compact league badges. Full poster-style league and event images must not be rendered as tiny badges.
+- Decorative league, event, and GWF assets are optional presentation layers with image-error fallbacks. They are used as masked, darkened, low-opacity environmental art rather than authoritative data.
+- The Schedule match preview reads only existing authoritative `Match` records and exposes split, split week, league, bout, wrestlers, show day, round, and source context. Its controls only browse the supplied card and do not generate matches.
+- The Dashboard remains compact and workflow-focused. It receives one controlled decorative hero accent but does not host the full match-preview experience.

@@ -14,6 +14,7 @@ describe("Phase 10.6.1 brand and dashboard polish", () => {
     expect(component).toContain('const fullImageUsages: readonly BrandUsage[] = ["hero", "panel", "watermark", "header"]');
     expect(component).toContain('data-brand-art={usesFullImage ? "full" : "monogram"}');
     expect(component).toContain("{usesFullImage && <ResilientBrandImage");
+    expect(component).toContain("{usesBatchImage && <ResilientBrandImage");
 
     expect(LEAGUE_NAMES.map((league) => LEAGUE_BRAND_ASSETS[league].fallbackCrest)).toEqual(["GL", "CL", "NL", "RL"]);
   });

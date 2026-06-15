@@ -11,6 +11,7 @@ type SimulationPreview,
 import { confirmResult, isWeekLocked, removeResult } from "@/domain/tracker-state";
 import type { LeagueName, Match, MatchResult } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
+import { LeagueBrandMark, LeagueDecorativeArt } from "./brand-assets";
 
 interface SimulationWorkbenchProps {
 week: number;
@@ -291,13 +292,17 @@ return ( <div className="space-y-6"> <div className="flex flex-col justify-betwe
     </div>
   ) : (
     leagues.map((league) => (
-      <section key={league} className="border border-white/10 bg-[#111722]/90">
+      <section key={league} className="simulation-league-preview border border-white/10 bg-[#111722]/90">
+        <LeagueDecorativeArt league={league} />
         <div className="flex items-center justify-between border-b border-white/10 p-5">
-          <div>
+          <div className="relative z-10 flex items-center gap-3">
+            <LeagueBrandMark league={league} usage="compact-badge" />
+            <div>
             <p className="text-[10px] font-bold uppercase tracking-[.2em] text-red-400">
               Editable preview
             </p>
             <h2 className="mt-1 text-xl font-black uppercase">{league}</h2>
+            </div>
           </div>
           <span className="text-xs text-slate-500">
             {previews.filter((preview) => preview.league === league).length} matches
