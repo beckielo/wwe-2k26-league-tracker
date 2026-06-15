@@ -296,3 +296,12 @@ The following checks found no current-data conflict:
 - Category priority is: Global Championship history, league titles, Elite Cup results, invincible full-split evidence, half-split evidence, meaningful streaks, checkpoint decline/improvement, then current-league context. A title or trophy therefore outranks generic streak commentary, and `Streak-Based Threat` is reserved for profiles where the streak is genuinely the strongest recorded marker.
 - The Legacy ranking keeps every Phase 10.7 source metric, groups columns into identity, championship, form, and analysis sections, and uses horizontal scrolling rather than deleting dense statistics. Rows show category plus an excerpt; selecting a wrestler opens the full source-labelled analysis, stat callouts, and evidence tags.
 - The Dashboard keeps its workflow-first hierarchy while giving `/legacy` a premium, full-width CTA with `GOAT / Legacy Rankings`, `Open Legacy Table`, `Career Archive`, and a compact workbook-backed teaser for the current first-ranked profile and recorded winner counts.
+
+## Phase 10.8 — Closing Split active standings reset
+
+- Active standings are split-scoped. Opening Split active tables include Opening Split results only; Closing Split active tables include Closing Split results only.
+- The Closing Split active table starts from 0 matches, 0 wins, 0 draws, 0 losses, and 0 points before Closing Split Week 1 / Year Week 25 results are applied.
+- Year Week 25 is treated as Closing Split Week 1, Year Week 26 as Closing Split Week 2, and so on for active split display labels.
+- Previous split standings remain historical source data and may still be used for seed/order logic where the rulebook requires it, but previous split points must not carry into active Closing Split standings.
+- Legacy and History views may aggregate historical data when explicitly labeled as legacy/history/year archive data. Active standings, Week Review, weekly close exports, and Live Standings must not use legacy or prior-split totals as current split points.
+- Phase 10.8 does not change 3/1/0 scoring, workbook source data, result entry, simulation, week locks, or safe workbook writeback behavior.

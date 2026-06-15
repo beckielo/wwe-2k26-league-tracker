@@ -7,7 +7,7 @@ import { WeekReviewExports } from "./week-review-exports";
 import { SafeWorkbookUpdate } from "./safe-workbook-update";
 import { PromoteCurrentMaster } from "./promote-current-master";
 import {
-calculateStandingsWithConfirmedResults,
+calculateActiveSplitStandingsWithConfirmedResults,
 completeWeek,
 removeResult,
 unlockWeek,
@@ -87,12 +87,15 @@ progress?.confirmedResults.map((result) => [result.matchId, result]) ?? [],
 const leagues = [...new Set(weekMatches.map((match) => match.league))];
 const latestLockedWeek = summary.latestLockedWeek;
 
-const updatedStandings = calculateStandingsWithConfirmedResults(
+const activeSplit = state.activeWorkflow?.split ?? split;
+const activeSplitWeek = latestLockedWeek !== null && activeSplit === "Closing Split" ? Math.max(1, latestLockedWeek - 24) : latestLockedWeek;
+const updatedStandings = calculateActiveSplitStandingsWithConfirmedResults(
 baselineStandings,
 workflowMatches,
 state.confirmedResults.filter(
 (result) => latestLockedWeek !== null && result.week <= latestLockedWeek,
 ),
+activeSplit,
 );
 const localMatchResults = state.confirmedResults.map((result): MatchResult => {
 const match = workflowMatches.find((candidate) => candidate.id === result.matchId);
@@ -614,7 +617,7 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
           App-state calculation
         </p>
         <h2 className="mt-1 text-xl font-black uppercase">
-          Updated standings through locked Week {latestLockedWeek}
+          {activeSplit} Standings · Split Week {activeSplitWeek}<span className="block text-sm font-bold text-slate-400">Updated through locked Year Week {latestLockedWeek}</span>
         </h2>
       </div>
 

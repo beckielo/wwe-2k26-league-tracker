@@ -5,7 +5,7 @@ import { LeagueIcon } from "./league-icon";
 import { LeagueBrandMark, LeagueDecorativeArt } from "./brand-assets";
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
-import { calculateStandingsWithConfirmedResults } from "@/domain/tracker-state";
+import { calculateActiveSplitStandingsWithConfirmedResults } from "@/domain/tracker-state";
 import { LEAGUE_NAMES, type LeagueName, type Match, type StandingRow, type TrackerMeta } from "@/domain/types";
 import { LEAGUE_VISUALS, placementLabel, placementZone } from "@/domain/visual-identity";
 
@@ -63,13 +63,13 @@ function LeagueTable({ league, rows, userLeague }: { league: LeagueName; rows: S
 export function LiveStandings({ baseline, workbookMatches, meta, sourceFile }: LiveStandingsProps) {
   const { state, hydrated } = useTrackerState();
   const matches = useMemo(() => getActiveWorkflowMatches(state, workbookMatches), [state, workbookMatches]);
-  const standings = useMemo(
-    () => calculateStandingsWithConfirmedResults(baseline, matches, hydrated ? state.confirmedResults : []),
-    [baseline, hydrated, matches, state.confirmedResults],
-  );
   const userLeague = state.activeWorkflow?.userLeague ?? meta.userLeague;
   const split = state.activeWorkflow?.split ?? meta.currentSplit;
   const splitWeek = state.activeWorkflow?.splitWeek ?? (meta.currentSplit === "Closing Split" ? Math.max(1, meta.currentWeek - 24) : meta.currentWeek);
+  const standings = useMemo(
+    () => calculateActiveSplitStandingsWithConfirmedResults(baseline, matches, hydrated ? state.confirmedResults : [], split),
+    [baseline, hydrated, matches, state.confirmedResults, split],
+  );
   const source = state.activeWorkflow?.scheduleSource ?? `Workbook · ${sourceFile}`;
   const lastUpdate = state.completedWeeks.at(-1)?.completedAt ?? meta.latestAppWritebackCompletedAt ?? state.activeWorkflow?.activatedAt ?? null;
 
@@ -78,8 +78,8 @@ export function LiveStandings({ baseline, workbookMatches, meta, sourceFile }: L
       <div className="live-hero-mark"><LeagueIcon name="table" /></div>
       <div>
         <p className="eyebrow">Four divisions · one live table</p>
-        <h1>Live Standings</h1>
-        <p>Current positions from the authoritative workbook baseline, updated by confirmed browser-local results only. No fixture or result is inferred.</p>
+        <h1>{split} Standings</h1>
+        <p>Active split standings only: Closing Split tables reset to 0 and apply confirmed Closing Split results only. No fixture or result is inferred.</p>
       </div>
       <div className="live-broadcast-status"><span />Live table feed<strong>{split} · Week {splitWeek}</strong></div>
     </section>

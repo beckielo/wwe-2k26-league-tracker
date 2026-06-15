@@ -202,3 +202,43 @@ describe("weekly close exports", () => {
     expect(baselineStandings).toEqual(standingsBefore);
   });
 });
+
+it("exports locked Closing Split Week 1 standings without Opening Split totals", () => {
+  const closingMatches = matches.map((match) => ({ ...match, id: match.id.replace("14", "25"), week: 25, split: "Closing Split" as const }));
+  const closingBaseline = baselineStandings.map((row) => ({ ...row, matches: 22, wins: 22, draws: 0, losses: 0, points: 66, status: "Opening Split final" }));
+  const closingResults: ConfirmedResult[] = closingMatches.map((match) => ({
+    league: match.league,
+    week: 25,
+    matchId: match.id,
+    wrestlerA: match.wrestlerA,
+    wrestlerB: match.wrestlerB,
+    resultType: "Winner",
+    winner: match.wrestlerA,
+    source: match.league === "National League" ? "Manual" : "Simulation",
+    confirmedAt: "2026-06-15T10:00:00.000Z",
+  }));
+  const ready = {
+    ...createEmptyTrackerState(),
+    confirmedResults: closingResults,
+    activeWorkflow: {
+      leagueYear: 2 as const,
+      split: "Closing Split" as const,
+      yearWeek: 25 as const,
+      splitWeek: 1 as const,
+      scheduleSource: "accepted generated snapshot" as const,
+      acceptedScheduleAt: "2026-06-15T09:00:00.000Z",
+      activatedAt: "2026-06-15T09:00:00.000Z",
+      userLeague: "National League" as const,
+    },
+  };
+  const locked = completeWeek(ready, 25, closingMatches, "National League", "2026-06-15T11:00:00.000Z");
+  expect(locked.ok).toBe(true);
+  if (!locked.ok) return;
+
+  const exports = createWeeklyCloseExports(locked.state, closingMatches, closingBaseline, "National League", 24, "test.xlsx");
+
+  expect(exports.ok).toBe(true);
+  if (!exports.ok) return;
+  expect(Math.max(...exports.package.standings.map((row) => row.points))).toBe(3);
+  expect(exports.package.standings).not.toEqual(expect.arrayContaining([expect.objectContaining({ points: 66 })]));
+});
