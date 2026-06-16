@@ -64,8 +64,8 @@ function topics(profile: LegacyProfile): Topic[] {
   const c = profile.checkpoints;
   const result: Topic[] = [];
   if (profile.globalChampionWins > 0) result.push({ category: "Global Championship Standard", priority: 1, strength: profile.globalChampionWins });
-  if (profile.leagueWinsTotal > 0) result.push({ category: "League Title Standard", priority: 2, strength: profile.leagueWinsTotal + profile.doubles });
-  if (profile.eliteCupWins > 0) result.push({ category: "Elite Cup Specialist", priority: 3, strength: profile.eliteCupWins + profile.doubles });
+  if (profile.eliteCupWins > 0) result.push({ category: "Elite Cup Specialist", priority: 2, strength: profile.eliteCupWins + profile.doubles });
+  if (profile.leagueWinsTotal > 0) result.push({ category: "League Title Standard", priority: 3, strength: profile.leagueWinsTotal + profile.doubles });
   if (profile.invincibleSplits > 0) result.push({ category: "Invincible Run Candidate", priority: 5, strength: profile.invincibleSplits });
   if (profile.invincibleHinrunden > 0) result.push({ category: "Hinrunde Dominance", priority: 6, strength: profile.invincibleHinrunden });
   if (profile.invincibleRueckrunden > 0) result.push({ category: "Rückrunde Surge", priority: 6, strength: profile.invincibleRueckrunden });

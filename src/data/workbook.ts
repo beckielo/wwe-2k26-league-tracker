@@ -6,7 +6,7 @@ import * as XLSX from "xlsx";
 import { validateTrackerData } from "@/domain/validation";
 import { parseAppWorkbookBaseline } from "@/domain/app-workbook-baseline";
 import { ACCEPTED_SCHEDULE_SHEET } from "@/domain/workbook-writeback";
-import { parseLegacyTracker, type LegacyTableData } from "@/domain/legacy";
+import { enrichLegacyProfilesFromCurrentMaster, parseLegacyTracker, type LegacyTableData } from "@/domain/legacy";
 import {
   LEAGUE_NAMES,
   type HeadToHeadRecord,
@@ -51,7 +51,33 @@ export function loadLegacyTableData(): LegacyTableData & { sourceFile: string; s
   const workbookPath = findMasterWorkbook();
   const sourceFile = path.basename(workbookPath);
   const workbook = XLSX.read(fs.readFileSync(workbookPath), { type: "buffer", cellDates: false });
-  return { ...parseLegacyTracker(workbook), sourceFile, sourceSheet: "Legacy_Tracker" };
+  const legacy = parseLegacyTracker(workbook);
+  const standings = workbook.Sheets.Standings_Current
+    ? XLSX.utils.sheet_to_json<SheetRow>(workbook.Sheets.Standings_Current, { defval: null, raw: true }).map((row) => ({
+      league: league(row.League),
+      rank: number(row.Rank),
+      wrestler: text(row.Wrestler),
+      seed: number(row.Seed),
+      matches: number(row.Matches),
+      wins: number(row.Wins),
+      draws: number(row.Draws),
+      losses: number(row.Losses),
+      points: number(row.Points),
+      status: text(row["Status / Zone"]),
+    }))
+    : [];
+  const streaks = workbook.Sheets.Winning_Streaks
+    ? XLSX.utils.sheet_to_json<SheetRow>(workbook.Sheets.Winning_Streaks, { defval: null, raw: true }).map((row) => ({
+      league: league(row.League),
+      wrestler: text(row.Wrestler),
+      seed: number(row.Seed),
+      currentStreak: number(row["Current Streak"]),
+      longestWinningStreak: number(row["Longest Winning Streak"]),
+      lastResult: text(row["Last Result"]) as StreakRecord["lastResult"],
+      notes: text(row.Notes) || null,
+    }))
+    : [];
+  return { ...legacy, profiles: enrichLegacyProfilesFromCurrentMaster(legacy.profiles, standings, streaks), sourceFile, sourceSheet: "Legacy_Tracker" };
 }
 
 type CellValue = string | number | boolean | null | undefined;
