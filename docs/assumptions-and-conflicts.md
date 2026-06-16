@@ -324,3 +324,17 @@ The following checks found no current-data conflict:
 - After Safe Workbook Update, the updated workbook schedule is authoritative for Closing Split promotion and future Closing Split validation. Promote Current Master must not validate Year Week 25+ against a stale original workbook schedule that has no Closing Split rows when an accepted/written schedule is available.
 - If Year Week 25+ is being written or promoted without an accepted Closing Split schedule snapshot, the blocking reason is schedule writeback failure: “Accepted Closing Split schedule could not be written to workbook,” not a silent bypass of schedule validation.
 - Schedule validation is not bypassed. Week results must still be complete, must contain exactly the expected scheduled match ids, must match the scheduled wrestlers/leagues/weeks, and invalid or incomplete Closing Split result packages must still fail promotion.
+
+## Phase 10.8.3 — Live Standings Zone Mapping & Legacy Sync Fix
+
+- Current master/workbook state is authoritative for active live standings, current results, current records, active split/week metadata, and Legacy sync. Browser-local overlays are applied only when they are newer than the workbook/app baseline and validate against the authoritative schedule.
+- Accepted generated schedule snapshots are schedule authority only. They must not overwrite or reset current workbook/app standings or already-recorded Closing Split Week 1–5 result data.
+- Live Standings zone labels for 12-wrestler leagues are mapped as follows:
+  - Global League: rank 1 `Champion`; ranks 2–4 `Elite Cup Qualification`; ranks 5–8 `Mid-table`; ranks 9–11 `Relegation Playoff`; rank 12 `Direct Relegation`.
+  - Continental League: rank 1 `Champion + Direct Promotion`; ranks 2–4 `Promotion Playoff`; ranks 5–8 `Mid-table`; ranks 9–11 `Relegation Playoff`; rank 12 `Direct Relegation`.
+  - National League: rank 1 `Champion + Direct Promotion`; ranks 2–4 `Promotion Playoff`; ranks 5–8 `Mid-table`; ranks 9–11 `Relegation Playoff`; rank 12 `Direct Relegation`.
+  - Regional League: rank 1 `Champion + Direct Promotion`; ranks 2–4 `Promotion Playoff`; ranks 5–12 `Regional League Hold / Safe`.
+- Regional League has no lower league. The app must not show direct relegation or relegation playoff status for Regional League ranks 5–12.
+- Legacy Table ingestion merges the workbook `Legacy_Tracker` facts with current-master `Standings_Current` league/placement context and `Winning_Streaks` longest-streak values, without inventing missing titles, cups, promotions, relegations, invincible runs, or historical achievements.
+- GOAT/Legacy commentary is deterministic and should refresh when workbook/current-master inputs change, including titles, Elite Cup wins, direct-promotion facts when present in source data, relegation/retention facts when present in source data, longest winning streaks, invincible markers, doubles, and material placement checkpoints.
+- Commentary priority is presentation-only and fact-backed: Global Championship, Elite Cup, league title/split champion, promotion story, relegation/retention story, all-time/longest streak, current streak, invincible/undefeated marker, rise/fall, then stable league context. Generic streak commentary must not outrank recorded championships or major event wins.

@@ -259,6 +259,24 @@ function resetRowsForSplit(rows: StandingRow[], split: SplitName): StandingRow[]
   }));
 }
 
+
+export function calculateLiveStandingsFromCurrentMaster(
+  currentMasterStandings: StandingRow[],
+  scheduledMatches: Match[],
+  confirmedResults: ConfirmedResult[],
+  split: SplitName,
+  currentMasterCompletedThroughWeek: number,
+): StandingRow[] {
+  const splitMatches = scheduledMatches.filter((match) => match.split === split);
+  const splitMatchIds = new Set(splitMatches.map((match) => match.id));
+  const newerOverlayResults = confirmedResults.filter((result) => {
+    if (!splitMatchIds.has(result.matchId)) return false;
+    if (result.week <= currentMasterCompletedThroughWeek) return false;
+    return true;
+  });
+  return calculateStandingsWithConfirmedResults(currentMasterStandings, splitMatches, newerOverlayResults);
+}
+
 export function calculateActiveSplitStandingsWithConfirmedResults(
   baseline: StandingRow[],
   scheduledMatches: Match[],

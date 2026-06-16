@@ -5,7 +5,7 @@ import { LeagueIcon } from "./league-icon";
 import { LeagueBrandMark, LeagueDecorativeArt } from "./brand-assets";
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
-import { calculateActiveSplitStandingsWithConfirmedResults } from "@/domain/tracker-state";
+import { calculateLiveStandingsFromCurrentMaster } from "@/domain/tracker-state";
 import { LEAGUE_NAMES, type LeagueName, type Match, type StandingRow, type TrackerMeta } from "@/domain/types";
 import { LEAGUE_VISUALS, placementLabel, placementZone } from "@/domain/visual-identity";
 
@@ -25,7 +25,8 @@ const legend = [
   ["rank-9", "#9 Danger"],
   ["rank-10", "#10 Danger"],
   ["rank-11", "#11 Critical"],
-  ["rank-12", "#12 Relegation"],
+  ["rank-12", "#12 Direct relegation"],
+  ["regional-hold", "Regional #5–12 Hold / Safe"],
 ] as const;
 
 function LeagueTable({ league, rows, userLeague }: { league: LeagueName; rows: StandingRow[]; userLeague: LeagueName }) {
@@ -46,7 +47,7 @@ function LeagueTable({ league, rows, userLeague }: { league: LeagueName; rows: S
       <table className="live-table">
         <thead><tr><th>Rank</th><th>Wrestler</th><th title="Matches played">P</th><th title="Wins">W</th><th title="Draws">D</th><th title="Losses">L</th><th>Points</th><th>Position status</th></tr></thead>
         <tbody>{rows.map((row) => {
-          const zone = placementZone(row.rank);
+          const zone = placementZone(row.rank, league);
           return <tr key={row.wrestler} className={`placement-${zone}`}>
             <td><span className="rank-badge">{row.rank}</span></td>
             <td><strong>{row.wrestler}</strong><small>Seed {row.seed}</small></td>
@@ -67,8 +68,8 @@ export function LiveStandings({ baseline, workbookMatches, meta, sourceFile }: L
   const split = state.activeWorkflow?.split ?? meta.currentSplit;
   const splitWeek = state.activeWorkflow?.splitWeek ?? (meta.currentSplit === "Closing Split" ? Math.max(1, meta.currentWeek - 24) : meta.currentWeek);
   const standings = useMemo(
-    () => calculateActiveSplitStandingsWithConfirmedResults(baseline, matches, hydrated ? state.confirmedResults : [], split),
-    [baseline, hydrated, matches, state.confirmedResults, split],
+    () => calculateLiveStandingsFromCurrentMaster(baseline, matches, hydrated ? state.confirmedResults : [], split, meta.appBaselineCompletedThroughWeek ?? meta.currentWeek),
+    [baseline, hydrated, matches, meta.appBaselineCompletedThroughWeek, meta.currentWeek, state.confirmedResults, split],
   );
   const source = state.activeWorkflow?.scheduleSource ?? `Workbook · ${sourceFile}`;
   const lastUpdate = state.completedWeeks.at(-1)?.completedAt ?? meta.latestAppWritebackCompletedAt ?? state.activeWorkflow?.activatedAt ?? null;
@@ -79,7 +80,7 @@ export function LiveStandings({ baseline, workbookMatches, meta, sourceFile }: L
       <div>
         <p className="eyebrow">Four divisions · one live table</p>
         <h1>{split} Standings</h1>
-        <p>Active split standings only: Closing Split tables reset to 0 and apply confirmed Closing Split results only. No fixture or result is inferred.</p>
+        <p>Current master standings are authoritative for the active split; browser-local overlays are applied only beyond the workbook/app baseline. No fixture or result is inferred.</p>
       </div>
       <div className="live-broadcast-status"><span />Live table feed<strong>{split} · Week {splitWeek}</strong></div>
     </section>

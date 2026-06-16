@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import type { LegacyProfile } from "./legacy-commentary";
-import { LEAGUE_NAMES, type LeagueName } from "./types";
+import { LEAGUE_NAMES, type LeagueName, type StandingRow, type StreakRecord } from "./types";
 
 type Cell = string | number | boolean | null | undefined;
 
@@ -73,4 +73,25 @@ export function parseLegacyTracker(workbook: XLSX.WorkBook): LegacyTableData {
     profiles,
     columns: LEGACY_COLUMNS,
   };
+}
+
+export function enrichLegacyProfilesFromCurrentMaster(
+  profiles: LegacyProfile[],
+  currentStandings: StandingRow[],
+  currentStreaks: StreakRecord[],
+): LegacyProfile[] {
+  const leagueByWrestler = new Map(currentStandings.map((row) => [row.wrestler, row.league]));
+  const finalPositionByWrestler = new Map(currentStandings.map((row) => [row.wrestler, row.rank]));
+  const streakByWrestler = new Map(currentStreaks.map((row) => [row.wrestler, row.longestWinningStreak]));
+  return profiles.map((profile) => {
+    const currentLeague = leagueByWrestler.get(profile.wrestler) ?? profile.currentLeague;
+    const workbookLongest = streakByWrestler.get(profile.wrestler) ?? 0;
+    const finalPosition = finalPositionByWrestler.get(profile.wrestler);
+    return {
+      ...profile,
+      currentLeague,
+      longestWinStreakOverall: Math.max(profile.longestWinStreakOverall, workbookLongest),
+      checkpoints: finalPosition ? { ...(profile.checkpoints ?? {}), finalPosition } : profile.checkpoints,
+    };
+  });
 }
