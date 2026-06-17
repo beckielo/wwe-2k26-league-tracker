@@ -89,11 +89,6 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
       </div>
     </section>
 
-    <InteractivePanel href="/live-standings" className={`live-table-quick-link league-${LEAGUE_VISUALS[userLeague].key}`}>
-      <LeagueBrandMark league={userLeague} usage="compact" />
-      <span><small>All four divisions · current positions</small><strong>Open Live Table</strong></span>
-      <b aria-hidden>→</b>
-    </InteractivePanel>
 
     <InteractivePanel href="/legacy" className="legacy-quick-link league-global">
       <span className="legacy-quick-rank" aria-hidden>Ⅰ</span>
@@ -109,17 +104,17 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
     <div className="dashboard-primary-grid dashboard-equal-panels">
       <section className="fight-card-panel dashboard-equal-panel">
         <header className="fight-card-header">
-          <div>
+          <div className="fight-card-title"><LeagueBrandMark league={userLeague} usage="compact" /><span>
             <p className="broadcast-kicker">Current user-controlled show</p>
             <h2>{userLeague}</h2>
             <p>{display.compact} · Authoritative schedule</p>
-          </div>
+          </span></div>
           <Link href="/schedule">Full schedule <span aria-hidden>→</span></Link>
         </header>
-        {card.length ? <ol className="fight-card-list">
+        {card.length ? <ol className="fight-card-list fight-card-list-compact">
           {card.map((match) => {
             const recorded = state.confirmedResults.some((result) => result.matchId === match.id);
-            return <li key={match.id}>
+            return <li key={match.id} className="fight-card-bout-compact">
               <span className="bout-number">Bout {String(match.matchNumber).padStart(2, "0")}</span>
               <div className="matchup"><strong>{match.wrestlerA}</strong><span>VS</span><strong>{match.wrestlerB}</strong></div>
               <PredictionStrip prediction={predictMatch(match, live.standings, state.confirmedResults)} />
@@ -152,10 +147,10 @@ function PredictionStrip({ prediction }: { prediction: ReturnType<typeof predict
 function UserLeagueLiveTable({ league, rows }: { league: LeagueName; rows: StandingRow[] }) {
   return <section className={`dashboard-live-table dashboard-equal-panel league-${LEAGUE_VISUALS[league].key}`} aria-labelledby="dashboard-live-table-title">
     <header>
-      <div><p className="broadcast-kicker">Current user league live table</p><h2 id="dashboard-live-table-title">{league}</h2></div>
+      <div className="dashboard-live-table-title"><LeagueBrandMark league={league} usage="compact" /><span><p className="broadcast-kicker">Current user league live table</p><h2 id="dashboard-live-table-title">{league}</h2></span></div>
       <Link href="/live-standings">Full Live Standings <span aria-hidden>→</span></Link>
     </header>
-    <div className="dashboard-live-table-wrap"><table>
+    <div className="dashboard-live-table-wrap dashboard-live-table-wrap-compact"><table className="dashboard-live-table-compact">
       <thead><tr><th>#</th><th>Wrestler</th><th>P</th><th>W</th><th>D</th><th>L</th><th>Pts</th><th>Status</th></tr></thead>
       <tbody>{rows.map((row) => <tr key={row.wrestler} className={`placement-${placementZone(row.rank, league)}`}>
         <td>{row.rank}</td><td><strong>{row.wrestler}</strong></td><td>{row.matches}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td><td><strong>{row.points}</strong></td><td><span className="zone-pill">{placementLabel(league, row.rank)}</span></td>

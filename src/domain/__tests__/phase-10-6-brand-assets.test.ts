@@ -43,7 +43,7 @@ describe("Phase 10.6 brand assets and live table polish", () => {
 
   it("exposes Live Standings in navigation, Dashboard, and the detailed standings page", () => {
     expect(source("src/components/app-shell.tsx")).toContain('["Live Standings", "/live-standings"');
-    expect(source("src/components/dashboard-control-center.tsx")).toContain("Open Live Table");
+    expect(source("src/components/dashboard-control-center.tsx")).toContain('<Link href="/live-standings">Full Live Standings');
     expect(source("src/app/standings/page.tsx")).toContain('href="/live-standings"');
   });
 
