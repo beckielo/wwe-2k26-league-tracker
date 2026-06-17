@@ -75,6 +75,47 @@ export function parseLegacyTracker(workbook: XLSX.WorkBook): LegacyTableData {
   };
 }
 
+export interface LeagueTitleAggregation {
+  completedSplits: number;
+  expectedLeagueTitleRecords: number;
+  titleRecords: { split: string; league: LeagueName; wrestler: string }[];
+  warnings: string[];
+}
+
+export function aggregateLeagueTitleHistory(records: { split: string; league: LeagueName; wrestler: string }[]): LeagueTitleAggregation {
+  const bySplit = new Map<string, { split: string; league: LeagueName; wrestler: string }[]>();
+  for (const record of records) bySplit.set(record.split, [...(bySplit.get(record.split) ?? []), record]);
+  const titleRecords: LeagueTitleAggregation["titleRecords"] = [];
+  const warnings: string[] = [];
+  for (const splitRecords of bySplit.values()) {
+    const uniqueLeagues = new Set(splitRecords.map((record) => record.league));
+    if (uniqueLeagues.size === 4) titleRecords.push(...splitRecords.filter((record, index, all) => all.findIndex((candidate) => candidate.league === record.league) === index));
+    else warnings.push(`Completed split has incomplete league winner records: expected 4, found ${uniqueLeagues.size}.`);
+  }
+  const completedSplits = new Set(titleRecords.map((record) => record.split)).size;
+  return {
+    completedSplits,
+    expectedLeagueTitleRecords: completedSplits * 4,
+    titleRecords,
+    warnings: titleRecords.length === completedSplits * 4 ? warnings : [...warnings, `Legacy title invariant failed: expected ${completedSplits * 4}, found ${titleRecords.length}.`],
+  };
+}
+
+export function enrichLegacyProfilesWithCompletedSplitChampions(
+  profiles: LegacyProfile[],
+  championStandings: StandingRow[],
+): LegacyProfile[] {
+  const champions = championStandings.filter((row) => row.rank === 1 && /champion/i.test(row.status));
+  if (new Set(champions.map((row) => row.league)).size !== 4) return profiles;
+  const championNames = new Set(champions.map((row) => row.wrestler));
+  return profiles.map((profile) => ({
+    ...profile,
+    leagueWinsTotal: profile.leagueWinsTotal + (championNames.has(profile.wrestler) ? 1 : 0),
+    globalChampionWins: profile.globalChampionWins + (champions.some((row) => row.league === "Global League" && row.wrestler === profile.wrestler) ? 1 : 0),
+    checkpoints: { ...(profile.checkpoints ?? {}), previousSplitPosition: championNames.has(profile.wrestler) ? 1 : profile.checkpoints?.previousSplitPosition },
+  }));
+}
+
 export function enrichLegacyProfilesFromCurrentMaster(
   profiles: LegacyProfile[],
   currentStandings: StandingRow[],
