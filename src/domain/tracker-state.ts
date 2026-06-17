@@ -1,5 +1,5 @@
 import { calculatePoints } from "./scoring";
-import type { LeagueName, Match, SplitName, StandingRow } from "./types";
+import type { LeagueName, Match, MatchResult, SplitName, StandingRow } from "./types";
 import type { FinalsNight, LeagueFinalsResult } from "./league-finals";
 import type { AcceptedScheduleSnapshot } from "./schedule-setup";
 
@@ -260,21 +260,75 @@ function resetRowsForSplit(rows: StandingRow[], split: SplitName): StandingRow[]
 }
 
 
+function splitStartWeek(split: SplitName): number {
+  return split === "Closing Split" ? 25 : 1;
+}
+
+export function splitWeekFromYearWeek(split: SplitName, yearWeek: number): number {
+  return split === "Closing Split" ? Math.max(1, yearWeek - 24) : yearWeek;
+}
+
+function resultFromMatchResult(result: MatchResult, match: Match): ConfirmedResult | null {
+  if (result.outcome === "unclear") return null;
+  return {
+    league: match.league,
+    week: match.week,
+    matchId: result.matchId,
+    wrestlerA: match.wrestlerA,
+    wrestlerB: match.wrestlerB,
+    resultType: result.outcome === "draw" ? "Draw" : result.outcome === "no-contest" ? "No Contest" : "Winner",
+    winner: result.outcome === "decisive" ? result.winner : null,
+    source: result.resultSource === "Manual" || result.resultSource === "User" ? "Manual" : "Simulation",
+    confirmedAt: "current-master",
+  };
+}
+
+export function activeSplitResultWeekRange(split: SplitName, completedThroughWeek: number): number[] {
+  const start = splitStartWeek(split);
+  const end = Math.max(start - 1, completedThroughWeek);
+  return Array.from({ length: Math.max(0, end - start + 1) }, (_, index) => start + index);
+}
+
+export function validateActiveSplitStandings(standings: StandingRow[], splitWeek: number): string[] {
+  const errors: string[] = [];
+  const wrestlerLeagues = new Map<string, LeagueName>();
+  const leagues = new Map<LeagueName, StandingRow[]>();
+  for (const row of standings) {
+    leagues.set(row.league, [...(leagues.get(row.league) ?? []), row]);
+    const existing = wrestlerLeagues.get(row.wrestler.toLowerCase());
+    if (existing && existing !== row.league) errors.push(`Duplicate wrestler across leagues: ${row.wrestler} appears in ${existing} and ${row.league}.`);
+    wrestlerLeagues.set(row.wrestler.toLowerCase(), row.league);
+    if (row.matches > splitWeek) errors.push(`Active split standings source is invalid: ${row.wrestler} has ${row.matches} matches in split week ${splitWeek}.`);
+    if (row.points > splitWeek * 3) errors.push(`Active split standings source is invalid: ${row.wrestler} has ${row.points} points in split week ${splitWeek}.`);
+    if (row.wins + row.draws + row.losses !== row.matches) errors.push(`Active split standings source is invalid: ${row.wrestler} has wins + draws + losses that do not equal matches played.`);
+    if (row.points !== calculatePoints(row.wins, row.draws)) errors.push(`Active split standings source is invalid: ${row.wrestler} has points that do not equal wins × 3 + draws.`);
+  }
+  for (const [league, rows] of leagues) if (rows.length !== 12) errors.push(`Active split standings source is invalid: ${league} has ${rows.length} wrestlers; expected 12.`);
+  return [...new Set(errors)];
+}
+
 export function calculateLiveStandingsFromCurrentMaster(
   currentMasterStandings: StandingRow[],
   scheduledMatches: Match[],
   confirmedResults: ConfirmedResult[],
   split: SplitName,
   currentMasterCompletedThroughWeek: number,
+  currentMasterResults: MatchResult[] = [],
 ): StandingRow[] {
-  const splitMatches = scheduledMatches.filter((match) => match.split === split);
+  const startWeek = splitStartWeek(split);
+  const splitMatches = scheduledMatches.filter((match) => match.leagueYear === 2 && match.split === split && match.week >= startWeek && match.week <= currentMasterCompletedThroughWeek);
   const splitMatchIds = new Set(splitMatches.map((match) => match.id));
-  const newerOverlayResults = confirmedResults.filter((result) => {
-    if (!splitMatchIds.has(result.matchId)) return false;
-    if (result.week <= currentMasterCompletedThroughWeek) return false;
-    return true;
-  });
-  return calculateStandingsWithConfirmedResults(currentMasterStandings, splitMatches, newerOverlayResults);
+  const matchById = new Map(splitMatches.map((match) => [match.id, match]));
+  const masterResults = currentMasterResults
+    .filter((result) => splitMatchIds.has(result.matchId))
+    .map((result) => resultFromMatchResult(result, matchById.get(result.matchId)!))
+    .filter((result): result is ConfirmedResult => Boolean(result));
+  const newerOverlayMatches = scheduledMatches.filter((match) => match.leagueYear === 2 && match.split === split && match.week > currentMasterCompletedThroughWeek);
+  const newerOverlayMatchIds = new Set(newerOverlayMatches.map((match) => match.id));
+  const newerOverlayResults = confirmedResults.filter((result) => newerOverlayMatchIds.has(result.matchId));
+  const activeBaseline = resetRowsForSplit(currentMasterStandings, split);
+  if (masterResults.length > 0) return calculateStandingsWithConfirmedResults(activeBaseline, [...splitMatches, ...newerOverlayMatches], masterResults.concat(newerOverlayResults));
+  return calculateStandingsWithConfirmedResults(currentMasterStandings, newerOverlayMatches, newerOverlayResults);
 }
 
 export function calculateActiveSplitStandingsWithConfirmedResults(
@@ -283,7 +337,7 @@ export function calculateActiveSplitStandingsWithConfirmedResults(
   confirmedResults: ConfirmedResult[],
   split: SplitName,
 ): StandingRow[] {
-  const splitMatches = scheduledMatches.filter((match) => match.split === split);
+  const splitMatches = scheduledMatches.filter((match) => match.leagueYear === 2 && match.split === split);
   const splitMatchIds = new Set(splitMatches.map((match) => match.id));
   return calculateStandingsWithConfirmedResults(
     resetRowsForSplit(baseline, split),

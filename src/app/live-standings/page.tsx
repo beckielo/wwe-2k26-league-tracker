@@ -5,5 +5,5 @@ export const dynamic = "force-dynamic";
 
 export default function LiveStandingsPage() {
   const data = loadTrackerData();
-  return <LiveStandings baseline={data.standings} workbookMatches={data.matches} meta={data.meta} sourceFile={data.sourceFile} />;
+  return <LiveStandings baseline={data.standings} workbookMatches={data.matches} workbookResults={data.results} meta={data.meta} sourceFile={data.sourceFile} />;
 }

@@ -219,3 +219,57 @@ describe("Phase 10.8 active split standings", () => {
     expect(historical.find((row) => row.wrestler === scheduled.wrestlerA)).toMatchObject({ points: 66, matches: 22 });
   });
 });
+
+describe("Phase 10.8.5 live active split result source", () => {
+  function closingMatch(week: number, index = 1): Match {
+    return { ...match("Global League", index, week), id: `closing-${week}-${index}`, split: "Closing Split", wrestlerA: `Wrestler ${index}A`, wrestlerB: `Wrestler ${index}B` };
+  }
+
+  const baseline: StandingRow[] = Array.from({ length: 12 }, (_, index) => ({
+    league: "Global League" as const,
+    rank: index + 1,
+    wrestler: `Wrestler ${Math.floor(index / 2) + 1}${index % 2 === 0 ? "A" : "B"}`,
+    seed: index + 1,
+    matches: 13,
+    wins: 13,
+    draws: 0,
+    losses: 0,
+    points: 39,
+    status: "legacy aggregate",
+  }));
+
+  it("Closing Split Week 5 live standings include only Year Weeks 25-29 and exclude Opening Split, prior split, and legacy totals", async () => {
+    const { calculateLiveStandingsFromCurrentMaster, activeSplitResultWeekRange, validateActiveSplitStandings } = await import("../tracker-state");
+    const closing = Array.from({ length: 5 }, (_, index) => closingMatch(25 + index, index + 1));
+    const opening = { ...closingMatch(5, 1), split: "Opening Split" as const, id: "opening-old" };
+    const ignoredFuture = closingMatch(30, 6);
+    const resultRows = [...closing, opening, ignoredFuture].map((scheduled) => ({
+      matchId: scheduled.id,
+      outcome: "decisive" as const,
+      winner: scheduled.wrestlerA,
+      loser: scheduled.wrestlerB,
+      resultSource: "User" as const,
+      notes: null,
+      source: { file: "test.xlsx", sheet: "Schedule_22W" },
+    }));
+
+    const standings = calculateLiveStandingsFromCurrentMaster(baseline, [...closing, opening, ignoredFuture], [], "Closing Split", 29, resultRows);
+
+    expect(activeSplitResultWeekRange("Closing Split", 29)).toEqual([25, 26, 27, 28, 29]);
+    expect(Math.max(...standings.map((row) => row.matches))).toBe(1);
+    expect(Math.max(...standings.map((row) => row.points))).toBe(3);
+    expect(standings.find((row) => row.wrestler === "Wrestler 6A")?.matches).toBe(0);
+    expect(standings.some((row) => row.matches === 13 || row.points === 39)).toBe(false);
+    expect(validateActiveSplitStandings(standings, 5)).toEqual([]);
+    for (const row of standings) {
+      expect(row.wins + row.draws + row.losses).toBe(row.matches);
+      expect(row.points).toBe(row.wins * 3 + row.draws);
+    }
+  });
+
+  it("diagnoses impossible Week 5 active split values before rendering them as valid", async () => {
+    const { validateActiveSplitStandings } = await import("../tracker-state");
+    expect(validateActiveSplitStandings(baseline, 5)).toContain("Active split standings source is invalid: Wrestler 1A has 13 matches in split week 5.");
+    expect(validateActiveSplitStandings(baseline, 5)).toContain("Active split standings source is invalid: Wrestler 1A has 39 points in split week 5.");
+  });
+});
