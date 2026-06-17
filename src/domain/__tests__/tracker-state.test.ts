@@ -8,10 +8,12 @@ import {
   exportTrackerState,
   importTrackerState,
   removeResult,
+  reconstructActiveSplitLiveStandings,
   resetTrackerState,
   type ConfirmedResult,
 } from "../tracker-state";
-import type { LeagueName, Match, StandingRow } from "../types";
+import { LEAGUE_NAMES, type LeagueName, type Match, type StandingRow } from "../types";
+import type { PostFinalsAssignment } from "../post-finals-transition";
 
 const leagueNames: LeagueName[] = ["Regional League", "National League", "Continental League", "Global League"];
 
@@ -89,6 +91,128 @@ describe("confirmed result management", () => {
     const duplicate = confirmResult(first.state, result(scheduled), [scheduled], "National League");
     expect(duplicate.ok).toBe(false);
     expect(duplicate.errors.join(" ")).toContain("duplicate confirmed result");
+  });
+});
+
+describe("Phase 10.8.6 post-finals active live standings reconstruction", () => {
+  function previousFinalStandings(): StandingRow[] {
+    return LEAGUE_NAMES.flatMap((league) => Array.from({ length: 12 }, (_, index) => ({
+      league,
+      rank: index + 1,
+      wrestler: `${league} ${index + 1}`,
+      seed: index + 1,
+      matches: 22,
+      wins: 12 - index,
+      draws: 0,
+      losses: 10 + index,
+      points: (12 - index) * 3,
+      status: "Week 24 final",
+    })));
+  }
+
+  function assignmentsFromFinals(rows: StandingRow[]): PostFinalsAssignment[] {
+    return rows.map((row): PostFinalsAssignment => {
+      let newLeague = row.league;
+      let movement: PostFinalsAssignment["movement"] = "Retained lower league";
+      if (row.wrestler === "National League 1") {
+        newLeague = "Continental League";
+        movement = "Champion/direct promotion";
+      } else if (row.wrestler === "Continental League 12") {
+        newLeague = "National League";
+        movement = "Direct relegation";
+      } else if (row.wrestler === "Global League 11") {
+        newLeague = "Continental League";
+        movement = "Relegated";
+      } else if (row.wrestler === "Continental League 2") {
+        newLeague = "Global League";
+        movement = "Promoted";
+      } else if (row.wrestler === "National League 3") {
+        newLeague = "Continental League";
+        movement = "Promoted";
+      } else if (row.wrestler === "Continental League 10") {
+        newLeague = "National League";
+        movement = "Relegated";
+      }
+      return { wrestler: row.wrestler, priorLeague: row.league, priorRank: row.rank, newLeague, movement, finalsOutcome: movement };
+    });
+  }
+
+  function closingSchedule(composition: PostFinalsAssignment[]): Match[] {
+    return LEAGUE_NAMES.flatMap((league) => {
+      const wrestlers = composition.filter((row) => row.newLeague === league).map((row) => row.wrestler);
+      return Array.from({ length: 5 }, (_, weekIndex) => Array.from({ length: 6 }, (__, matchIndex): Match => ({
+        id: `schedule-y2-closing-split-${league.toLowerCase().replaceAll(" ", "-")}-w${String(weekIndex + 1).padStart(2, "0")}-m${matchIndex + 1}`,
+        leagueYear: 2,
+        split: "Closing Split",
+        week: 25 + weekIndex,
+        roundType: "Hinrunde",
+        league,
+        showDay: league === "Global League" ? "Freitag" : league === "Continental League" ? "Mittwoch" : league === "National League" ? "Dienstag" : "Montag",
+        matchNumber: matchIndex + 1,
+        wrestlerA: wrestlers[matchIndex * 2],
+        wrestlerB: wrestlers[matchIndex * 2 + 1],
+        matchupKey: `${wrestlers[matchIndex * 2]} vs ${wrestlers[matchIndex * 2 + 1]}`,
+        status: "scheduled",
+        source: { file: "accepted.json", sheet: "Accepted_Schedule" },
+      }))).flat();
+    });
+  }
+
+  it("derives moved and retained wrestlers from post-finals assignments, then applies Weeks 1-5 locked Closing Split results", () => {
+    const previous = previousFinalStandings();
+    const assignments = assignmentsFromFinals(previous);
+    const schedule = closingSchedule(assignments);
+    const results = schedule.map((scheduled) => result(scheduled, {
+      matchId: scheduled.week === 25 ? `local-prefix-${scheduled.id}` : scheduled.id,
+      week: scheduled.week,
+      league: scheduled.league,
+      wrestlerA: scheduled.wrestlerA,
+      wrestlerB: scheduled.wrestlerB,
+      winner: scheduled.wrestlerA,
+    }));
+
+    const live = reconstructActiveSplitLiveStandings({
+      previousFinalStandings: previous,
+      postFinalsAssignments: assignments,
+      scheduledMatches: schedule,
+      masterResults: [],
+      localResults: results,
+      split: "Closing Split",
+      completedThroughWeek: 29,
+    });
+
+    expect(live.standings.find((row) => row.wrestler === "National League 1")).toMatchObject({ league: "Continental League", matches: 5, wins: 5, points: 15 });
+    expect(live.standings.find((row) => row.wrestler === "Global League 11")).toMatchObject({ league: "Continental League" });
+    expect(live.standings.find((row) => row.wrestler === "National League 3")).toMatchObject({ league: "Continental League" });
+    expect(live.standings.find((row) => row.wrestler === "Continental League 10")).toMatchObject({ league: "National League" });
+    expect(live.standings.find((row) => row.wrestler === "National League 1")?.league).not.toBe("National League");
+    for (const league of LEAGUE_NAMES) expect(live.composition.filter((row) => row.league === league)).toHaveLength(12);
+    expect(new Set(live.composition.map((row) => row.wrestler.toLowerCase())).size).toBe(48);
+    expect(Math.max(...live.standings.map((row) => row.matches))).toBe(5);
+    expect(Math.max(...live.standings.map((row) => row.points))).toBe(15);
+    expect(live.standings.some((row) => row.matches === 22 || row.points > 15)).toBe(false);
+    expect(live.diagnostics.some((diagnostic) => diagnostic.includes("Result ID mismatch reconciled by participants/week/league"))).toBe(true);
+  });
+
+  it("diagnoses missing active split weeks instead of inventing fake results", () => {
+    const previous = previousFinalStandings();
+    const assignments = assignmentsFromFinals(previous);
+    const schedule = closingSchedule(assignments);
+    const weekOneResults = schedule.filter((scheduled) => scheduled.week === 25).map((scheduled) => result(scheduled, { week: scheduled.week }));
+
+    const live = reconstructActiveSplitLiveStandings({
+      previousFinalStandings: previous,
+      postFinalsAssignments: assignments,
+      scheduledMatches: schedule,
+      masterResults: [],
+      localResults: weekOneResults,
+      split: "Closing Split",
+      completedThroughWeek: 29,
+    });
+
+    expect(Math.max(...live.standings.map((row) => row.matches))).toBe(1);
+    expect(live.diagnostics).toContain("Only 1 locked Closing Split week found, but UI claims Week 5.");
+    expect(live.diagnostics).toContain("Closing Split Week 3 results missing from local/master state.");
   });
 });
 

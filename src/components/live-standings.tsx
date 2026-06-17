@@ -5,7 +5,7 @@ import { LeagueIcon } from "./league-icon";
 import { LeagueBrandMark, LeagueDecorativeArt } from "./brand-assets";
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
-import { calculateLiveStandingsFromCurrentMaster, validateActiveSplitStandings } from "@/domain/tracker-state";
+import { reconstructActiveSplitLiveStandings, validateActiveSplitStandings } from "@/domain/tracker-state";
 import { LEAGUE_NAMES, type LeagueName, type Match, type MatchResult, type StandingRow, type TrackerMeta } from "@/domain/types";
 import { LEAGUE_VISUALS, placementLabel, placementZone } from "@/domain/visual-identity";
 
@@ -29,6 +29,9 @@ const legend = [
   ["rank-12", "#12 Direct relegation"],
   ["regional-hold", "Regional #5–12 Hold / Safe"],
 ] as const;
+
+// Phase 10.8.6 supersedes calculateLiveStandingsFromCurrentMaster for rendering:
+// reconstructActiveSplitLiveStandings keeps roster reconstruction and locked-result application together.
 
 function LeagueTable({ league, rows, userLeague }: { league: LeagueName; rows: StandingRow[]; userLeague: LeagueName }) {
   const visual = LEAGUE_VISUALS[league];
@@ -68,12 +71,20 @@ export function LiveStandings({ baseline, workbookMatches, workbookResults, meta
   const userLeague = state.activeWorkflow?.userLeague ?? meta.userLeague;
   const split = state.activeWorkflow?.split ?? meta.currentSplit;
   const splitWeek = state.activeWorkflow?.splitWeek ?? (meta.currentSplit === "Closing Split" ? Math.max(1, meta.currentWeek - 24) : meta.currentWeek);
-  const standings = useMemo(
-    () => calculateLiveStandingsFromCurrentMaster(baseline, matches, hydrated ? state.confirmedResults : [], split, meta.appBaselineCompletedThroughWeek ?? meta.currentWeek, workbookResults),
+  const live = useMemo(
+    () => reconstructActiveSplitLiveStandings({
+      previousFinalStandings: baseline,
+      scheduledMatches: matches,
+      masterResults: workbookResults,
+      localResults: hydrated ? state.confirmedResults : [],
+      split,
+      completedThroughWeek: meta.appBaselineCompletedThroughWeek ?? meta.currentWeek,
+    }),
     [baseline, hydrated, matches, meta.appBaselineCompletedThroughWeek, meta.currentWeek, state.confirmedResults, split, workbookResults],
   );
+  const standings = live.standings;
   const source = state.activeWorkflow?.scheduleSource ?? `Workbook · ${sourceFile}`;
-  const diagnostics = validateActiveSplitStandings(standings, splitWeek);
+  const diagnostics = [...live.diagnostics, ...validateActiveSplitStandings(standings, splitWeek)];
   const lastUpdate = state.completedWeeks.at(-1)?.completedAt ?? meta.latestAppWritebackCompletedAt ?? state.activeWorkflow?.activatedAt ?? null;
 
   return <>
