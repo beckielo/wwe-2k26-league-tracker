@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { predictMatch, generateSocialFeed } from "../match-predictions";
+import { predictMatch, generateSocialFeed, socialTemplateCombinationCount } from "../match-predictions";
 import type { Match, StandingRow } from "../types";
 import type { ConfirmedResult } from "../tracker-state";
 
@@ -19,6 +19,9 @@ describe("Phase 10.9 dashboard predictions and social feed", () => {
     expect(source).toContain("Current user league live table");
     expect(source).toContain("Prediction · Win Chance");
     expect(source).toContain("League Social Feed");
+    expect(source).toContain("dashboard-equal-panels");
+    expect(source).not.toContain("<p>{prediction.explanation}</p>");
+    expect(source).not.toContain("Form edge:");
   });
 
   it("returns deterministic capped probabilities that sum to 100 and favor stronger table/form/H2H data", () => {
@@ -30,6 +33,7 @@ describe("Phase 10.9 dashboard predictions and social feed", () => {
     expect(first.probabilityA).toBeLessThanOrEqual(85);
     expect(first.probabilityB).toBeGreaterThanOrEqual(15);
     expect(first.factors).toEqual(expect.arrayContaining(["table position", "recent form", "head-to-head"]));
+    expect(first.explanation).toContain("edge");
   });
 
   it("stays near neutral when available data is weak", () => {
@@ -39,12 +43,18 @@ describe("Phase 10.9 dashboard predictions and social feed", () => {
     expect(neutral.dataQualityWarnings.length).toBeGreaterThan(0);
   });
 
+  it("exposes a large deterministic template combination pool", () => {
+    expect(socialTemplateCombinationCount()).toBeGreaterThanOrEqual(200);
+  });
+
   it("renders deterministic 3-6 comments from all leagues and changes when events change", () => {
     const comments = generateSocialFeed(standings, [match], results, "National League");
     expect(comments.length).toBeGreaterThanOrEqual(3);
     expect(comments.length).toBeLessThanOrEqual(6);
     expect(comments).toEqual(generateSocialFeed(standings, [match], results, "National League"));
     expect(new Set(comments.map((c) => c.leagueTag)).size).toBeGreaterThan(1);
+    expect(new Set(comments.map((c) => c.text)).size).toBe(comments.length);
+    expect(new Set(comments.map((c) => c.eventTag)).size).toBeGreaterThan(1);
     const changed = generateSocialFeed(standings.map((row) => row.wrestler === "Ace" ? { ...row, wins: 4, losses: 1, points: 12 } : row), [match], results, "National League");
     expect(changed.map((c) => c.text)).not.toEqual(comments.map((c) => c.text));
   });

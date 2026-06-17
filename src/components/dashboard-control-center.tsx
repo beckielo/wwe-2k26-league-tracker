@@ -106,8 +106,8 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
       <b aria-hidden>→</b>
     </InteractivePanel>
 
-    <div className="dashboard-primary-grid">
-      <section className="fight-card-panel">
+    <div className="dashboard-primary-grid dashboard-equal-panels">
+      <section className="fight-card-panel dashboard-equal-panel">
         <header className="fight-card-header">
           <div>
             <p className="broadcast-kicker">Current user-controlled show</p>
@@ -140,18 +140,17 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
 }
 
 function PredictionStrip({ prediction }: { prediction: ReturnType<typeof predictMatch> }) {
-  return <div className="prediction-strip" aria-label={`${prediction.wrestlerA} ${prediction.probabilityA}% win chance, ${prediction.wrestlerB} ${prediction.probabilityB}% win chance`}>
+  return <div className="prediction-strip" aria-label={`${prediction.wrestlerA} ${prediction.probabilityA}% win chance, ${prediction.wrestlerB} ${prediction.probabilityB}% win chance, ${prediction.confidence} confidence`}>
     <div className="prediction-topline"><span>Prediction · Win Chance</span><strong>{prediction.confidence} confidence</strong></div>
     <div className="prediction-bars">
       <span style={{ width: `${prediction.probabilityA}%` }}>{prediction.probabilityA}%</span>
       <span style={{ width: `${prediction.probabilityB}%` }}>{prediction.probabilityB}%</span>
     </div>
-    <p>{prediction.explanation}</p>
   </div>;
 }
 
 function UserLeagueLiveTable({ league, rows }: { league: LeagueName; rows: StandingRow[] }) {
-  return <section className={`dashboard-live-table league-${LEAGUE_VISUALS[league].key}`} aria-labelledby="dashboard-live-table-title">
+  return <section className={`dashboard-live-table dashboard-equal-panel league-${LEAGUE_VISUALS[league].key}`} aria-labelledby="dashboard-live-table-title">
     <header>
       <div><p className="broadcast-kicker">Current user league live table</p><h2 id="dashboard-live-table-title">{league}</h2></div>
       <Link href="/live-standings">Full Live Standings <span aria-hidden>→</span></Link>
