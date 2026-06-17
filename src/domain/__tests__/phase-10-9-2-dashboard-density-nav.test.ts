@@ -26,8 +26,9 @@ describe("Phase 10.9.2 dashboard density and live table navigation cleanup", () 
     expect(dashboard).toContain('className="fight-card-bout-compact"');
     expect(dashboard).toContain("card.length || 6");
     expect(dashboard).toContain("PredictionStrip");
-    expect(dashboard).toContain("Prediction · Win Chance");
-    expect(dashboard).toContain("StatusBadge tone={recorded ? \"completed\" : \"ready\"}");
+    expect(dashboard).toContain("prediction-bars");
+    expect(dashboard).not.toContain("Prediction · Win Chance");
+    expect(dashboard).not.toContain("StatusBadge tone={recorded ? \"completed\" : \"ready\"}");
   });
 
   it("uses compact no-scroll live table structure for normal dashboard layout", () => {

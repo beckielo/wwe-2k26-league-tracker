@@ -17,7 +17,8 @@ describe("Phase 10.9 dashboard predictions and social feed", () => {
     const source = readFileSync("src/components/dashboard-control-center.tsx", "utf8");
     expect(source).not.toContain("<AlertCenter blocking=");
     expect(source).toContain("Current user league live table");
-    expect(source).toContain("Prediction · Win Chance");
+    expect(source).toContain("prediction-bars");
+    expect(source).not.toContain("Prediction · Win Chance");
     expect(source).toContain("League Social Feed");
     expect(source).toContain("dashboard-equal-panels");
     expect(source).not.toContain("<p>{prediction.explanation}</p>");

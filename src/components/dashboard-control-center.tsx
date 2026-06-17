@@ -112,15 +112,11 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
           <Link href="/schedule">Full schedule <span aria-hidden>→</span></Link>
         </header>
         {card.length ? <ol className="fight-card-list fight-card-list-compact">
-          {card.map((match) => {
-            const recorded = state.confirmedResults.some((result) => result.matchId === match.id);
-            return <li key={match.id} className="fight-card-bout-compact">
-              <span className="bout-number">Bout {String(match.matchNumber).padStart(2, "0")}</span>
-              <div className="matchup"><strong>{match.wrestlerA}</strong><span>VS</span><strong>{match.wrestlerB}</strong></div>
-              <PredictionStrip prediction={predictMatch(match, live.standings, state.confirmedResults)} />
-              <StatusBadge tone={recorded ? "completed" : "ready"}>{recorded ? "Recorded" : "Ready"}</StatusBadge>
-            </li>;
-          })}
+          {card.map((match) => <li key={match.id} className="fight-card-bout-compact">
+            <span className="bout-number">Bout {String(match.matchNumber).padStart(2, "0")}</span>
+            <div className="matchup"><strong>{match.wrestlerA}</strong><span>VS</span><strong>{match.wrestlerB}</strong></div>
+            <PredictionStrip prediction={predictMatch(match, live.standings, state.confirmedResults)} />
+          </li>)}
         </ol> : <div className="p-6">
           <EmptyState title="No current card available" description="The control center will display matches only after they are present in the workbook schedule or an explicitly accepted schedule snapshot." />
           <div className="mt-4"><Link href="/schedule-setup" className="action-button action-secondary">Review schedule setup</Link></div>
@@ -136,7 +132,6 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
 
 function PredictionStrip({ prediction }: { prediction: ReturnType<typeof predictMatch> }) {
   return <div className="prediction-strip" aria-label={`${prediction.wrestlerA} ${prediction.probabilityA}% win chance, ${prediction.wrestlerB} ${prediction.probabilityB}% win chance, ${prediction.confidence} confidence`}>
-    <div className="prediction-topline"><span>Prediction · Win Chance</span><strong>{prediction.confidence} confidence</strong></div>
     <div className="prediction-bars">
       <span style={{ width: `${prediction.probabilityA}%` }}>{prediction.probabilityA}%</span>
       <span style={{ width: `${prediction.probabilityB}%` }}>{prediction.probabilityB}%</span>

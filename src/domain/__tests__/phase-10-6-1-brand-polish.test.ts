@@ -39,8 +39,6 @@ describe("Phase 10.6.1 brand and dashboard polish", () => {
   it("summarizes non-blocking diagnostics as source warnings rather than errors", () => {
     const page = source("src/app/page.tsx");
     const dashboard = source("src/components/dashboard-control-center.tsx");
-    expect(page).toContain("Source Warnings");
-    expect(page).toContain("Non-blocking · details contained");
     expect(page).not.toContain('errors.length + " errors"');
     expect(dashboard).toContain("Source Warnings");
     expect(dashboard).toContain("Non-blocking · details contained");

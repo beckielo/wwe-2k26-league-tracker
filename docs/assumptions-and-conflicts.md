@@ -394,3 +394,11 @@ The following checks found no current-data conflict:
 - The `Current User-Controlled Show` panel now uses compact bout rows with tighter spacing and slimmer prediction win chance bars so the six scheduled matches can fit together without relying on an internal match-list scrollbar on normal desktop layouts.
 - The `Current User League Live Table` panel now uses compact fixed table sizing, tighter cell padding, and wrapped status pills so all 12 current-user-league rows fit inside the paired panel without horizontal or vertical table scrolling on normal desktop layouts.
 - The two primary Dashboard panels continue to share a balanced equal-height layout and the League Social Feed remains below them.
+
+## Phase 10.9.3 — Dashboard Show Density and Header Cleanup
+
+- The Dashboard metadata/stat card grid for League Year, Completed Baseline, User Brand, Control Status, and Blocking Issues has been removed from the main Dashboard view. The underlying workbook metadata, source diagnostics, warnings, and blocking issue logic remain available to workflow/review surfaces and are not removed globally.
+- The Current User-Controlled Show keeps all six authoritative scheduled matches visible without an internal match-list scrollbar on normal desktop layouts, using the saved vertical space for a compact-but-not-crushed row layout.
+- Dashboard bout rows no longer render per-match `READY` / result-status badges. Result status may still exist in app state and workflow logic, but the compact Dashboard match list does not show those badges.
+- Prediction labels, calculation explanations, evidence text, form-edge text, and visible confidence labels are internal-only for the compact Dashboard match rows. The Dashboard keeps the essential presentation: bout identifier, wrestler names, win chance bar, and percentage values for both wrestlers.
+- The Current User League Live Table remains paired with the show panel, keeps its full live standings link, and the Social Feed remains below the two primary panels.
