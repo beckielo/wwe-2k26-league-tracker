@@ -367,3 +367,13 @@ The following checks found no current-data conflict:
 - Master/app results are preferred over browser-local overlays for the same scheduled match. Browser-local overlays are only used for locked/recorded matches not already represented by the promoted current master, so the same match is never double-counted.
 - Legacy remains historical aggregation. League title counts, GOAT/Legacy comments, and winning-streak history must not be reduced to active split data or recalculated only from Live Standings.
 - Diagnostics should identify source problems directly, including missing post-finals transition evidence, duplicate active wrestlers, roster/schedule league mismatches, too few locked Closing Split weeks for the visible week, missing week result sets, and reconciled result id mismatches.
+
+## Phase 10.9 — Dashboard Predictions, User League Live Table, and Social Feed
+
+- The Dashboard no longer places the Control Room Monitor / Alerts & Review panel in the primary Dashboard grid. The underlying validation and diagnostic data remains available to other workflow/review surfaces and is not removed globally.
+- The former right-side Dashboard space now shows a compact current user league live table built from the same active split reconstruction source used by Live Standings. It displays rank, wrestler, played, wins, draws, losses, points, and position status for the current user-controlled league only.
+- Dashboard match predictions are deterministic model estimates, not guaranteed outcomes. The model starts from a 50/50 baseline and shifts only with available current split table position, points per match, win rate, recent form, and direct head-to-head evidence. Missing data produces neutral fallback warnings and keeps the matchup close to even.
+- Prediction percentages are capped between 15% and 85% and always sum to 100. Dashboard wording uses sports presentation terms such as “Prediction,” “Win Chance,” “Form,” and “Confidence”; it intentionally avoids betting, odds, stake, payout, or gambling language.
+- The League Social Feed generates deterministic, non-random comments from current standings, confirmed results, and real upcoming scheduled matches. Event triggers include unbeaten leaders, close top-of-table races, pressure-zone positions, latest confirmed wins, and upcoming user-league match hype.
+- Social comments can reference all four leagues when supported by current data. Fallback comments are limited to real scheduled match hype or actual table context and are used only when stronger events are limited.
+- Phase 10.9 does not change league rules, source results, standings calculation rules, schedule logic, result entry, simulation, workbook writeback, promotion/relegation, or tiebreakers.

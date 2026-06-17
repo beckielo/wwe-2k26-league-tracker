@@ -51,6 +51,9 @@ Workbook connected </div>
   <DashboardControlCenter
     workbookMatches={data.matches}
     workbookCompletedThroughWeek={data.meta.appBaselineCompletedThroughWeek}
+    baselineStandings={data.standings}
+    workbookResults={data.results}
+    meta={data.meta}
     leagueYear={data.meta.leagueYear}
     userLeague={data.meta.userLeague}
     validationIssues={data.validationIssues}
