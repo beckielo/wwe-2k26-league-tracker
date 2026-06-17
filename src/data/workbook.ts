@@ -4,9 +4,10 @@ import fs from "node:fs";
 import path from "node:path";
 import * as XLSX from "xlsx";
 import { validateTrackerData } from "@/domain/validation";
+import { buildCurrentStandingsFromScheduleComposition, buildLeaguesFromStandings, validateCurrentLeagueComposition } from "@/domain/current-league-composition";
 import { parseAppWorkbookBaseline } from "@/domain/app-workbook-baseline";
 import { ACCEPTED_SCHEDULE_SHEET } from "@/domain/workbook-writeback";
-import { enrichLegacyProfilesFromCurrentMaster, parseLegacyTracker, type LegacyTableData } from "@/domain/legacy";
+import { enrichLegacyProfilesFromCurrentMaster, enrichLegacyProfilesWithCompletedSplitChampions, parseLegacyTracker, type LegacyTableData } from "@/domain/legacy";
 import {
   LEAGUE_NAMES,
   type HeadToHeadRecord,
@@ -77,7 +78,30 @@ export function loadLegacyTableData(): LegacyTableData & { sourceFile: string; s
       notes: text(row.Notes) || null,
     }))
     : [];
-  return { ...legacy, profiles: enrichLegacyProfilesFromCurrentMaster(legacy.profiles, standings, streaks), sourceFile, sourceSheet: "Legacy_Tracker" };
+  const dashboard = readDashboard(workbook);
+  const leagueYearLabel = dashboard.get("WWE 2K26 Liga-System") || "League Year 2";
+  const currentSplit = (leagueYearLabel.includes("Closing") ? "Closing Split" : "Opening Split") as SplitName;
+  const appScheduleRows = workbook.Sheets[ACCEPTED_SCHEDULE_SHEET]
+    ? XLSX.utils.sheet_to_json<SheetRow>(workbook.Sheets[ACCEPTED_SCHEDULE_SHEET], { defval: null, raw: true })
+    : [];
+  const currentMatches: Match[] = appScheduleRows.map((row, index) => ({
+    id: text(row.matchId),
+    leagueYear: number(row.leagueYear),
+    split: split(row.split),
+    week: number(row.yearWeek),
+    roundType: roundType(row.roundType),
+    league: league(row.league),
+    showDay: text(row.showDay) as League["showDay"],
+    matchNumber: number(row.matchNumber),
+    wrestlerA: text(row.wrestlerA),
+    wrestlerB: text(row.wrestlerB),
+    matchupKey: text(row.matchupKey),
+    status: "scheduled",
+    source: { file: sourceFile, sheet: ACCEPTED_SCHEDULE_SHEET, row: index + 2 },
+  }));
+  const currentCompositionStandings = buildCurrentStandingsFromScheduleComposition(standings, currentMatches, [], currentSplit) ?? standings;
+  const completedChampionProfiles = enrichLegacyProfilesWithCompletedSplitChampions(legacy.profiles, standings);
+  return { ...legacy, profiles: enrichLegacyProfilesFromCurrentMaster(completedChampionProfiles, currentCompositionStandings, streaks), sourceFile, sourceSheet: "Legacy_Tracker" };
 }
 
 type CellValue = string | number | boolean | null | undefined;
@@ -361,7 +385,7 @@ export function loadTrackerData(): TrackerData {
     status: text(row["Status / Use"]),
   }));
   const appBaseline = parseAppWorkbookBaseline(workbook, matches, workbookStandings);
-  const standings = appBaseline.standings ?? workbookStandings;
+  const baselineStandings = appBaseline.standings ?? workbookStandings;
   const appMatchResults: MatchResult[] = appBaseline.confirmedResults.map((result) => {
     const match = matchById.get(result.matchId);
     const loser = result.resultType === "Winner" && result.winner && match
@@ -382,6 +406,14 @@ export function loadTrackerData(): TrackerData {
     ...results.filter((result) => !appResultIds.has(result.matchId)),
     ...appMatchResults,
   ];
+  const currentCompositionStandings = buildCurrentStandingsFromScheduleComposition(
+    baselineStandings,
+    matches,
+    workbookBackedResults,
+    currentSplit,
+  );
+  const standings = currentCompositionStandings ?? baselineStandings;
+  const activeLeagues = currentCompositionStandings ? buildLeaguesFromStandings(standings, leagues) : leagues;
 
   const dataWithoutIssues: Omit<TrackerData, "validationIssues"> = {
     sourceFile,
@@ -404,7 +436,7 @@ export function loadTrackerData(): TrackerData {
       { name: "Closing Split", yearWeekStart: 25, yearWeekEnd: 48, regularWeeks: 22, tiebreakerWeek: 23, finalsWeek: 24 },
     ],
     weeks,
-    leagues,
+    leagues: activeLeagues,
     matches,
     results: workbookBackedResults,
     appWritebackResults: appBaseline.confirmedResults,
@@ -419,6 +451,7 @@ export function loadTrackerData(): TrackerData {
     ...dataWithoutIssues,
     validationIssues: [
       ...validateTrackerData(dataWithoutIssues),
+      ...validateCurrentLeagueComposition(standings, matches, currentSplit),
       ...workbookWarnings(workbook, sourceFile),
       ...appBaseline.validationIssues.map((issue) => ({
         ...issue,
