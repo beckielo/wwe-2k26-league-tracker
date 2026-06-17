@@ -5,13 +5,14 @@ import { LeagueIcon } from "./league-icon";
 import { LeagueBrandMark, LeagueDecorativeArt } from "./brand-assets";
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
-import { calculateLiveStandingsFromCurrentMaster } from "@/domain/tracker-state";
-import { LEAGUE_NAMES, type LeagueName, type Match, type StandingRow, type TrackerMeta } from "@/domain/types";
+import { calculateLiveStandingsFromCurrentMaster, validateActiveSplitStandings } from "@/domain/tracker-state";
+import { LEAGUE_NAMES, type LeagueName, type Match, type MatchResult, type StandingRow, type TrackerMeta } from "@/domain/types";
 import { LEAGUE_VISUALS, placementLabel, placementZone } from "@/domain/visual-identity";
 
 interface LiveStandingsProps {
   baseline: StandingRow[];
   workbookMatches: Match[];
+  workbookResults: MatchResult[];
   meta: TrackerMeta;
   sourceFile: string;
 }
@@ -61,17 +62,18 @@ function LeagueTable({ league, rows, userLeague }: { league: LeagueName; rows: S
   </section>;
 }
 
-export function LiveStandings({ baseline, workbookMatches, meta, sourceFile }: LiveStandingsProps) {
+export function LiveStandings({ baseline, workbookMatches, workbookResults, meta, sourceFile }: LiveStandingsProps) {
   const { state, hydrated } = useTrackerState();
   const matches = useMemo(() => getActiveWorkflowMatches(state, workbookMatches), [state, workbookMatches]);
   const userLeague = state.activeWorkflow?.userLeague ?? meta.userLeague;
   const split = state.activeWorkflow?.split ?? meta.currentSplit;
   const splitWeek = state.activeWorkflow?.splitWeek ?? (meta.currentSplit === "Closing Split" ? Math.max(1, meta.currentWeek - 24) : meta.currentWeek);
   const standings = useMemo(
-    () => calculateLiveStandingsFromCurrentMaster(baseline, matches, hydrated ? state.confirmedResults : [], split, meta.appBaselineCompletedThroughWeek ?? meta.currentWeek),
-    [baseline, hydrated, matches, meta.appBaselineCompletedThroughWeek, meta.currentWeek, state.confirmedResults, split],
+    () => calculateLiveStandingsFromCurrentMaster(baseline, matches, hydrated ? state.confirmedResults : [], split, meta.appBaselineCompletedThroughWeek ?? meta.currentWeek, workbookResults),
+    [baseline, hydrated, matches, meta.appBaselineCompletedThroughWeek, meta.currentWeek, state.confirmedResults, split, workbookResults],
   );
   const source = state.activeWorkflow?.scheduleSource ?? `Workbook · ${sourceFile}`;
+  const diagnostics = validateActiveSplitStandings(standings, splitWeek);
   const lastUpdate = state.completedWeeks.at(-1)?.completedAt ?? meta.latestAppWritebackCompletedAt ?? state.activeWorkflow?.activatedAt ?? null;
 
   return <>
@@ -91,6 +93,11 @@ export function LiveStandings({ baseline, workbookMatches, meta, sourceFile }: L
       <div><dt>Table source</dt><dd>{source}</dd></div>
       <div><dt>Last lock / update</dt><dd>{lastUpdate ? new Date(lastUpdate).toLocaleString() : `Workbook through Week ${meta.currentWeek}`}</dd></div>
     </dl>
+
+    {diagnostics.length > 0 && <section className="source-warning" role="alert">
+      <strong>Active split standings source warning</strong>
+      <ul>{diagnostics.map((diagnostic) => <li key={diagnostic}>{diagnostic}</li>)}</ul>
+    </section>}
 
     <section className="rank-zone-legend" aria-label="Position color legend">
       <div><LeagueIcon name="belt" /><span><strong>Position zones</strong><small>Tinted rows and rank plates show competitive status.</small></span></div>
