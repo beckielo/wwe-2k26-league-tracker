@@ -377,3 +377,12 @@ The following checks found no current-data conflict:
 - The League Social Feed generates deterministic, non-random comments from current standings, confirmed results, and real upcoming scheduled matches. Event triggers include unbeaten leaders, close top-of-table races, pressure-zone positions, latest confirmed wins, and upcoming user-league match hype.
 - Social comments can reference all four leagues when supported by current data. Fallback comments are limited to real scheduled match hype or actual table context and are used only when stronger events are limited.
 - Phase 10.9 does not change league rules, source results, standings calculation rules, schedule logic, result entry, simulation, workbook writeback, promotion/relegation, or tiebreakers.
+
+## Phase 10.9.1 — Dashboard Prediction UI and Social Comment Variety Polish
+
+- Dashboard prediction reasons, evidence tags, raw factors, and explanation strings remain internal domain outputs for tests and generation support, but the main Dashboard match card presents only wrestler names, a Win Chance percentage bar, percentages, and a compact confidence label.
+- The prediction UI intentionally avoids betting terminology and does not expose detailed calculation diagnostics in the primary card.
+- The League Social Feed now uses a deterministic modular template system with separate event pools, fictional league-account personas, opening phrases, middle structures, and endings. The same standings, results, schedule, league year/split/week context, league, event type, wrestler names, ranking context, and matchup anchors produce the same comments without reload randomness.
+- Visible social comments are selected with uniqueness rules that avoid duplicate exact text, repeated opening phrases, over-repeated event types, and over-concentration on the same wrestler or league when stronger mixed events are available.
+- Fallback social comments are limited to actual upcoming matchups, actual table positions, or real league-wide table context when stronger events are limited; they do not invent wins, achievements, rivalries, injuries, personal drama, or title outcomes.
+- The Current User-Controlled Show and Current User League Live Table use an equal-height two-column Dashboard layout with internal scrolling for long card/table content, so panel headers and bottom edges align while the social feed remains below both panels.
