@@ -2,6 +2,7 @@ import { calculatePoints } from "./scoring";
 import type { LeagueName, Match, MatchResult, SplitName, StandingRow } from "./types";
 import type { FinalsNight, LeagueFinalsResult } from "./league-finals";
 import type { AcceptedScheduleSnapshot } from "./schedule-setup";
+import type { PostFinalsAssignment } from "./post-finals-transition";
 
 export type ConfirmedResultType = "Winner" | "Draw" | "No Contest";
 export type ConfirmedResultSource = "Manual" | "Simulation";
@@ -259,6 +260,168 @@ function resetRowsForSplit(rows: StandingRow[], split: SplitName): StandingRow[]
   }));
 }
 
+function normalized(value: string): string {
+  return value.trim().toLocaleLowerCase();
+}
+
+function resultIdentity(league: LeagueName, week: number, wrestlerA: string, wrestlerB: string): string {
+  return `${league}:${week}:${[normalized(wrestlerA), normalized(wrestlerB)].sort().join("::")}`;
+}
+
+function matchIdentity(match: Match): string {
+  return resultIdentity(match.league, match.week, match.wrestlerA, match.wrestlerB);
+}
+
+function findScheduledMatchForResult(result: ConfirmedResult, matchesById: Map<string, Match>, matchesByIdentity: Map<string, Match>): Match | null {
+  return matchesById.get(result.matchId)
+    ?? matchesByIdentity.get(resultIdentity(result.league, result.week, result.wrestlerA, result.wrestlerB))
+    ?? null;
+}
+
+function standingsFromPostFinalsAssignments(assignments: PostFinalsAssignment[], sourceStandings: StandingRow[]): StandingRow[] {
+  const sourceByName = new Map(sourceStandings.map((row) => [normalized(row.wrestler), row]));
+  return assignments.map((assignment): StandingRow => {
+    const source = sourceByName.get(normalized(assignment.wrestler));
+    return {
+      league: assignment.newLeague,
+      rank: 99,
+      wrestler: assignment.wrestler,
+      seed: source?.seed ?? assignment.priorRank,
+      matches: 0,
+      wins: 0,
+      draws: 0,
+      losses: 0,
+      points: 0,
+      status: `${assignment.movement}${assignment.finalsOutcome ? ` · ${assignment.finalsOutcome}` : ""}`,
+    };
+  });
+}
+
+function standingsFromScheduleComposition(sourceStandings: StandingRow[], scheduledMatches: Match[]): StandingRow[] | null {
+  const byLeague = new Map<LeagueName, string[]>();
+  for (const league of ["Global League", "Continental League", "National League", "Regional League"] as LeagueName[]) byLeague.set(league, []);
+  for (const match of scheduledMatches) {
+    for (const wrestler of [match.wrestlerA, match.wrestlerB]) {
+      const rows = byLeague.get(match.league)!;
+      if (!rows.some((name) => normalized(name) === normalized(wrestler))) rows.push(wrestler);
+    }
+  }
+  if ([...byLeague.values()].some((rows) => rows.length !== 12)) return null;
+  const all = [...byLeague.values()].flat();
+  if (new Set(all.map(normalized)).size !== 48) return null;
+  const sourceByName = new Map(sourceStandings.map((row) => [normalized(row.wrestler), row]));
+  return (["Global League", "Continental League", "National League", "Regional League"] as LeagueName[]).flatMap((league) =>
+    byLeague.get(league)!.map((wrestler, index): StandingRow => ({
+      league,
+      rank: index + 1,
+      wrestler,
+      seed: sourceByName.get(normalized(wrestler))?.seed ?? index + 1,
+      matches: 0,
+      wins: 0,
+      draws: 0,
+      losses: 0,
+      points: 0,
+      status: "post-finals schedule composition",
+    })),
+  );
+}
+
+function validateRoster(rows: StandingRow[]): string[] {
+  const diagnostics: string[] = [];
+  const leagueCounts = new Map<LeagueName, number>();
+  const seen = new Map<string, LeagueName>();
+  for (const row of rows) {
+    leagueCounts.set(row.league, (leagueCounts.get(row.league) ?? 0) + 1);
+    const existing = seen.get(normalized(row.wrestler));
+    if (existing && existing !== row.league) diagnostics.push(`Current roster has duplicate wrestler: ${row.wrestler} appears in ${existing} and ${row.league}.`);
+    seen.set(normalized(row.wrestler), row.league);
+  }
+  for (const league of ["Global League", "Continental League", "National League", "Regional League"] as LeagueName[]) {
+    const count = leagueCounts.get(league) ?? 0;
+    if (count !== 12) diagnostics.push(`${league} current roster has ${count} wrestlers; expected 12.`);
+  }
+  return diagnostics;
+}
+
+export interface ActiveSplitLiveStandingsInput {
+  previousFinalStandings: StandingRow[];
+  postFinalsAssignments?: PostFinalsAssignment[];
+  scheduledMatches: Match[];
+  masterResults: MatchResult[];
+  localResults: ConfirmedResult[];
+  split: SplitName;
+  completedThroughWeek: number;
+}
+
+export interface ActiveSplitLiveStandings {
+  composition: StandingRow[];
+  standings: StandingRow[];
+  diagnostics: string[];
+}
+
+export function reconstructActiveSplitLiveStandings(input: ActiveSplitLiveStandingsInput): ActiveSplitLiveStandings {
+  const startWeek = splitStartWeek(input.split);
+  const latestLocalWeek = Math.max(input.completedThroughWeek, ...input.localResults.map((result) => result.week));
+  const activeMatches = input.scheduledMatches.filter((match) => match.leagueYear === 2 && match.split === input.split && match.week >= startWeek && match.week <= latestLocalWeek);
+  const allSplitMatches = input.scheduledMatches.filter((match) => match.leagueYear === 2 && match.split === input.split);
+  const diagnostics: string[] = [];
+  if (allSplitMatches.length === 0 && input.masterResults.length === 0 && input.localResults.length === 0) {
+    return { composition: input.previousFinalStandings, standings: input.previousFinalStandings, diagnostics: [] };
+  }
+  let composition = input.postFinalsAssignments?.length
+    ? standingsFromPostFinalsAssignments(input.postFinalsAssignments, input.previousFinalStandings)
+    : standingsFromScheduleComposition(input.previousFinalStandings, allSplitMatches);
+  if (!composition) {
+    diagnostics.push("Missing post-finals transition source.");
+    composition = resetRowsForSplit(input.previousFinalStandings, input.split);
+  }
+  composition = composition.map((row) => ({ ...row, matches: 0, wins: 0, draws: 0, losses: 0, points: 0 }));
+  diagnostics.push(...validateRoster(composition));
+
+  const leagueByRoster = new Map(composition.map((row) => [normalized(row.wrestler), row.league]));
+  for (const match of allSplitMatches) {
+    for (const wrestler of [match.wrestlerA, match.wrestlerB]) {
+      const rosterLeague = leagueByRoster.get(normalized(wrestler));
+      if (rosterLeague && rosterLeague !== match.league) diagnostics.push(`Accepted schedule places ${wrestler} in ${match.league} but standings roster places him in ${rosterLeague}.`);
+    }
+  }
+
+  const matchesById = new Map(activeMatches.map((match) => [match.id, match]));
+  const matchesByIdentity = new Map(activeMatches.map((match) => [matchIdentity(match), match]));
+  const activeMatchIds = new Set(activeMatches.map((match) => match.id));
+  const masterConfirmed = input.masterResults
+    .map((result): ConfirmedResult | null => {
+      const direct = matchesById.get(result.matchId);
+      if (!direct || result.outcome === "unclear") return null;
+      return resultFromMatchResult(result, direct);
+    })
+    .filter((result): result is ConfirmedResult => Boolean(result));
+  const used = new Set<string>();
+  const merged: ConfirmedResult[] = [];
+  for (const result of masterConfirmed) {
+    const match = findScheduledMatchForResult(result, matchesById, matchesByIdentity);
+    if (!match) continue;
+    used.add(match.id);
+    merged.push({ ...result, matchId: match.id });
+  }
+  for (const result of input.localResults) {
+    const match = findScheduledMatchForResult(result, matchesById, matchesByIdentity);
+    if (!match || used.has(match.id)) continue;
+    if (result.matchId !== match.id) diagnostics.push(`Result ID mismatch reconciled by participants/week/league: ${result.matchId} → ${match.id}.`);
+    used.add(match.id);
+    merged.push({ ...result, matchId: match.id, league: match.league, week: match.week, wrestlerA: match.wrestlerA, wrestlerB: match.wrestlerB });
+  }
+  const weeksWithResults = new Set(merged.map((result) => result.week));
+  for (const week of activeSplitResultWeekRange(input.split, input.completedThroughWeek)) {
+    if (!weeksWithResults.has(week)) diagnostics.push(`${input.split} Week ${splitWeekFromYearWeek(input.split, week)} results missing from local/master state.`);
+  }
+  if (weeksWithResults.size === 1 && splitWeekFromYearWeek(input.split, input.completedThroughWeek) > 1) {
+    diagnostics.push(`Only 1 locked ${input.split} week found, but UI claims Week ${splitWeekFromYearWeek(input.split, input.completedThroughWeek)}.`);
+  }
+  const standings = calculateStandingsWithConfirmedResults(composition, activeMatches, merged.filter((result) => activeMatchIds.has(result.matchId)));
+  return { composition, standings, diagnostics: [...new Set(diagnostics)] };
+}
+
 
 function splitStartWeek(split: SplitName): number {
   return split === "Closing Split" ? 25 : 1;
@@ -315,20 +478,24 @@ export function calculateLiveStandingsFromCurrentMaster(
   currentMasterCompletedThroughWeek: number,
   currentMasterResults: MatchResult[] = [],
 ): StandingRow[] {
-  const startWeek = splitStartWeek(split);
-  const splitMatches = scheduledMatches.filter((match) => match.leagueYear === 2 && match.split === split && match.week >= startWeek && match.week <= currentMasterCompletedThroughWeek);
-  const splitMatchIds = new Set(splitMatches.map((match) => match.id));
-  const matchById = new Map(splitMatches.map((match) => [match.id, match]));
-  const masterResults = currentMasterResults
-    .filter((result) => splitMatchIds.has(result.matchId))
-    .map((result) => resultFromMatchResult(result, matchById.get(result.matchId)!))
-    .filter((result): result is ConfirmedResult => Boolean(result));
-  const newerOverlayMatches = scheduledMatches.filter((match) => match.leagueYear === 2 && match.split === split && match.week > currentMasterCompletedThroughWeek);
-  const newerOverlayMatchIds = new Set(newerOverlayMatches.map((match) => match.id));
-  const newerOverlayResults = confirmedResults.filter((result) => newerOverlayMatchIds.has(result.matchId));
-  const activeBaseline = resetRowsForSplit(currentMasterStandings, split);
-  if (masterResults.length > 0) return calculateStandingsWithConfirmedResults(activeBaseline, [...splitMatches, ...newerOverlayMatches], masterResults.concat(newerOverlayResults));
-  return calculateStandingsWithConfirmedResults(currentMasterStandings, newerOverlayMatches, newerOverlayResults);
+  const splitMatches = scheduledMatches.filter((match) => match.leagueYear === 2 && match.split === split);
+  if (currentMasterResults.length === 0 && standingsFromScheduleComposition(currentMasterStandings, splitMatches) === null) {
+    const newerOverlayMatches = splitMatches.filter((match) => match.week > currentMasterCompletedThroughWeek);
+    const newerOverlayMatchIds = new Set(newerOverlayMatches.map((match) => match.id));
+    return calculateStandingsWithConfirmedResults(
+      currentMasterStandings,
+      newerOverlayMatches,
+      confirmedResults.filter((result) => newerOverlayMatchIds.has(result.matchId)),
+    );
+  }
+  return reconstructActiveSplitLiveStandings({
+    previousFinalStandings: currentMasterStandings,
+    scheduledMatches,
+    masterResults: currentMasterResults,
+    localResults: confirmedResults,
+    split,
+    completedThroughWeek: currentMasterCompletedThroughWeek,
+  }).standings;
 }
 
 export function calculateActiveSplitStandingsWithConfirmedResults(
@@ -352,14 +519,14 @@ export function calculateStandingsWithConfirmedResults(
   confirmedResults: ConfirmedResult[],
 ): StandingRow[] {
   const rows = baseline.map((row) => ({ ...row }));
-  const rowByKey = new Map(rows.map((row) => [`${row.league}:${row.wrestler}`, row]));
+  const rowByKey = new Map(rows.map((row) => [`${row.league}:${normalized(row.wrestler)}`, row]));
   const matchById = new Map(scheduledMatches.map((match) => [match.id, match]));
 
   for (const result of confirmedResults) {
     const match = matchById.get(result.matchId);
     if (!match) continue;
-    const rowA = rowByKey.get(`${match.league}:${match.wrestlerA}`);
-    const rowB = rowByKey.get(`${match.league}:${match.wrestlerB}`);
+    const rowA = rowByKey.get(`${match.league}:${normalized(match.wrestlerA)}`);
+    const rowB = rowByKey.get(`${match.league}:${normalized(match.wrestlerB)}`);
     if (!rowA || !rowB || result.resultType === "No Contest") continue;
     rowA.matches += 1;
     rowB.matches += 1;
@@ -367,8 +534,8 @@ export function calculateStandingsWithConfirmedResults(
       rowA.draws += 1;
       rowB.draws += 1;
     } else if (result.winner) {
-      const winner = result.winner === match.wrestlerA ? rowA : rowB;
-      const loser = result.winner === match.wrestlerA ? rowB : rowA;
+      const winner = normalized(result.winner) === normalized(match.wrestlerA) ? rowA : rowB;
+      const loser = normalized(result.winner) === normalized(match.wrestlerA) ? rowB : rowA;
       winner.wins += 1;
       loser.losses += 1;
     }
