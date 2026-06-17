@@ -386,3 +386,11 @@ The following checks found no current-data conflict:
 - Visible social comments are selected with uniqueness rules that avoid duplicate exact text, repeated opening phrases, over-repeated event types, and over-concentration on the same wrestler or league when stronger mixed events are available.
 - Fallback social comments are limited to actual upcoming matchups, actual table positions, or real league-wide table context when stronger events are limited; they do not invent wins, achievements, rivalries, injuries, personal drama, or title outcomes.
 - The Current User-Controlled Show and Current User League Live Table use an equal-height two-column Dashboard layout with internal scrolling for long card/table content, so panel headers and bottom edges align while the social feed remains below both panels.
+
+## Phase 10.9.2 — Dashboard Density and Live Table Navigation Cleanup
+
+- Removed the redundant standalone Dashboard `Open Live Table` card so the page no longer duplicates live-standings navigation above the Legacy shortcut.
+- The `Current User League Live Table` panel remains the single Dashboard entry point to the all-four-leagues live standings page through its concise `Full Live Standings` link.
+- The `Current User-Controlled Show` panel now uses compact bout rows with tighter spacing and slimmer prediction win chance bars so the six scheduled matches can fit together without relying on an internal match-list scrollbar on normal desktop layouts.
+- The `Current User League Live Table` panel now uses compact fixed table sizing, tighter cell padding, and wrapped status pills so all 12 current-user-league rows fit inside the paired panel without horizontal or vertical table scrolling on normal desktop layouts.
+- The two primary Dashboard panels continue to share a balanced equal-height layout and the League Social Feed remains below them.
