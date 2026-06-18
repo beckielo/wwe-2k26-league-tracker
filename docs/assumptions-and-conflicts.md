@@ -489,3 +489,10 @@ The following checks found no current-data conflict:
 - One completed Elite Cup event slot contributes exactly one record. Duplicate source rows for the same slot and same winner merge into one canonical slot with source labels preserved in the internal audit.
 - Current confirmed canonical state after two completed Finals/Splits: Gunther has 1 Elite Cup, Roman Reigns has 1 Elite Cup, and total Elite Cup Records is 2.
 - If candidate sources disagree on the winner for the same league-year/split Elite Cup slot, the app records an internal diagnostic conflict and does not count both candidates as separate Elite Cups.
+
+## Phase 10.10.8 — Elite Cup Slot Separation & Roman Manual Correction Restore
+- Restored the user-confirmed Roman Reigns League Year 2 Opening Split Elite Cup manual correction into the canonical Elite Cup candidate audit and final canonical event-slot list.
+- Canonical Elite Cup slot identity must include the completed event window: normalized league year or historical window, normalized split/event window, and normalized Elite Cup event type. Event type alone is not a valid slot key.
+- Current confirmed canonical Elite Cup state is exactly two counted slots: Gunther has 1 historical Elite Cup, Roman Reigns has 1 League Year 2 Opening Split Elite Cup, and the total Elite Cup Records value is 2.
+- The reconstructed Gunther historical slot and Roman Reigns LY2 Opening Split manual slot must remain separate. Legacy_Tracker aggregate fallback evidence may reconstruct one source-backed historical Gunther slot, but it must not overwrite, filter, or collide with Roman Reigns’ manual LY2 Opening Split slot.
+- No other Elite Cup winners, league title records, standings, dashboard values, schedules, workbook data, or simulation results were invented or changed; League Title Records remains 8 for the current confirmed state.
