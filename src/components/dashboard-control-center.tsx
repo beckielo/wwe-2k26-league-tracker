@@ -163,8 +163,8 @@ function PredictionStrip({ prediction }: { prediction: ReturnType<typeof predict
 function UserLeagueLiveTable({ league, rows }: { league: LeagueName; rows: StandingRow[] }) {
   return <section className={`dashboard-live-table dashboard-equal-panel league-${LEAGUE_VISUALS[league].key}`} aria-labelledby="dashboard-live-table-title">
     <header>
-      <div className="dashboard-live-table-title"><LeagueBrandMark league={league} usage="compact" /><span><span className="dashboard-live-table-heading-pill"><p className="broadcast-kicker">Current user table</p><h2 id="dashboard-live-table-title">{league}</h2></span></span></div>
-      <Link href="/live-standings">Full Live Standings <span aria-hidden>→</span></Link>
+      <div className="dashboard-live-table-title"><LeagueBrandMark league={league} usage="compact" /><span><p className="broadcast-kicker">Current user table</p><h2 id="dashboard-live-table-title">{league}</h2></span></div>
+      <Link href="/live-standings" className="dashboard-live-table-heading-pill">Full Live Standings <span aria-hidden>→</span></Link>
     </header>
     <div className="dashboard-live-table-wrap dashboard-live-table-wrap-compact"><table className="dashboard-live-table-compact">
       <thead><tr><th>#</th><th>Wrestler</th><th>M</th><th>W</th><th>D</th><th>L</th><th>Pts</th><th>Status</th></tr></thead>
