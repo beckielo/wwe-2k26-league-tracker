@@ -505,3 +505,13 @@ The following checks found no current-data conflict:
 - **Handling:** the Legacy page applies a minimal final-stage display/profile override for the summary card, Legacy table Elite Cups column, and commentary input only.
 - **Boundary:** this intentionally bypasses the failed automatic Elite Cup aggregation repair for now. No other Legacy stats, results, standings, league title records, schedules, workbook writeback, dashboard data, result entry, simulation data, or current run state were changed.
 - **Invariant preserved:** League Title Records remains 8.
+
+## Phase 11 — Week Review Workflow Overhaul
+
+- Week Review now presents the end-of-week workflow as a simplified linear path: locked-week confirmation, Close Week, Promote Current Master, GitHub save/continue confirmation, then a compact standings inspection step.
+- The Week Close Package and Safe Workbook Update panels are hidden from the normal Week Review page by default; their export, safe workbook, and promotion safety logic remains in the codebase for internal workflows and tests.
+- The separate Missing Results and Confirmed Results boxes are hidden from the default Week Review view. Missing/confirmed counts and validation remain part of the workflow summary and lock eligibility logic.
+- The former app-state-only closing standings box is replaced by a mini standings preview built from the same reconstructed active split source used by Live Standings.
+- After a successful Promote Current Master action, the GitHub save/continue prompt remains above the mini standings preview. A successful “Yes, save and continue” runs the existing finalization workflow and then navigates to the Dashboard route (`/`) so the next active week is shown.
+- Choosing “No, stay here” does not run Git finalization and does not navigate away. If finalization fails, the user remains on Week Review and sees the existing error state.
+- Underlying safety, workbook generation, current-master promotion, standings, schedule, result-entry, simulation, and lock-validation logic was not removed or intentionally changed in this UI-only phase.

@@ -4,6 +4,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { PromoteCurrentMaster } from "./promote-current-master";
 import type { TrackerState } from "@/domain/tracker-state";
 
+const pushMock = vi.fn();
+const refreshMock = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: pushMock, refresh: refreshMock }),
+}));
+
 vi.mock("@/domain/weekly-close-exports", () => ({
   createWeeklyCloseExports: () => ({
     ok: true,
@@ -31,6 +38,8 @@ function response(body: object, ok = true) {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  pushMock.mockClear();
+  refreshMock.mockClear();
 });
 
 describe("PromoteCurrentMaster confirmation", () => {
@@ -56,6 +65,20 @@ describe("PromoteCurrentMaster confirmation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Yes, save and continue" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(fetchMock.mock.calls[1][0]).toBe("/api/finalize-current-master");
+  });
+
+
+  it("routes to the Dashboard after successful finalization", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockImplementationOnce(() => response({ filename: "W16.xlsx", backupFilename: "old.backup", week: 16, gitAutomationEnabled: true }))
+      .mockImplementationOnce(() => response({ ok: true, message: "Saved", logs: [] }));
+    render(<PromoteCurrentMaster {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: /promote updated workbook/i }));
+    await screen.findByText(/do you want to save this state to GitHub/i);
+    fireEvent.click(screen.getByRole("button", { name: "Yes, save and continue" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(pushMock).toHaveBeenCalledWith("/");
+    expect(refreshMock).toHaveBeenCalled();
   });
 
   it("shows the safe setup instruction when automation is disabled", async () => {
