@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { createWeeklyCloseExports } from "@/domain/weekly-close-exports";
 import type { TrackerState } from "@/domain/tracker-state";
 import type { LeagueName, Match, StandingRow } from "@/domain/types";
@@ -13,9 +14,11 @@ interface PromoteCurrentMasterProps {
   userLeague: LeagueName;
   workbookCompletedThroughWeek: number;
   source: string;
+  promptPreview?: ReactNode;
 }
 
 export function PromoteCurrentMaster(props: PromoteCurrentMasterProps) {
+  const router = useRouter();
   const [promoting, setPromoting] = useState(false);
   const [promotedWeek, setPromotedWeek] = useState<number | null>(null);
   const [gitAutomationEnabled, setGitAutomationEnabled] = useState(false);
@@ -115,7 +118,8 @@ export function PromoteCurrentMaster(props: PromoteCurrentMasterProps) {
         kind: "success",
         lines: [body.message ?? "The promoted workbook was saved to GitHub."],
       });
-      window.location.reload();
+      router.push("/");
+      router.refresh();
     } catch {
       setMessage({
         kind: "error",
@@ -185,6 +189,7 @@ export function PromoteCurrentMaster(props: PromoteCurrentMasterProps) {
               No, stay here
             </button>
           </div>
+          {props.promptPreview}
         </div>
       )}
       {finalizationLogs.length > 0 && (

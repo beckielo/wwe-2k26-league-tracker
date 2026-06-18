@@ -3,27 +3,18 @@
 import Link from "next/link";
 import { useRef, useState, type RefObject } from "react";
 import { WorkflowSummaryBanner } from "./workflow-summary-banner";
-import { WeekReviewExports } from "./week-review-exports";
-import { SafeWorkbookUpdate } from "./safe-workbook-update";
 import { PromoteCurrentMaster } from "./promote-current-master";
 import {
-calculateActiveSplitStandingsWithConfirmedResults,
+reconstructActiveSplitLiveStandings,
 completeWeek,
-removeResult,
 unlockWeek,
 } from "@/domain/tracker-state";
 import { getWorkflowSummary } from "@/domain/week-progression";
 import { deriveSplitCompletionReview } from "@/domain/split-completion";
-import type {
-LeagueName,
-Match,
-MatchResult,
-MatchupReferenceRow,
-SplitName,
-StandingRow,
-} from "@/domain/types";
+import { LEAGUE_NAMES, type LeagueName, type Match, type MatchResult, type MatchupReferenceRow, type SplitName, type StandingRow } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
+import { placementLabel, placementZone } from "@/domain/visual-identity";
 
 interface WeekReviewProps {
 allMatches: Match[];
@@ -73,30 +64,19 @@ workflowUserLeague,
 const week = summary.activeWeek;
 const progress = summary.progress;
 
-const weekMatches =
-week === null
-? []
-: workflowMatches.filter(
-(match) => match.week === week && match.status === "scheduled",
-);
-
-const resultByMatch = new Map(
-progress?.confirmedResults.map((result) => [result.matchId, result]) ?? [],
-);
-
-const leagues = [...new Set(weekMatches.map((match) => match.league))];
 const latestLockedWeek = summary.latestLockedWeek;
 
 const activeSplit = state.activeWorkflow?.split ?? split;
 const activeSplitWeek = latestLockedWeek !== null && activeSplit === "Closing Split" ? Math.max(1, latestLockedWeek - 24) : latestLockedWeek;
-const updatedStandings = calculateActiveSplitStandingsWithConfirmedResults(
-baselineStandings,
-workflowMatches,
-state.confirmedResults.filter(
-(result) => latestLockedWeek !== null && result.week <= latestLockedWeek,
-),
-activeSplit,
-);
+const liveStandings = reconstructActiveSplitLiveStandings({
+previousFinalStandings: baselineStandings,
+scheduledMatches: workflowMatches,
+masterResults: workbookResults,
+localResults: state.confirmedResults,
+split: activeSplit,
+completedThroughWeek: workbookCurrentWeek,
+});
+const updatedStandings = liveStandings.standings;
 const localMatchResults = state.confirmedResults.map((result): MatchResult => {
 const match = workflowMatches.find((candidate) => candidate.id === result.matchId);
 const loser = result.resultType === "Winner" && result.winner && match
@@ -164,18 +144,6 @@ setMessages([
 
 }
 
-function remove(matchId: string) {
-const action = removeResult(state, matchId);
-
-if (!action.ok) {
-  setMessages(action.errors);
-  return;
-}
-
-replaceState(action.state);
-setMessages([]);
-
-}
 
 function downloadExport() {
 const json = exportState();
@@ -343,191 +311,8 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
       </button>
     </div>
   )}
-
-  {progress ? (
-    <>
-      <div className="border border-white/10 bg-[#111722] p-5">
-        <p className="text-xs font-bold uppercase tracking-[.18em] text-red-400">
-          Current active app week
-        </p>
-
-        <div className="mt-2 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-          <div>
-            <h2 className="text-3xl font-black uppercase">Week {week}</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Status:{" "}
-              {progress.status === "complete-unlocked"
-                ? "Complete but unlocked — ready to lock"
-                : "Incomplete — confirmed results still required"}
-            </p>
-          </div>
-
-          <p className="text-sm text-slate-500">
-            Workbook completed through Week {originalWorkbookCurrentWeek}
-            {latestAppWritebackWeek !== null && (
-              <> · App workbook baseline through Week {latestAppWritebackWeek} (App_* sheets)</>
-            )}
-          </p>
-        </div>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-6">
-        <ProgressCard label="Scheduled" value={progress.total} color="text-white" />
-        <ProgressCard label="Confirmed" value={progress.confirmed} color="text-emerald-300" />
-        <ProgressCard label="Missing" value={progress.missing} color="text-amber-300" />
-        <ProgressCard label="Manual" value={progress.manual} color="text-sky-300" />
-        <ProgressCard label="Simulation" value={progress.simulation} color="text-violet-300" />
-        <ProgressCard
-          label="State"
-          value={progress.status === "complete-unlocked" ? "Ready" : "Open"}
-          color="text-white"
-        />
-      </div>
-
-      {progress.validationErrors.length > 0 && (
-        <div className="border border-amber-400/30 bg-amber-400/5 p-5">
-          <p className="font-black uppercase text-amber-300">
-            Completion validation
-          </p>
-
-          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-400">
-            {progress.validationErrors.slice(0, 8).map((error) => (
-              <li key={error}>{error}</li>
-            ))}
-          </ul>
-
-          {progress.validationErrors.length > 8 && (
-            <p className="mt-2 text-xs text-slate-500">
-              Plus {progress.validationErrors.length - 8} additional
-              validation messages.
-            </p>
-          )}
-        </div>
-      )}
-
-      <div className="grid gap-6 xl:grid-cols-2">
-        <section className="border border-amber-400/20 bg-[#111722]">
-          <div className="border-b border-white/10 p-5">
-            <p className="text-[10px] font-bold uppercase tracking-[.2em] text-amber-400">
-              Missing results
-            </p>
-            <h2 className="mt-1 text-xl font-black uppercase">
-              Grouped by league
-            </h2>
-          </div>
-
-          <div className="divide-y divide-white/10">
-            {leagues.map((league) => {
-              const missing = progress.missingMatches.filter(
-                (match) => match.league === league,
-              );
-
-              return (
-                <div key={league} className="p-5">
-                  <div className="flex justify-between">
-                    <h3 className="font-black uppercase">{league}</h3>
-                    <span className="text-xs text-amber-300">
-                      {missing.length} missing
-                    </span>
-                  </div>
-
-                  {missing.length ? (
-                    <ul className="mt-3 space-y-2 text-sm text-slate-400">
-                      {missing.map((match) => (
-                        <li key={match.id}>
-                          Match {match.matchNumber}: {match.wrestlerA} vs{" "}
-                          {match.wrestlerB}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-2 text-sm text-emerald-300">
-                      All six results confirmed.
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="border border-emerald-400/20 bg-[#111722]">
-          <div className="border-b border-white/10 p-5">
-            <p className="text-[10px] font-bold uppercase tracking-[.2em] text-emerald-400">
-              Confirmed results
-            </p>
-            <h2 className="mt-1 text-xl font-black uppercase">
-              Grouped by league
-            </h2>
-          </div>
-
-          <div className="divide-y divide-white/10">
-            {leagues.map((league) => {
-              const confirmedMatches = weekMatches.filter(
-                (match) =>
-                  match.league === league && resultByMatch.has(match.id),
-              );
-
-              return (
-                <div key={league} className="p-5">
-                  <div className="flex justify-between">
-                    <h3 className="font-black uppercase">{league}</h3>
-                    <span className="text-xs text-emerald-300">
-                      {confirmedMatches.length}/6
-                    </span>
-                  </div>
-
-                  {confirmedMatches.length ? (
-                    <div className="mt-3 space-y-3">
-                      {confirmedMatches.map((match) => {
-                        const result = resultByMatch.get(match.id);
-
-                        if (!result) return null;
-
-                        return (
-                          <div
-                            key={match.id}
-                            className="flex items-center justify-between gap-3 text-sm"
-                          >
-                            <span className="text-slate-300">
-                              {match.wrestlerA} vs {match.wrestlerB}
-                              <small className="ml-2 text-slate-600">
-                                {result.source}
-                              </small>
-                            </span>
-
-                            <div className="flex items-center gap-2">
-                              <strong className="text-emerald-300">
-                                {result.resultType === "Winner"
-                                  ? result.winner + " wins"
-                                  : result.resultType}
-                              </strong>
-
-                              <button
-                                type="button"
-                                onClick={() => remove(match.id)}
-                                className="border border-white/10 px-2 py-1 text-[10px] uppercase text-slate-500"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="mt-2 text-sm text-slate-500">
-                      No confirmed results.
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      </div>
-
-      <div className="border border-white/10 bg-[#111722] p-5">
+  {progress && (
+    <div className="border border-white/10 bg-[#111722] p-5">
         <div className="flex flex-col justify-between gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-center">
           <div>
             <p className="font-black uppercase">Close Week {week}</p>
@@ -570,6 +355,77 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
           />
         </div>
       </div>
+  )}
+
+  <PromoteCurrentMaster
+    state={state}
+    allMatches={workflowMatches}
+    baselineStandings={baselineStandings}
+    userLeague={workflowUserLeague}
+    workbookCompletedThroughWeek={workbookCurrentWeek}
+    source={sourceFile}
+    promptPreview={<MiniLiveStandingsPreview standings={updatedStandings} split={activeSplit} splitWeek={activeSplitWeek} latestLockedWeek={latestLockedWeek} />}
+  />
+
+  {progress ? (
+    <>
+      <div className="border border-white/10 bg-[#111722] p-5">
+        <p className="text-xs font-bold uppercase tracking-[.18em] text-red-400">
+          Current active app week
+        </p>
+
+        <div className="mt-2 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+          <div>
+            <h2 className="text-3xl font-black uppercase">Week {week}</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Status:{" "}
+              {progress.status === "complete-unlocked"
+                ? "Complete but unlocked — ready to lock"
+                : "Incomplete — confirmed results still required"}
+            </p>
+          </div>
+
+          <p className="text-sm text-slate-500">
+            Workbook completed through Week {originalWorkbookCurrentWeek}
+            {latestAppWritebackWeek !== null && (
+              <> · App workbook baseline through Week {latestAppWritebackWeek} (App_* sheets)</>
+            )}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-6">
+        <ProgressCard label="Scheduled" value={progress.total} color="text-white" />
+        <ProgressCard label="Manual" value={progress.manual} color="text-sky-300" />
+        <ProgressCard label="Simulation" value={progress.simulation} color="text-violet-300" />
+        <ProgressCard
+          label="State"
+          value={progress.status === "complete-unlocked" ? "Ready" : "Open"}
+          color="text-white"
+        />
+      </div>
+
+      {progress.validationErrors.length > 0 && (
+        <div className="border border-amber-400/30 bg-amber-400/5 p-5">
+          <p className="font-black uppercase text-amber-300">
+            Completion validation
+          </p>
+
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-400">
+            {progress.validationErrors.slice(0, 8).map((error) => (
+              <li key={error}>{error}</li>
+            ))}
+          </ul>
+
+          {progress.validationErrors.length > 8 && (
+            <p className="mt-2 text-xs text-slate-500">
+              Plus {progress.validationErrors.length - 8} additional
+              validation messages.
+            </p>
+          )}
+        </div>
+      )}
+
     </>
   ) : (
     <div className="border border-emerald-400/20 bg-emerald-400/5 p-10 text-center">
@@ -610,70 +466,48 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
     </span>
   </div>
 
-  {latestLockedWeek !== null && (
-    <section className="border border-white/10 bg-[#111722]">
-      <div className="border-b border-white/10 p-5">
-        <p className="text-[10px] font-bold uppercase tracking-[.2em] text-red-400">
-          App-state calculation
-        </p>
-        <h2 className="mt-1 text-xl font-black uppercase">
-          {activeSplit} Standings · Split Week {activeSplitWeek}<span className="block text-sm font-bold text-slate-400">Updated through locked Year Week {latestLockedWeek}</span>
-        </h2>
-      </div>
-
-      <div className="grid gap-px bg-white/10 xl:grid-cols-4">
-        {[...new Set(updatedStandings.map((row) => row.league))].map(
-          (league) => (
-            <div key={league} className="bg-[#111722] p-4">
-              <h3 className="mb-3 text-sm font-black uppercase">{league}</h3>
-              <ol className="space-y-2">
-                {updatedStandings
-                  .filter((row) => row.league === league)
-                  .map((row) => (
-                    <li
-                      key={row.wrestler}
-                      className="flex justify-between text-xs"
-                    >
-                      <span>
-                        #{row.rank} {row.wrestler}
-                      </span>
-                      <strong>{row.points} pts</strong>
-                    </li>
-                  ))}
-              </ol>
-            </div>
-          ),
-        )}
-      </div>
-    </section>
-  )}
-
-  <WeekReviewExports
-    state={state}
-    allMatches={workflowMatches}
-    baselineStandings={baselineStandings}
-    userLeague={workflowUserLeague}
-    workbookCompletedThroughWeek={workbookCurrentWeek}
-    source={sourceFile}
-  />
-  <SafeWorkbookUpdate
-    state={state}
-    allMatches={workflowMatches}
-    baselineStandings={baselineStandings}
-    userLeague={workflowUserLeague}
-    workbookCompletedThroughWeek={workbookCurrentWeek}
-    source={sourceFile}
-  />
-  <PromoteCurrentMaster
-    state={state}
-    allMatches={workflowMatches}
-    baselineStandings={baselineStandings}
-    userLeague={workflowUserLeague}
-    workbookCompletedThroughWeek={workbookCurrentWeek}
-    source={sourceFile}
-  />
 </div>
 
+);
+}
+
+
+function MiniLiveStandingsPreview({
+standings,
+split,
+splitWeek,
+latestLockedWeek,
+}: {
+standings: StandingRow[];
+split: SplitName;
+splitWeek: number | null;
+latestLockedWeek: number | null;
+}) {
+return (
+  <section className="mt-5 border border-white/10 bg-[#0b111c]/80 p-4" aria-label="Mini live standings preview">
+    <div className="flex flex-col justify-between gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-end">
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-[.2em] text-red-300">Live Standings source</p>
+        <h2 className="mt-1 text-xl font-black uppercase">Mini standings preview</h2>
+        <p className="mt-1 text-xs text-slate-400">{split}{splitWeek ? ` · Split Week ${splitWeek}` : ""}{latestLockedWeek ? ` · updated through locked Year Week ${latestLockedWeek}` : ""}</p>
+      </div>
+      <Link href="/live-standings" className="border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">Full Live Standings <span aria-hidden>→</span></Link>
+    </div>
+    <div className="mt-4 grid gap-4 xl:grid-cols-4">
+      {LEAGUE_NAMES.map((league) => {
+        const rows = standings.filter((row) => row.league === league).sort((a, b) => a.rank - b.rank);
+        return <div key={league} className="dashboard-live-table-wrap dashboard-live-table-wrap-compact border border-white/10 bg-[#111722]">
+          <h3 className="border-b border-white/10 p-3 text-sm font-black uppercase">{league}</h3>
+          <table className="dashboard-live-table-compact">
+            <thead><tr><th>#</th><th>Wrestler</th><th>P</th><th>Pts</th><th>Status</th></tr></thead>
+            <tbody>{rows.map((row) => <tr key={row.wrestler} className={`placement-${placementZone(row.rank, league)}`}>
+              <td>{row.rank}</td><td><strong>{row.wrestler}</strong></td><td>{row.matches}</td><td><strong>{row.points}</strong></td><td><span className="zone-pill">{placementLabel(league, row.rank)}</span></td>
+            </tr>)}</tbody>
+          </table>
+        </div>;
+      })}
+    </div>
+  </section>
 );
 }
 
