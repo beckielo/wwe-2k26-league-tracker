@@ -8,7 +8,7 @@ import { buildCurrentStandingsFromScheduleComposition, buildLeaguesFromStandings
 import { parseAppWorkbookBaseline } from "@/domain/app-workbook-baseline";
 import { ACCEPTED_SCHEDULE_SHEET } from "@/domain/workbook-writeback";
 import { MANUAL_LEGACY_COMPLETED_SPLIT_SOURCE } from "@/domain/legacy-manual-corrections";
-import { auditLegacyCompletedSplitSources, applyLegacyHistoryRecords, enrichLegacyProfilesFromCurrentMaster, enrichLegacyProfilesWithCompletedSplitChampions, extractCompletedEliteCupRecordsFromFinalStandings, extractCompletedSplitTitleRecordsFromFinalStandings, legacyProfileEliteCupRecords, parseLegacyTracker, summarizeLegacyProfiles, type LegacyTableData } from "@/domain/legacy";
+import { auditLegacyCompletedSplitSources, applyLegacyHistoryRecords, applyManualEliteCupDisplayPatch, enrichLegacyProfilesFromCurrentMaster, enrichLegacyProfilesWithCompletedSplitChampions, extractCompletedEliteCupRecordsFromFinalStandings, extractCompletedSplitTitleRecordsFromFinalStandings, legacyProfileEliteCupRecords, parseLegacyTracker, summarizeLegacyProfiles, type LegacyTableData } from "@/domain/legacy";
 import {
   LEAGUE_NAMES,
   type HeadToHeadRecord,
@@ -124,7 +124,8 @@ export function loadLegacyTableData(): LegacyTableData & { sourceFile: string; s
     audit.eliteCupRecords,
   );
   const summary = summarizeLegacyProfiles(profilesWithTitles, audit);
-  return { ...legacy, policyNote: "", profiles: profilesWithTitles, summary, sourceFile, sourceSheet: "Legacy_Tracker" };
+  const displayPatch = applyManualEliteCupDisplayPatch(profilesWithTitles, summary);
+  return { ...legacy, policyNote: "", profiles: displayPatch.profiles, summary: displayPatch.summary, sourceFile, sourceSheet: "Legacy_Tracker" };
 }
 
 type CellValue = string | number | boolean | null | undefined;
