@@ -19,8 +19,8 @@ export default function LegacyPage() {
       <Stat label="League title records" value={summary.leagueTitleRecords} detail="Recorded historical title total" />
       <Stat label="Elite Cup records" value={summary.eliteCupRecords} detail="Recorded historical event total" />
     </div>
-    <p className="legacy-policy">{data.policyNote}</p>
-    {summary.diagnostics.length > 0 && <div className="legacy-diagnostics">{summary.diagnostics.map((diagnostic) => <p key={diagnostic}>{diagnostic}</p>)}</div>}
+    {data.policyNote && <p className="legacy-policy">{data.policyNote}</p>}
+    {summary.diagnostics.length > 0 && <div className="legacy-diagnostics">{summary.diagnostics.map((diagnostic) => <p key={diagnostic}>{diagnostic}</p>)}{summary.audit?.sources.map((source) => <p key={source.source}><strong>{source.source}:</strong> {source.leagueTitleRecords} title records · {source.eliteCupRecords} Elite Cup records{source.notes.length ? ` — ${source.notes.join(" ")}` : ""}</p>)}</div>}
     <LegacyTable profiles={data.profiles} />
   </>;
 }

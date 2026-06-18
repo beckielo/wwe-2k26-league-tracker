@@ -85,14 +85,26 @@ export interface LegacySummary {
   eliteCupRecords: number;
   activeLegacyTiers: number;
   diagnostics: string[];
+  audit?: LegacyCompletedSplitAudit;
 }
 
-export function summarizeLegacyProfiles(profiles: LegacyProfile[]): LegacySummary {
+export interface LegacySourceAudit { source: string; leagueTitleRecords: number; eliteCupRecords: number; notes: string[]; }
+export interface LegacyCompletedSplitAudit {
+  detectedCompletedSplits: string[];
+  leagueTitleRecords: LegacyTitleRecord[];
+  eliteCupRecords: LegacyEliteCupRecord[];
+  duplicateRecordsRemoved: number;
+  sources: LegacySourceAudit[];
+  diagnostics: string[];
+}
+
+
+export function summarizeLegacyProfiles(profiles: LegacyProfile[], audit?: LegacyCompletedSplitAudit): LegacySummary {
   const leagueTitleRecords = profiles.reduce((sum, profile) => sum + profile.leagueWinsTotal, 0);
   const eliteCupRecords = profiles.reduce((sum, profile) => sum + profile.eliteCupWins, 0);
   const completedSplits = Math.max(Math.ceil(leagueTitleRecords / 4), eliteCupRecords);
   const expectedLeagueTitleRecords = completedSplits * 4;
-  const diagnostics: string[] = [];
+  const diagnostics: string[] = [...(audit?.diagnostics ?? [])];
   if (completedSplits > 0 && leagueTitleRecords !== expectedLeagueTitleRecords) diagnostics.push(`Completed split title aggregation incomplete: expected ${expectedLeagueTitleRecords} league title records, found ${leagueTitleRecords}.`);
   if (completedSplits > 0 && eliteCupRecords !== completedSplits) diagnostics.push(`Completed split Elite Cup aggregation incomplete: expected ${completedSplits} Elite Cup winner records, found ${eliteCupRecords}.`);
   return {
@@ -101,7 +113,8 @@ export function summarizeLegacyProfiles(profiles: LegacyProfile[]): LegacySummar
     leagueTitleRecords,
     eliteCupRecords,
     activeLegacyTiers: new Set(profiles.map((profile) => profile.legacyTier)).size,
-    diagnostics,
+    diagnostics: Array.from(new Set(diagnostics)),
+    audit,
   };
 }
 
@@ -210,6 +223,48 @@ export function aggregateLeagueTitleHistory(records: (Partial<LegacyTitleRecord>
     expectedLeagueTitleRecords: completedSplits * 4,
     titleRecords,
     warnings: titleRecords.length === completedSplits * 4 ? warnings : [...warnings, `Legacy title invariant failed: expected ${completedSplits * 4}, found ${titleRecords.length}.`],
+  };
+}
+
+export interface LegacyCompletedSplitSource {
+  source: string;
+  completedSplits?: string[];
+  titleRecords?: (Partial<LegacyTitleRecord> & { split: string; league: LeagueName; wrestler: string })[];
+  eliteCupRecords?: LooseEliteCupRecord[];
+  notes?: string[];
+}
+
+export function auditLegacyCompletedSplitSources(sources: LegacyCompletedSplitSource[]): LegacyCompletedSplitAudit {
+  const checkedSources = sources.map((source) => ({
+    source: source.source,
+    leagueTitleRecords: source.titleRecords?.length ?? 0,
+    eliteCupRecords: source.eliteCupRecords?.length ?? 0,
+    notes: source.notes ?? [],
+  }));
+  const detectedCompletedSplits = Array.from(new Set(sources.flatMap((source) => source.completedSplits ?? [])));
+  const detectedSplitSet = new Set(detectedCompletedSplits);
+  const isDetected = (record: { leagueYear?: number; split: string }) => detectedSplitSet.size === 0 || detectedSplitSet.has(`${record.leagueYear ?? 1}:${record.split}`) || detectedSplitSet.has(record.split);
+  const rawTitleRecords = sources.flatMap((source) => source.titleRecords ?? []).filter(isDetected);
+  const rawCupRecords = sources.flatMap((source) => source.eliteCupRecords ?? []).filter(isDetected);
+  const titleAggregation = aggregateLeagueTitleHistory(rawTitleRecords);
+  const cupAggregation = aggregateEliteCupHistory(rawCupRecords, detectedCompletedSplits);
+  const completedSplitCount = Math.max(detectedCompletedSplits.length, titleAggregation.completedSplits, cupAggregation.completedSplits);
+  const expectedLeagueTitleRecords = completedSplitCount * 4;
+  const expectedEliteCupRecords = completedSplitCount;
+  const duplicateRecordsRemoved = rawTitleRecords.length + rawCupRecords.length - titleAggregation.titleRecords.length - cupAggregation.winnerRecords.length;
+  const diagnostics = [...titleAggregation.warnings, ...cupAggregation.warnings];
+  if (completedSplitCount > 0 && titleAggregation.titleRecords.length !== expectedLeagueTitleRecords) {
+    diagnostics.push(`Legacy aggregation incomplete: detected ${completedSplitCount} completed splits, expected ${expectedLeagueTitleRecords} league title records and ${expectedEliteCupRecords} Elite Cup records, found ${titleAggregation.titleRecords.length} and ${cupAggregation.winnerRecords.length}. Missing source: completed split/Post-Finals records not fully ingested.`);
+  } else if (completedSplitCount > 0 && cupAggregation.winnerRecords.length !== expectedEliteCupRecords) {
+    diagnostics.push(`Legacy aggregation incomplete: detected ${completedSplitCount} completed splits, expected ${expectedLeagueTitleRecords} league title records and ${expectedEliteCupRecords} Elite Cup records, found ${titleAggregation.titleRecords.length} and ${cupAggregation.winnerRecords.length}. Missing source: completed Elite Cup event result not fully ingested.`);
+  }
+  return {
+    detectedCompletedSplits,
+    leagueTitleRecords: titleAggregation.titleRecords,
+    eliteCupRecords: cupAggregation.winnerRecords,
+    duplicateRecordsRemoved,
+    sources: checkedSources,
+    diagnostics: Array.from(new Set(diagnostics)),
   };
 }
 
