@@ -418,3 +418,16 @@ The following checks found no current-data conflict:
 - The live-table card remains a presentation-only dashboard layout polish: it does not change standings calculations, league membership, predictions, workbook handling, result entry, simulation, match context, or live standings source logic.
 - All 12 current-user-league rows must remain visible at normal desktop 100% browser zoom without an inner vertical scrollbar or horizontal scrollbar, preserving rank, wrestler, P/W/D/L, points, and status badges.
 - The table body may expand within the available equal-height dashboard card through CSS sizing and row spacing so the panel remains visually aligned with the Current User-Controlled Show card.
+
+## Phase 10.10 — Legacy Table Title Aggregation, Tier Logic & Commentary Overhaul
+
+- Legacy summary title cards now report recorded historical totals rather than unique wrestler counts: league title records are the sum of workbook-backed league title fields, and Elite Cup records are the sum of recorded Elite Cup win fields.
+- Completed split title aggregation follows the invariant `completedSplits × 4 = expectedLeagueTitleRecords` because every completed split produces Global, Continental, National, and Regional league title records. If the available historical data implies an incomplete completed split, the UI reports a diagnostic instead of inventing a missing champion.
+- Elite Cup aggregation follows `completedSplits × 1 = expectedEliteCupRecords` and counts only recorded winners for completed split events. Missing completed split cup winners are diagnostics, not inferred achievements.
+- The active current split is not treated as a completed title source until the finals/post-finals workflow records completion. Active live standings, result entry, simulation, schedule logic, and workbook writeback remain separate from Legacy aggregation.
+- Every populated Legacy profile receives a deterministic S-D tier with no plus/minus values. The model weights Global League titles and Elite Cup wins highest, then other league titles, doubles, invincible split/half-split markers, longest streak, and current league context.
+- Legacy Table display sorting is tier order S, A, B, C, D, then alphabetical wrestler name within the same tier. This does not affect Dashboard live tables, Live Standings, current standings, or rules sorting.
+- Full journalist-style commentary is generated only for Tier S and Tier A profiles. Tier B/C/D profiles receive a compact factual no-feature state rather than an A/S feature column.
+- Commentary is regenerated from current Legacy values each render. It can change when titles, Global titles, Elite Cup wins, doubles, invincible runs, half-split markers, streaks, league context, or completed split/year records change.
+- Journalist commentary uses deterministic profile styles including championship-first, big-event, dominance, consistency, promotion/storyline, and skeptical perspectives. The style changes wording and argument emphasis without using randomness or inventing achievements.
+- The Legacy table no longer renders Rank, table Commentary/Analysis, or Journalist View toggle columns/controls, and its main desktop table uses a fitted vertical-scroll layout with horizontal overflow hidden.

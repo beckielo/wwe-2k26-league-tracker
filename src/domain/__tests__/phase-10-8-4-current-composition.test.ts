@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildCurrentStandingsFromScheduleComposition, validateCurrentLeagueComposition } from "../current-league-composition";
-import { aggregateLeagueTitleHistory, enrichLegacyProfilesWithCompletedSplitChampions } from "../legacy";
+import { aggregateEliteCupHistory, aggregateLeagueTitleHistory, enrichLegacyProfilesWithCompletedSplitChampions, summarizeLegacyProfiles } from "../legacy";
 import { generateLegacyCommentary, type LegacyProfile } from "../legacy-commentary";
 import { LEAGUE_NAMES, type LeagueName, type Match, type MatchResult, type StandingRow } from "../types";
 
@@ -68,12 +68,37 @@ describe("Phase 10.8.4 current league composition", () => {
 });
 
 describe("Phase 10.8.4 legacy title aggregation", () => {
+  it("enforces one completed split as four league title records", () => {
+    const aggregation = aggregateLeagueTitleHistory(LEAGUE_NAMES.map((league) => ({ split: "Opening", league, wrestler: `${league} Winner` })));
+    expect(aggregation.completedSplits).toBe(1);
+    expect(aggregation.expectedLeagueTitleRecords).toBe(4);
+    expect(aggregation.titleRecords).toHaveLength(4);
+  });
+
   it("enforces completedSplits times four league title records", () => {
     const records = ["Opening", "Closing"].flatMap((split) => LEAGUE_NAMES.map((league) => ({ split, league, wrestler: `${split} ${league} Winner` })));
     const aggregation = aggregateLeagueTitleHistory(records);
     expect(aggregation.completedSplits).toBe(2);
     expect(aggregation.expectedLeagueTitleRecords).toBe(8);
     expect(aggregation.titleRecords).toHaveLength(8);
+  });
+
+  it("aggregates Elite Cup records once per completed split", () => {
+    expect(aggregateEliteCupHistory([{ split: "Opening", wrestler: "Cup A" }])).toMatchObject({ completedSplits: 1, expectedEliteCupRecords: 1, winnerRecords: [{ split: "Opening", wrestler: "Cup A" }] });
+    expect(aggregateEliteCupHistory([{ split: "Opening", wrestler: "Cup A" }, { split: "Closing", wrestler: "Cup B" }])).toMatchObject({ completedSplits: 2, expectedEliteCupRecords: 2 });
+  });
+
+  it("does not count incomplete active split cup records and reports missing completed split cup winners", () => {
+    const aggregation = aggregateEliteCupHistory([{ split: "Opening", wrestler: "Cup A" }], ["Opening", "Closing"]);
+    expect(aggregation.winnerRecords).toHaveLength(1);
+    expect(aggregation.warnings.join(" ")).toContain("Completed split Elite Cup aggregation incomplete: expected 2 Elite Cup winner records, found 1.");
+  });
+
+  it("summarizes record totals and emits diagnostics instead of inventing missing winners", () => {
+    const summary = summarizeLegacyProfiles([{ ...({} as LegacyProfile), wrestler: "A", currentLeague: "Global League", goatStatusTier: null, leagueWinsTotal: 7, globalChampionWins: 1, eliteCupWins: 1, doubles: 0, invincibleSplits: 0, invincibleHinrunden: 0, invincibleRueckrunden: 0, longestWinStreakOverall: 0, sourceCommentary: null, legacyTier: "A" }]);
+    expect(summary.leagueTitleRecords).toBe(7);
+    expect(summary.eliteCupRecords).toBe(1);
+    expect(summary.diagnostics).toContain("Completed split title aggregation incomplete: expected 8 league title records, found 7.");
   });
 
   it("does not count incomplete split winners and emits the source warning", () => {

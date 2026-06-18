@@ -7,7 +7,7 @@ import { validateTrackerData } from "@/domain/validation";
 import { buildCurrentStandingsFromScheduleComposition, buildLeaguesFromStandings, validateCurrentLeagueComposition } from "@/domain/current-league-composition";
 import { parseAppWorkbookBaseline } from "@/domain/app-workbook-baseline";
 import { ACCEPTED_SCHEDULE_SHEET } from "@/domain/workbook-writeback";
-import { enrichLegacyProfilesFromCurrentMaster, enrichLegacyProfilesWithCompletedSplitChampions, parseLegacyTracker, type LegacyTableData } from "@/domain/legacy";
+import { enrichLegacyProfilesFromCurrentMaster, parseLegacyTracker, summarizeLegacyProfiles, type LegacyTableData } from "@/domain/legacy";
 import {
   LEAGUE_NAMES,
   type HeadToHeadRecord,
@@ -100,8 +100,8 @@ export function loadLegacyTableData(): LegacyTableData & { sourceFile: string; s
     source: { file: sourceFile, sheet: ACCEPTED_SCHEDULE_SHEET, row: index + 2 },
   }));
   const currentCompositionStandings = buildCurrentStandingsFromScheduleComposition(standings, currentMatches, [], currentSplit) ?? standings;
-  const completedChampionProfiles = enrichLegacyProfilesWithCompletedSplitChampions(legacy.profiles, standings);
-  return { ...legacy, profiles: enrichLegacyProfilesFromCurrentMaster(completedChampionProfiles, currentCompositionStandings, streaks), sourceFile, sourceSheet: "Legacy_Tracker" };
+  const profiles = enrichLegacyProfilesFromCurrentMaster(legacy.profiles, currentCompositionStandings, streaks);
+  return { ...legacy, profiles, summary: summarizeLegacyProfiles(profiles), sourceFile, sourceSheet: "Legacy_Tracker" };
 }
 
 type CellValue = string | number | boolean | null | undefined;

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import * as XLSX from "xlsx";
 import { describe, expect, it } from "vitest";
-import { generateLegacyCommentary, type LegacyProfile } from "../legacy-commentary";
+import { generateLegacyCommentary, legacyTier, sortLegacyProfiles, type LegacyProfile } from "../legacy-commentary";
 import { LEGACY_COLUMNS, parseLegacyTracker } from "../legacy";
 
 const base: LegacyProfile = {
@@ -48,7 +48,8 @@ describe("legacy journalist commentary", () => {
 
   it("does not claim unavailable titles, cups, promotions, or invincible runs", () => {
     const commentary = generateLegacyCommentary(base);
-    expect(commentary.text).not.toMatch(/champion|cup win|promotion|invincible/i);
+    expect(commentary.feature).toBe(false);
+    expect(commentary.text).not.toMatch(/champion|promotion|invincible/i);
     expect(commentary.evidenceTags).toEqual([]);
   });
 
@@ -82,7 +83,7 @@ describe("legacy journalist commentary", () => {
     expect(champion.category).not.toBe(streaker.category);
   });
 
-  it("gives a top achievement profile two to three evidence-based sentences", () => {
+  it("gives a top achievement profile expanded evidence-based commentary", () => {
     const commentary = generateLegacyCommentary({
       ...base,
       wrestler: "Archive Leader",
@@ -94,7 +95,8 @@ describe("legacy journalist commentary", () => {
     });
     const sentences = commentary.text.split(/[.!?]+/).filter((sentence) => sentence.trim());
     expect(sentences.length).toBeGreaterThanOrEqual(2);
-    expect(sentences.length).toBeLessThanOrEqual(3);
+    expect(sentences.length).toBeGreaterThanOrEqual(4);
+    expect(commentary.feature).toBe(true);
     expect(commentary.text).toMatch(/Global Championship|Global title/i);
     expect(commentary.evidenceTags).toEqual(expect.arrayContaining(["1 Global Title", "2 League Titles", "1 Elite Cup Win", "8-Match Win Streak"]));
     expect(commentary.statCallouts).toContainEqual({ label: "Global titles", value: "1" });
@@ -144,11 +146,26 @@ describe("Phase 10.7 legacy table integration", () => {
     const component = source("src/components/legacy-table.tsx");
     expect(component).toContain("legacy-table-wrap");
     expect(component).toContain("legacy-commentary");
-    expect(component).toContain("Journalist view");
+    expect(component).not.toContain("Journalist view");
     expect(component).toContain("evidence-tags");
-    expect(component).toContain("rowCommentary.excerpt");
+    expect(component).not.toContain("rowCommentary.excerpt");
     expect(component).toContain("commentary.statCallouts");
     expect(component).toContain("Recorded evidence");
     expect(component).toContain("legacy-column-groups");
+    expect(component).not.toContain("<th>Rank</th>");
+    expect(component).not.toContain("<th>Commentary</th>");
+  });
+
+  it("assigns only S-D tiers and sorts by tier then alphabetically", () => {
+    const sorted = sortLegacyProfiles([
+      { ...base, wrestler: "Zulu", eliteCupWins: 1 },
+      { ...base, wrestler: "Alpha", eliteCupWins: 1 },
+      { ...base, wrestler: "Beta", longestWinStreakOverall: 0 },
+      { ...base, wrestler: "Ace", globalChampionWins: 2, leagueWinsTotal: 2 },
+    ]);
+    expect(sorted.map((profile) => profile.legacyTier)).toEqual(["S", "A", "A", "D"]);
+    expect(sorted.map((profile) => profile.wrestler)).toEqual(["Ace", "Alpha", "Zulu", "Beta"]);
+    expect(sorted.every((profile) => /^[SABCD]$/.test(profile.legacyTier ?? ""))).toBe(true);
+    expect(legacyTier({ ...base, globalChampionWins: 1 })).toBe("A");
   });
 });

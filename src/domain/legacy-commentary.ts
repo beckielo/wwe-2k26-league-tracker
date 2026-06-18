@@ -8,6 +8,8 @@ export interface LegacyCheckpoint {
   previousYearPosition?: number;
 }
 
+export type LegacyTier = "S" | "A" | "B" | "C" | "D";
+
 export interface LegacyProfile {
   wrestler: string;
   currentLeague: LeagueName;
@@ -22,6 +24,8 @@ export interface LegacyProfile {
   longestWinStreakOverall: number;
   sourceCommentary: string | null;
   checkpoints?: LegacyCheckpoint;
+  legacyTier?: LegacyTier;
+  legacyScore?: number;
 }
 
 export type LegacyCommentaryCategory =
@@ -39,12 +43,46 @@ export type LegacyCommentaryCategory =
   | "Lower League Climber";
 
 export interface LegacyCommentary {
-  voice: "Legacy Analyst" | "Ringside Reporter" | "League Desk" | "Form Analyst" | "Championship Columnist" | "Season Review Desk";
+  voice: "Championship-first analyst" | "Big-event analyst" | "Dominance analyst" | "Consistency analyst" | "Promotion/storyline analyst" | "Skeptical columnist";
   category: LegacyCommentaryCategory;
   text: string;
   excerpt: string;
   evidenceTags: string[];
   statCallouts: { label: string; value: string }[];
+  feature: boolean;
+}
+
+
+export const LEGACY_TIER_ORDER: LegacyTier[] = ["S", "A", "B", "C", "D"];
+
+export function legacyScore(profile: LegacyProfile): number {
+  const leagueLevelBonus = profile.currentLeague === "Global League" ? 3 : profile.currentLeague === "Continental League" ? 2 : profile.currentLeague === "National League" ? 1 : 0;
+  return profile.globalChampionWins * 18
+    + Math.max(0, profile.leagueWinsTotal - profile.globalChampionWins) * 8
+    + profile.eliteCupWins * 16
+    + profile.doubles * 10
+    + profile.invincibleSplits * 12
+    + (profile.invincibleHinrunden + profile.invincibleRueckrunden) * 6
+    + Math.min(profile.longestWinStreakOverall, 12)
+    + leagueLevelBonus;
+}
+
+export function legacyTier(profile: LegacyProfile): LegacyTier {
+  const score = legacyScore(profile);
+  if (score >= 36 || profile.globalChampionWins >= 2 || (profile.globalChampionWins >= 1 && profile.eliteCupWins >= 1)) return "S";
+  if (score >= 20 || profile.globalChampionWins >= 1 || profile.eliteCupWins >= 1 || profile.leagueWinsTotal >= 2) return "A";
+  if (score >= 10 || profile.leagueWinsTotal >= 1 || profile.longestWinStreakOverall >= 7) return "B";
+  if (score >= 4 || profile.currentLeague === "Global League" || profile.longestWinStreakOverall >= 4) return "C";
+  return "D";
+}
+
+export function withLegacyTier(profile: LegacyProfile): LegacyProfile {
+  const score = legacyScore(profile);
+  return { ...profile, legacyScore: score, legacyTier: legacyTier(profile) };
+}
+
+export function sortLegacyProfiles(profiles: LegacyProfile[]): LegacyProfile[] {
+  return profiles.map(withLegacyTier).sort((a, b) => LEGACY_TIER_ORDER.indexOf(a.legacyTier ?? "D") - LEGACY_TIER_ORDER.indexOf(b.legacyTier ?? "D") || a.wrestler.localeCompare(b.wrestler));
 }
 
 type Topic = { category: LegacyCommentaryCategory; priority: number; strength: number };
@@ -137,7 +175,8 @@ function excerpt(text: string): string {
 export function generateLegacyCommentary(profile: LegacyProfile): LegacyCommentary {
   const category = topics(profile)[0].category;
   const tags = evidence(profile);
-  const voice = pick(profile, "voice", ["Legacy Analyst", "Ringside Reporter", "League Desk", "Form Analyst", "Championship Columnist", "Season Review Desk"] as const);
+  const tier = profile.legacyTier ?? legacyTier(profile);
+  const voice = pick(profile, "voice", ["Championship-first analyst", "Big-event analyst", "Dominance analyst", "Consistency analyst", "Promotion/storyline analyst", "Skeptical columnist"] as const);
   const c = profile.checkpoints;
   const primary: Record<LegacyCommentaryCategory, readonly string[]> = {
     "Global Championship Standard": [
@@ -184,8 +223,25 @@ export function generateLegacyCommentary(profile: LegacyProfile): LegacyCommenta
     ],
   };
 
-  const main = pick(profile, `copy-${category}`, primary[category]);
+  if (tier !== "S" && tier !== "A") {
+    const compact = `${profile.wrestler} is currently a Tier ${tier} profile. The recorded row shows ${profile.leagueWinsTotal} league titles, ${profile.globalChampionWins} Global titles, ${profile.eliteCupWins} Elite Cup wins and a longest winning streak of ${profile.longestWinStreakOverall}; that is not enough for a full A/S feature column yet.`;
+    return { voice, category, text: compact, excerpt: excerpt(compact), evidenceTags: tags, statCallouts: statCallouts(profile), feature: false };
+  }
+
+  const main = pick(profile, `copy-${category}-${voice}`, primary[category]);
   const support = supportingSentence(profile, category);
-  const text = support ? `${main} ${support}` : main;
-  return { voice, category, text, excerpt: excerpt(text), evidenceTags: tags, statCallouts: statCallouts(profile) };
+  const scoreLine = `On the deterministic legacy model, that produces Tier ${tier} from a ${legacyScore(profile)}-point résumé: ${profile.leagueWinsTotal} league titles, ${profile.globalChampionWins} Global titles, ${profile.eliteCupWins} Elite Cup wins, ${profile.doubles} doubles and a longest winning streak of ${profile.longestWinStreakOverall}.`;
+  const perspective = voice === "Skeptical columnist"
+    ? `The cautious reading still has to respect the recorded evidence; the case is elevated by what is present, not by anything missing from the workbook.`
+    : voice === "Big-event analyst"
+      ? `The event-night lens matters here, so cup production and title conversions carry more of the argument than reputation or table aesthetics.`
+      : voice === "Dominance analyst"
+        ? `Dominance markers such as invincible phases and streak length shape the tone, but only where the tracker actually records them.`
+        : voice === "Consistency analyst"
+          ? `The value is not just the peak; it is how many separate recorded lines keep pointing back to top-end relevance.`
+          : voice === "Promotion/storyline analyst"
+            ? `The career arc is read through the current league context without pretending that movement achievements exist when the archive does not say so.`
+            : `The championship-first case begins with trophies and only then moves to supporting form notes.`;
+  const text = [main, support, scoreLine, perspective].filter(Boolean).join(" ");
+  return { voice, category, text, excerpt: excerpt(text), evidenceTags: tags, statCallouts: statCallouts(profile), feature: true };
 }

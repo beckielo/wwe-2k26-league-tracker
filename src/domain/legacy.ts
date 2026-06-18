@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import type { LegacyProfile } from "./legacy-commentary";
+import { sortLegacyProfiles, type LegacyProfile } from "./legacy-commentary";
 import { LEAGUE_NAMES, type LeagueName, type StandingRow, type StreakRecord } from "./types";
 
 type Cell = string | number | boolean | null | undefined;
@@ -10,6 +10,7 @@ export interface LegacyTableData {
   policyNote: string;
   profiles: LegacyProfile[];
   columns: readonly string[];
+  summary: LegacySummary;
 }
 
 export const LEGACY_COLUMNS = [
@@ -66,12 +67,60 @@ export function parseLegacyTracker(workbook: XLSX.WorkBook): LegacyTableData {
       sourceCommentary: text(row[11]) || null,
     }];
   });
+  const sortedProfiles = sortLegacyProfiles(profiles);
   return {
     title: text(rows[0]?.[0]) || "Legacy Tracker",
     subtitle: text(rows[1]?.[0]),
     policyNote: text(rows[2]?.[0]),
-    profiles,
+    profiles: sortedProfiles,
     columns: LEGACY_COLUMNS,
+    summary: summarizeLegacyProfiles(sortedProfiles),
+  };
+}
+
+export interface LegacySummary {
+  rankedProfiles: number;
+  sourceTiers: number;
+  leagueTitleRecords: number;
+  eliteCupRecords: number;
+  activeLegacyTiers: number;
+  diagnostics: string[];
+}
+
+export function summarizeLegacyProfiles(profiles: LegacyProfile[]): LegacySummary {
+  const leagueTitleRecords = profiles.reduce((sum, profile) => sum + profile.leagueWinsTotal, 0);
+  const eliteCupRecords = profiles.reduce((sum, profile) => sum + profile.eliteCupWins, 0);
+  const completedSplits = Math.max(Math.ceil(leagueTitleRecords / 4), eliteCupRecords);
+  const expectedLeagueTitleRecords = completedSplits * 4;
+  const diagnostics: string[] = [];
+  if (completedSplits > 0 && leagueTitleRecords !== expectedLeagueTitleRecords) diagnostics.push(`Completed split title aggregation incomplete: expected ${expectedLeagueTitleRecords} league title records, found ${leagueTitleRecords}.`);
+  if (completedSplits > 0 && eliteCupRecords !== completedSplits) diagnostics.push(`Completed split Elite Cup aggregation incomplete: expected ${completedSplits} Elite Cup winner records, found ${eliteCupRecords}.`);
+  return {
+    rankedProfiles: profiles.length,
+    sourceTiers: profiles.filter((profile) => profile.goatStatusTier).length,
+    leagueTitleRecords,
+    eliteCupRecords,
+    activeLegacyTiers: new Set(profiles.map((profile) => profile.legacyTier)).size,
+    diagnostics,
+  };
+}
+
+export interface EliteCupAggregation {
+  completedSplits: number;
+  expectedEliteCupRecords: number;
+  winnerRecords: { split: string; wrestler: string }[];
+  warnings: string[];
+}
+
+export function aggregateEliteCupHistory(records: { split: string; wrestler: string }[], completedSplits?: string[]): EliteCupAggregation {
+  const splitNames = completedSplits ?? Array.from(new Set(records.map((record) => record.split)));
+  const winnerRecords = splitNames.flatMap((split) => records.filter((record) => record.split === split).slice(0, 1));
+  const warnings = splitNames.flatMap((split) => records.some((record) => record.split === split) ? [] : [`Completed split has no recorded Elite Cup winner: ${split}.`]);
+  return {
+    completedSplits: splitNames.length,
+    expectedEliteCupRecords: splitNames.length,
+    winnerRecords,
+    warnings: winnerRecords.length === splitNames.length ? warnings : [...warnings, `Completed split Elite Cup aggregation incomplete: expected ${splitNames.length} Elite Cup winner records, found ${winnerRecords.length}.`],
   };
 }
 
@@ -108,12 +157,12 @@ export function enrichLegacyProfilesWithCompletedSplitChampions(
   const champions = championStandings.filter((row) => row.rank === 1 && /champion/i.test(row.status));
   if (new Set(champions.map((row) => row.league)).size !== 4) return profiles;
   const championNames = new Set(champions.map((row) => row.wrestler));
-  return profiles.map((profile) => ({
+  return sortLegacyProfiles(profiles.map((profile) => ({
     ...profile,
     leagueWinsTotal: profile.leagueWinsTotal + (championNames.has(profile.wrestler) ? 1 : 0),
     globalChampionWins: profile.globalChampionWins + (champions.some((row) => row.league === "Global League" && row.wrestler === profile.wrestler) ? 1 : 0),
     checkpoints: { ...(profile.checkpoints ?? {}), previousSplitPosition: championNames.has(profile.wrestler) ? 1 : profile.checkpoints?.previousSplitPosition },
-  }));
+  })));
 }
 
 export function enrichLegacyProfilesFromCurrentMaster(
@@ -124,7 +173,7 @@ export function enrichLegacyProfilesFromCurrentMaster(
   const leagueByWrestler = new Map(currentStandings.map((row) => [row.wrestler, row.league]));
   const finalPositionByWrestler = new Map(currentStandings.map((row) => [row.wrestler, row.rank]));
   const streakByWrestler = new Map(currentStreaks.map((row) => [row.wrestler, row.longestWinningStreak]));
-  return profiles.map((profile) => {
+  return sortLegacyProfiles(profiles.map((profile) => {
     const currentLeague = leagueByWrestler.get(profile.wrestler) ?? profile.currentLeague;
     const workbookLongest = streakByWrestler.get(profile.wrestler) ?? 0;
     const finalPosition = finalPositionByWrestler.get(profile.wrestler);
@@ -134,5 +183,5 @@ export function enrichLegacyProfilesFromCurrentMaster(
       longestWinStreakOverall: Math.max(profile.longestWinStreakOverall, workbookLongest),
       checkpoints: finalPosition ? { ...(profile.checkpoints ?? {}), finalPosition } : profile.checkpoints,
     };
-  });
+  }));
 }

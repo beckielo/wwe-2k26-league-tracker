@@ -29,8 +29,8 @@ Workbook connected </div>
     validationIssues={data.validationIssues}
     legacySummary={{
       leader: legacy.profiles[0]?.wrestler ?? null,
-      leagueWinners: legacy.profiles.filter((profile) => profile.leagueWinsTotal > 0).length,
-      eliteCupWinners: legacy.profiles.filter((profile) => profile.eliteCupWins > 0).length,
+      leagueWinners: legacy.summary.leagueTitleRecords,
+      eliteCupWinners: legacy.summary.eliteCupRecords,
     }}
   />
 

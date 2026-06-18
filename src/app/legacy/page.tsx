@@ -6,9 +6,7 @@ export const dynamic = "force-dynamic";
 
 export default function LegacyPage() {
   const data = loadLegacyTableData();
-  const tiered = data.profiles.filter((profile) => profile.goatStatusTier).length;
-  const champions = data.profiles.filter((profile) => profile.leagueWinsTotal > 0).length;
-  const cupWinners = data.profiles.filter((profile) => profile.eliteCupWins > 0).length;
+  const { summary } = data;
   return <>
     <header className="legacy-hero">
       <div className="legacy-hero-mark" aria-hidden>Ⅰ</div>
@@ -16,12 +14,13 @@ export default function LegacyPage() {
       <div className="legacy-source"><span>Current source</span><strong>{data.sourceSheet}</strong><small>{data.sourceFile}</small></div>
     </header>
     <div className="legacy-stats">
-      <Stat label="Ranked profiles" value={data.profiles.length} detail="All populated workbook rows" />
-      <Stat label="Source tiers" value={tiered} detail="Displayed exactly as recorded" />
-      <Stat label="League winners" value={champions} detail="Recorded title totals only" />
-      <Stat label="Elite Cup winners" value={cupWinners} detail="Recorded event wins only" />
+      <Stat label="Ranked profiles" value={summary.rankedProfiles} detail="All populated workbook rows" />
+      <Stat label="Active tiers" value={summary.activeLegacyTiers} detail="S-D tier values currently used" />
+      <Stat label="League title records" value={summary.leagueTitleRecords} detail="Recorded historical title total" />
+      <Stat label="Elite Cup records" value={summary.eliteCupRecords} detail="Recorded historical event total" />
     </div>
     <p className="legacy-policy">{data.policyNote}</p>
+    {summary.diagnostics.length > 0 && <div className="legacy-diagnostics">{summary.diagnostics.map((diagnostic) => <p key={diagnostic}>{diagnostic}</p>)}</div>}
     <LegacyTable profiles={data.profiles} />
   </>;
 }
