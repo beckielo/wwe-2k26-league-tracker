@@ -87,3 +87,32 @@ describe("Phase 10.10.3 comparative commentary", () => {
     expect(screen.queryByRole("columnheader", { name: /Commentary/i })).toBeNull();
   });
 });
+
+describe("Phase 10.10.4 manual Elite Cup history correction", () => {
+  it("adds the user-confirmed Roman Reigns LY2 Opening Split Elite Cup correction without changing league titles", () => {
+    const audit = auditLegacyCompletedSplitSources([
+      { source: "Legacy_Tracker", completedSplits: ["1:Historical Split"], titleRecords: titles(1, "Historical Split"), eliteCupRecords: [{ leagueYear: 1, split: "Historical Split", eventName: "Global Elite Cup", wrestler: "Gunther" }] },
+      { source: "Post-Finals/final standings", completedSplits: ["2:Opening Split"], titleRecords: titles(2, "Opening Split") },
+      { source: "User-confirmed manual historical correction", completedSplits: ["2:Opening Split"], eliteCupRecords: [{ leagueYear: 2, split: "Opening Split", eventName: "Global Elite Cup", wrestler: "Roman Reigns", sourceLabel: "User-confirmed manual correction" }] },
+    ]);
+
+    const profiles = applyLegacyHistoryRecords([base("Gunther"), base("Roman Reigns"), ...LEAGUE_NAMES.flatMap((league) => [base(`${league} 1`), base(`${league} 2`)])], audit.leagueTitleRecords, audit.eliteCupRecords);
+    const summary = summarizeLegacyProfiles(profiles, audit);
+    const roman = profiles.find((profile) => profile.wrestler === "Roman Reigns");
+
+    expect(summary.leagueTitleRecords).toBe(8);
+    expect(summary.eliteCupRecords).toBe(2);
+    expect(roman?.eliteCupWins).toBe(1);
+    expect(generateLegacyCommentary(roman!, profiles).text).toMatch(/Elite Cup/i);
+  });
+
+  it("counts duplicate automatic and manual Roman LY2 Opening Split Elite Cup records only once", () => {
+    const aggregation = aggregateEliteCupHistory([
+      { leagueYear: 2, split: "Opening Split", eventName: "Global Elite Cup", wrestler: "Roman Reigns", sourceLabel: "League Finals records" },
+      { leagueYear: 2, split: "Opening Split", eventName: "Global Elite Cup", wrestler: "Roman Reigns", sourceLabel: "User-confirmed manual historical correction" },
+    ], ["2:Opening Split"]);
+
+    expect(aggregation.winnerRecords).toHaveLength(1);
+    expect(aggregation.winnerRecords[0]).toMatchObject({ wrestler: "Roman Reigns", sourceLabel: "League Finals records" });
+  });
+});

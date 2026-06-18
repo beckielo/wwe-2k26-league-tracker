@@ -7,6 +7,7 @@ import { validateTrackerData } from "@/domain/validation";
 import { buildCurrentStandingsFromScheduleComposition, buildLeaguesFromStandings, validateCurrentLeagueComposition } from "@/domain/current-league-composition";
 import { parseAppWorkbookBaseline } from "@/domain/app-workbook-baseline";
 import { ACCEPTED_SCHEDULE_SHEET } from "@/domain/workbook-writeback";
+import { MANUAL_LEGACY_COMPLETED_SPLIT_SOURCE } from "@/domain/legacy-manual-corrections";
 import { auditLegacyCompletedSplitSources, applyLegacyHistoryRecords, enrichLegacyProfilesFromCurrentMaster, enrichLegacyProfilesWithCompletedSplitChampions, extractCompletedEliteCupRecordsFromFinalStandings, extractCompletedSplitTitleRecordsFromFinalStandings, parseLegacyTracker, summarizeLegacyProfiles, type LegacyTableData } from "@/domain/legacy";
 import {
   LEAGUE_NAMES,
@@ -115,11 +116,12 @@ export function loadLegacyTableData(): LegacyTableData & { sourceFile: string; s
     { source: "Post-Finals/final standings", completedSplits: finalStandingHistory.titleRecords.length === 4 ? [`${parseLeagueYear(leagueYearLabel)}:Opening Split`] : [], titleRecords: finalStandingHistory.titleRecords, notes: finalStandingHistory.warnings },
     { source: "League Finals records", completedSplits, eliteCupRecords: finalEliteCupHistory.eliteCupRecords, notes: finalEliteCupHistory.warnings.length ? finalEliteCupHistory.warnings : ["Recovered completed Elite Cup winner from finalized Global League Champion + Elite Cup status when Legacy_Tracker was incomplete."] },
     { source: "App database/history records", completedSplits, notes: ["Checked workbook app-state sheets; active Closing Split records are not counted as completed history."] },
+    MANUAL_LEGACY_COMPLETED_SPLIT_SOURCE,
   ]);
   const profilesWithTitles = applyLegacyHistoryRecords(
     finalStandingHistory.titleRecords.length === 4 ? enrichLegacyProfilesWithCompletedSplitChampions(currentProfiles, standings) : currentProfiles,
     finalStandingHistory.titleRecords,
-    finalEliteCupHistory.eliteCupRecords,
+    audit.eliteCupRecords,
   );
   const summary = summarizeLegacyProfiles(profilesWithTitles, audit);
   return { ...legacy, policyNote: "", profiles: profilesWithTitles, summary, sourceFile, sourceSheet: "Legacy_Tracker" };
