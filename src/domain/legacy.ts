@@ -132,6 +132,34 @@ export function summarizeLegacyProfiles(profiles: LegacyProfile[], audit?: Legac
   };
 }
 
+export const MANUAL_LEGACY_ELITE_CUP_DISPLAY_PATCH = {
+  totalEliteCupRecordsOverride: 2,
+  wrestlerEliteCupWins: {
+    Gunther: 1,
+    "Roman Reigns": 1,
+  },
+  reason: "user-confirmed manual correction after automatic aggregation failed to reflect LY2 Opening Split Elite Cup correctly",
+} as const;
+
+export function applyManualEliteCupDisplayPatch(
+  profiles: LegacyProfile[],
+  summary: LegacySummary = summarizeLegacyProfiles(profiles),
+): { profiles: LegacyProfile[]; summary: LegacySummary } {
+  const patchedProfiles = sortLegacyProfiles(profiles.map((profile) => {
+    const eliteCupWins = MANUAL_LEGACY_ELITE_CUP_DISPLAY_PATCH.wrestlerEliteCupWins[profile.wrestler as keyof typeof MANUAL_LEGACY_ELITE_CUP_DISPLAY_PATCH.wrestlerEliteCupWins];
+    return eliteCupWins === undefined ? profile : { ...profile, eliteCupWins };
+  }));
+
+  return {
+    profiles: patchedProfiles,
+    summary: {
+      ...summary,
+      eliteCupRecords: MANUAL_LEGACY_ELITE_CUP_DISPLAY_PATCH.totalEliteCupRecordsOverride,
+      activeLegacyTiers: new Set(patchedProfiles.map((profile) => profile.legacyTier)).size,
+    },
+  };
+}
+
 export interface EliteCupAggregation {
   completedSplits: number;
   expectedEliteCupRecords: number;

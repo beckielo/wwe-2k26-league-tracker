@@ -496,3 +496,12 @@ The following checks found no current-data conflict:
 - Current confirmed canonical Elite Cup state is exactly two counted slots: Gunther has 1 historical Elite Cup, Roman Reigns has 1 League Year 2 Opening Split Elite Cup, and the total Elite Cup Records value is 2.
 - The reconstructed Gunther historical slot and Roman Reigns LY2 Opening Split manual slot must remain separate. Legacy_Tracker aggregate fallback evidence may reconstruct one source-backed historical Gunther slot, but it must not overwrite, filter, or collide with Roman Reigns’ manual LY2 Opening Split slot.
 - No other Elite Cup winners, league title records, standings, dashboard values, schedules, workbook data, or simulation results were invented or changed; League Title Records remains 8 for the current confirmed state.
+
+### Phase 10.10.8: Manual Legacy Elite Cup display correction
+
+- **Status:** one-time user-confirmed manual Legacy display/profile correction.
+- **Confirmed Elite Cup state:** Gunther has exactly 1 Elite Cup, Roman Reigns has exactly 1 Elite Cup, and total Elite Cup Records is exactly 2.
+- **Reason:** automatic Elite Cup aggregation did not reliably reflect the LY2 Opening Split Elite Cup won by Roman Reigns without also risking the incorrect third/duplicate Elite Cup display.
+- **Handling:** the Legacy page applies a minimal final-stage display/profile override for the summary card, Legacy table Elite Cups column, and commentary input only.
+- **Boundary:** this intentionally bypasses the failed automatic Elite Cup aggregation repair for now. No other Legacy stats, results, standings, league title records, schedules, workbook writeback, dashboard data, result entry, simulation data, or current run state were changed.
+- **Invariant preserved:** League Title Records remains 8.
