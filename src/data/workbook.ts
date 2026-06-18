@@ -8,7 +8,7 @@ import { buildCurrentStandingsFromScheduleComposition, buildLeaguesFromStandings
 import { parseAppWorkbookBaseline } from "@/domain/app-workbook-baseline";
 import { ACCEPTED_SCHEDULE_SHEET } from "@/domain/workbook-writeback";
 import { MANUAL_LEGACY_COMPLETED_SPLIT_SOURCE } from "@/domain/legacy-manual-corrections";
-import { auditLegacyCompletedSplitSources, applyLegacyHistoryRecords, enrichLegacyProfilesFromCurrentMaster, enrichLegacyProfilesWithCompletedSplitChampions, extractCompletedEliteCupRecordsFromFinalStandings, extractCompletedSplitTitleRecordsFromFinalStandings, parseLegacyTracker, summarizeLegacyProfiles, type LegacyTableData } from "@/domain/legacy";
+import { auditLegacyCompletedSplitSources, applyLegacyHistoryRecords, enrichLegacyProfilesFromCurrentMaster, enrichLegacyProfilesWithCompletedSplitChampions, extractCompletedEliteCupRecordsFromFinalStandings, extractCompletedSplitTitleRecordsFromFinalStandings, legacyProfileEliteCupRecords, parseLegacyTracker, summarizeLegacyProfiles, type LegacyTableData } from "@/domain/legacy";
 import {
   LEAGUE_NAMES,
   type HeadToHeadRecord,
@@ -112,7 +112,7 @@ export function loadLegacyTableData(): LegacyTableData & { sourceFile: string; s
     : { eliteCupRecords: [], warnings: [] };
   const completedSplits = ["1:Historical Split", ...(finalStandingHistory.titleRecords.length === 4 ? [`${parseLeagueYear(leagueYearLabel)}:Opening Split`] : [])];
   const audit = auditLegacyCompletedSplitSources([
-    { source: "Legacy_Tracker", completedSplits: ["1:Historical Split"], notes: [`Legacy_Tracker profile totals: ${legacy.summary.leagueTitleRecords} league title records, ${legacy.summary.eliteCupRecords} Elite Cup records.`] },
+    { source: "Legacy_Tracker", completedSplits: ["1:Historical Split"], eliteCupRecords: legacyProfileEliteCupRecords(legacy.profiles), notes: [`Legacy_Tracker profile totals: ${legacy.summary.leagueTitleRecords} league title records, ${legacy.summary.eliteCupRecords} Elite Cup records.`] },
     { source: "Post-Finals/final standings", completedSplits: finalStandingHistory.titleRecords.length === 4 ? [`${parseLeagueYear(leagueYearLabel)}:Opening Split`] : [], titleRecords: finalStandingHistory.titleRecords, notes: finalStandingHistory.warnings },
     { source: "League Finals records", completedSplits, eliteCupRecords: finalEliteCupHistory.eliteCupRecords, notes: finalEliteCupHistory.warnings.length ? finalEliteCupHistory.warnings : ["Recovered completed Elite Cup winner from finalized Global League Champion + Elite Cup status when Legacy_Tracker was incomplete."] },
     { source: "App database/history records", completedSplits, notes: ["Checked workbook app-state sheets; active Closing Split records are not counted as completed history."] },

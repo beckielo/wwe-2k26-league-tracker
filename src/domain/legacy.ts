@@ -166,6 +166,16 @@ function normalizedIdentity(...parts: (string | number | undefined)[]): string {
   return parts.map((part) => String(part ?? "").trim().toLowerCase()).join("||");
 }
 
+function normalizeWrestlerIdentity(wrestler: string): string {
+  return wrestler.trim().replace(/\s+/g, " ");
+}
+
+function normalizeEliteCupEventIdentity(eventName: string): string {
+  const normalized = eventName.trim().replace(/\s+/g, " ").toLowerCase();
+  if (/^(global\s+)?(league\s+finals\s+)?(league\s+)?elite\s+cup$/.test(normalized)) return "Global Elite Cup";
+  return eventName.trim().replace(/\s+/g, " ");
+}
+
 function normalizeTitleRecord(record: Partial<LegacyTitleRecord> & { split: string; league: LeagueName; wrestler: string }): LegacyTitleRecord {
   return {
     leagueYear: record.leagueYear ?? 1,
@@ -180,8 +190,8 @@ function normalizeEliteCupRecord(record: LooseEliteCupRecord): LegacyEliteCupRec
   return {
     leagueYear: record.leagueYear ?? 1,
     split: record.split,
-    eventName: record.eventName ?? "Global Elite Cup",
-    wrestler: record.wrestler,
+    eventName: normalizeEliteCupEventIdentity(record.eventName ?? "Global Elite Cup"),
+    wrestler: normalizeWrestlerIdentity(record.wrestler),
     sourceLabel: record.sourceLabel,
   };
 }
@@ -200,7 +210,7 @@ export function aggregateEliteCupHistory(records: LooseEliteCupRecord[], complet
   const byIdentity = new Map<string, LegacyEliteCupRecord>();
   for (const record of records) {
     const normalized = normalizeEliteCupRecord(record);
-    const key = normalizedIdentity(normalized.leagueYear, normalized.split, normalized.eventName, normalized.wrestler);
+    const key = normalizedIdentity(normalized.leagueYear, normalized.split, normalizeEliteCupEventIdentity(normalized.eventName), normalizeWrestlerIdentity(normalized.wrestler));
     byIdentity.set(key, preferEliteCupRecord(byIdentity.get(key), normalized));
   }
   const deduped = Array.from(byIdentity.values());
@@ -209,7 +219,7 @@ export function aggregateEliteCupHistory(records: LooseEliteCupRecord[], complet
     const [yearPrefix, ...splitParts] = splitName.includes(":") ? splitName.split(":") : [];
     const wantedYear = yearPrefix ? Number(yearPrefix) : null;
     const wantedSplit = yearPrefix ? splitParts.join(":") : splitName;
-    return deduped.filter((record) => record.split === wantedSplit && (wantedYear === null || record.leagueYear === wantedYear)).slice(0, 1);
+    return deduped.filter((record) => record.split === wantedSplit && (wantedYear === null || record.leagueYear === wantedYear));
   });
   const warnings = splitNames.flatMap((splitName) => {
     const [yearPrefix, ...splitParts] = splitName.includes(":") ? splitName.split(":") : [];
@@ -298,6 +308,16 @@ export function auditLegacyCompletedSplitSources(sources: LegacyCompletedSplitSo
     sources: checkedSources,
     diagnostics: Array.from(new Set(diagnostics)),
   };
+}
+
+export function legacyProfileEliteCupRecords(profiles: LegacyProfile[]): LegacyEliteCupRecord[] {
+  return profiles.flatMap((profile) => Array.from({ length: profile.eliteCupWins }, (_, index) => ({
+    leagueYear: 1,
+    split: index === 0 ? "Historical Split" : `Historical Split ${index + 1}`,
+    eventName: "Global Elite Cup",
+    wrestler: profile.wrestler,
+    sourceLabel: "Legacy_Tracker profile Elite Cup total",
+  })));
 }
 
 export function applyLegacyHistoryRecords(
