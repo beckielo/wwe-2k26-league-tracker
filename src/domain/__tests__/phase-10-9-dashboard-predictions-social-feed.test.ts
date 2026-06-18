@@ -16,7 +16,7 @@ describe("Phase 10.9 dashboard predictions and social feed", () => {
   it("keeps dashboard diagnostics out of the main grid and adds live table, predictions, and social feed UI", () => {
     const source = readFileSync("src/components/dashboard-control-center.tsx", "utf8");
     expect(source).not.toContain("<AlertCenter blocking=");
-    expect(source).toContain("Current user league live table");
+    expect(source).toContain("Current user table");
     expect(source).toContain("prediction-bars");
     expect(source).not.toContain("Prediction · Win Chance");
     expect(source).toContain("League Social Feed");

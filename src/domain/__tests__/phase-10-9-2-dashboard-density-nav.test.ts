@@ -16,7 +16,7 @@ describe("Phase 10.9.2 dashboard density and live table navigation cleanup", () 
 
   it("keeps the live standings link inside the Current User League Live Table panel", () => {
     const dashboard = source("src/components/dashboard-control-center.tsx");
-    expect(dashboard).toContain("Current user league live table");
+    expect(dashboard).toContain("Current user table");
     expect(dashboard).toContain('<Link href="/live-standings">Full Live Standings');
   });
 

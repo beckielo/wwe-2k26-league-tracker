@@ -47,7 +47,7 @@ describe("Phase 10.9.3 dashboard show density and header cleanup", () => {
   it("preserves the live table link and social feed below the paired panels", () => {
     const dashboard = source("src/components/dashboard-control-center.tsx");
 
-    expect(dashboard).toContain("Current user league live table");
+    expect(dashboard).toContain("Current user table");
     expect(dashboard).toContain('<Link href="/live-standings">Full Live Standings');
     expect(dashboard).toContain("League Social Feed");
     expect(dashboard.indexOf('<div className="dashboard-primary-grid dashboard-equal-panels">')).toBeGreaterThan(-1);
