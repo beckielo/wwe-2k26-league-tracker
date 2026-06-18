@@ -482,3 +482,10 @@ The following checks found no current-data conflict:
 - Legacy_Tracker Elite Cup totals are now converted into canonical historical-window records before aggregation instead of inventing additional historical event windows for duplicate counts.
 - Roman Reigns’ user-confirmed LY2 Opening Split manual correction remains included and is still deduplicated against any stronger automatic source for the same normalized event key.
 - No other league title, Global title, Elite Cup, standings, or commentary records were changed or invented; League Title Records remains 8 for the current two completed split fixture.
+
+## Phase 10.10.7 — Elite Cup Event-Slot Canonicalization Fix
+- Elite Cup totals are now resolved through canonical completed event slots before any wrestler profile totals are updated. A completed Elite Cup slot is identified by normalized league year, normalized split/event window, and normalized Elite Cup event type; the winner is the value inside that slot, not part of the slot identity.
+- `Legacy_Tracker` aggregate Elite Cup values may provide candidate evidence to reconstruct a missing historical canonical event slot, but they are not added on top of canonical event records and do not directly increment profile `eliteCupWins` after canonical slots have been built.
+- One completed Elite Cup event slot contributes exactly one record. Duplicate source rows for the same slot and same winner merge into one canonical slot with source labels preserved in the internal audit.
+- Current confirmed canonical state after two completed Finals/Splits: Gunther has 1 Elite Cup, Roman Reigns has 1 Elite Cup, and total Elite Cup Records is 2.
+- If candidate sources disagree on the winner for the same league-year/split Elite Cup slot, the app records an internal diagnostic conflict and does not count both candidates as separate Elite Cups.
