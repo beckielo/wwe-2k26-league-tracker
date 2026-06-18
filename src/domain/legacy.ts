@@ -206,11 +206,47 @@ function preferEliteCupRecord(existing: LegacyEliteCupRecord | undefined, candid
   return existing;
 }
 
+export function canonicalEliteCupRecordKey(record: LooseEliteCupRecord): string {
+  const normalized = normalizeEliteCupRecord(record);
+  return normalizedIdentity(
+    normalized.leagueYear,
+    normalized.split,
+    normalizeEliteCupEventIdentity(normalized.eventName),
+    normalizeWrestlerIdentity(normalized.wrestler),
+  );
+}
+
+export interface EliteCupDuplicateDiagnostic {
+  key: string;
+  canonicalRecord: LegacyEliteCupRecord;
+  duplicateSources: string[];
+  duplicateCount: number;
+}
+
+export function inspectCanonicalEliteCupRecordDuplicates(records: LooseEliteCupRecord[]): EliteCupDuplicateDiagnostic[] {
+  const grouped = new Map<string, LegacyEliteCupRecord[]>();
+  for (const record of records) {
+    const normalized = normalizeEliteCupRecord(record);
+    const key = canonicalEliteCupRecordKey(normalized);
+    grouped.set(key, [...(grouped.get(key) ?? []), normalized]);
+  }
+  return Array.from(grouped.entries()).flatMap(([key, duplicateRecords]) => {
+    if (duplicateRecords.length < 2) return [];
+    const canonicalRecord = duplicateRecords.reduce((existing, candidate) => preferEliteCupRecord(existing, candidate));
+    return [{
+      key,
+      canonicalRecord,
+      duplicateSources: Array.from(new Set(duplicateRecords.map((record) => record.sourceLabel ?? "unknown source"))),
+      duplicateCount: duplicateRecords.length,
+    }];
+  });
+}
+
 export function aggregateEliteCupHistory(records: LooseEliteCupRecord[], completedSplits?: string[]): EliteCupAggregation {
   const byIdentity = new Map<string, LegacyEliteCupRecord>();
   for (const record of records) {
     const normalized = normalizeEliteCupRecord(record);
-    const key = normalizedIdentity(normalized.leagueYear, normalized.split, normalizeEliteCupEventIdentity(normalized.eventName), normalizeWrestlerIdentity(normalized.wrestler));
+    const key = canonicalEliteCupRecordKey(normalized);
     byIdentity.set(key, preferEliteCupRecord(byIdentity.get(key), normalized));
   }
   const deduped = Array.from(byIdentity.values());
@@ -311,9 +347,9 @@ export function auditLegacyCompletedSplitSources(sources: LegacyCompletedSplitSo
 }
 
 export function legacyProfileEliteCupRecords(profiles: LegacyProfile[]): LegacyEliteCupRecord[] {
-  return profiles.flatMap((profile) => Array.from({ length: profile.eliteCupWins }, (_, index) => ({
+  return profiles.flatMap((profile) => Array.from({ length: profile.eliteCupWins }, () => ({
     leagueYear: 1,
-    split: index === 0 ? "Historical Split" : `Historical Split ${index + 1}`,
+    split: "Historical Split",
     eventName: "Global Elite Cup",
     wrestler: profile.wrestler,
     sourceLabel: "Legacy_Tracker profile Elite Cup total",
@@ -339,7 +375,7 @@ export function applyLegacyHistoryRecords(
     ...profile,
     leagueWinsTotal: Math.max(profile.leagueWinsTotal, titleCounts.get(profile.wrestler) ?? 0),
     globalChampionWins: Math.max(profile.globalChampionWins, globalCounts.get(profile.wrestler) ?? 0),
-    eliteCupWins: Math.max(profile.eliteCupWins, cupCounts.get(profile.wrestler) ?? 0),
+    eliteCupWins: eliteCupRecords.length > 0 ? (cupCounts.get(profile.wrestler) ?? 0) : profile.eliteCupWins,
   })));
 }
 
