@@ -97,6 +97,7 @@ export interface CanonicalEliteCupEventSlot extends LegacyEliteCupRecord {
 export interface LegacyEliteCupCandidateAudit {
   rawCandidateCount: number;
   canonicalEventSlotCount: number;
+  rawCandidates: LegacyEliteCupRecord[];
   slots: CanonicalEliteCupEventSlot[];
   conflicts: string[];
 }
@@ -180,7 +181,11 @@ export function extractCompletedEliteCupRecordsFromFinalStandings(
 type LooseEliteCupRecord = Partial<LegacyEliteCupRecord> & { split: string; wrestler: string };
 
 function normalizedIdentity(...parts: (string | number | undefined)[]): string {
-  return parts.map((part) => String(part ?? "").trim().toLowerCase()).join("||");
+  return parts.map((part) => String(part ?? "").trim().replace(/\s+/g, " ").toLowerCase()).join("||");
+}
+
+function normalizeSplitWindow(split: string): string {
+  return split.trim().replace(/\s+/g, " ");
 }
 
 function normalizeWrestlerIdentity(wrestler: string): string {
@@ -206,7 +211,7 @@ function normalizeTitleRecord(record: Partial<LegacyTitleRecord> & { split: stri
 function normalizeEliteCupRecord(record: LooseEliteCupRecord): LegacyEliteCupRecord {
   return {
     leagueYear: record.leagueYear ?? 1,
-    split: record.split,
+    split: normalizeSplitWindow(record.split),
     eventName: normalizeEliteCupEventIdentity(record.eventName ?? "Global Elite Cup"),
     wrestler: normalizeWrestlerIdentity(record.wrestler),
     sourceLabel: record.sourceLabel,
@@ -227,7 +232,7 @@ export function canonicalEliteCupRecordKey(record: LooseEliteCupRecord): string 
   const normalized = normalizeEliteCupRecord(record);
   return normalizedIdentity(
     normalized.leagueYear,
-    normalized.split,
+    normalizeSplitWindow(String(normalized.split)),
     normalizeEliteCupEventIdentity(normalized.eventName),
   );
 }
@@ -292,13 +297,13 @@ export function aggregateEliteCupHistory(records: LooseEliteCupRecord[], complet
     const [yearPrefix, ...splitParts] = splitName.includes(":") ? splitName.split(":") : [];
     const wantedYear = yearPrefix ? Number(yearPrefix) : null;
     const wantedSplit = yearPrefix ? splitParts.join(":") : splitName;
-    return eventSlots.filter((record) => record.split === wantedSplit && (wantedYear === null || record.leagueYear === wantedYear));
+    return eventSlots.filter((record) => normalizedIdentity(record.split) === normalizedIdentity(wantedSplit) && (wantedYear === null || record.leagueYear === wantedYear));
   });
   const warnings = splitNames.flatMap((splitName) => {
     const [yearPrefix, ...splitParts] = splitName.includes(":") ? splitName.split(":") : [];
     const wantedYear = yearPrefix ? Number(yearPrefix) : null;
     const wantedSplit = yearPrefix ? splitParts.join(":") : splitName;
-    return eventSlots.some((record) => record.split === wantedSplit && (wantedYear === null || record.leagueYear === wantedYear)) ? [] : ["Completed split Elite Cup record missing."];
+    return eventSlots.some((record) => normalizedIdentity(record.split) === normalizedIdentity(wantedSplit) && (wantedYear === null || record.leagueYear === wantedYear)) ? [] : ["Completed split Elite Cup record missing."];
   });
   const completedSplitWarnings = winnerRecords.length === splitNames.length ? warnings : [...warnings, `Completed split Elite Cup aggregation incomplete: expected ${splitNames.length} Elite Cup winner records, found ${winnerRecords.length}.`];
   return {
@@ -362,10 +367,16 @@ export function auditLegacyCompletedSplitSources(sources: LegacyCompletedSplitSo
     notes: source.notes ?? [],
   }));
   const detectedCompletedSplits = Array.from(new Set(sources.flatMap((source) => source.completedSplits ?? [])));
-  const detectedSplitSet = new Set(detectedCompletedSplits);
-  const isDetected = (record: { leagueYear?: number; split: string }) => detectedSplitSet.size === 0 || detectedSplitSet.has(`${record.leagueYear ?? 1}:${record.split}`) || detectedSplitSet.has(record.split);
+  const detectedSplitSet = new Set(detectedCompletedSplits.map((splitName) => {
+    const [yearPrefix, ...splitParts] = splitName.includes(":") ? splitName.split(":") : [];
+    return yearPrefix ? `${Number(yearPrefix)}:${normalizeSplitWindow(splitParts.join(":"))}` : normalizeSplitWindow(splitName);
+  }));
+  const isDetected = (record: { leagueYear?: number; split: string }) => {
+    const normalizedSplit = normalizeSplitWindow(record.split);
+    return detectedSplitSet.size === 0 || detectedSplitSet.has(`${record.leagueYear ?? 1}:${normalizedSplit}`) || detectedSplitSet.has(normalizedSplit);
+  };
   const rawTitleRecords = sources.flatMap((source) => source.titleRecords ?? []).filter(isDetected);
-  const rawCupRecords = sources.flatMap((source) => source.eliteCupRecords ?? []).filter(isDetected);
+  const rawCupRecords = sources.flatMap((source) => source.eliteCupRecords ?? []).filter(isDetected).map(normalizeEliteCupRecord);
   const titleAggregation = aggregateLeagueTitleHistory(rawTitleRecords);
   const cupAggregation = aggregateEliteCupHistory(rawCupRecords, detectedCompletedSplits);
   const completedSplitCount = Math.max(detectedCompletedSplits.length, titleAggregation.completedSplits, cupAggregation.completedSplits);
@@ -388,6 +399,7 @@ export function auditLegacyCompletedSplitSources(sources: LegacyCompletedSplitSo
     eliteCupCandidateAudit: {
       rawCandidateCount: cupAggregation.rawCandidateCount,
       canonicalEventSlotCount: cupAggregation.canonicalEventSlotCount,
+      rawCandidates: rawCupRecords,
       slots: cupAggregation.eventSlots,
       conflicts: cupAggregation.conflicts,
     },
