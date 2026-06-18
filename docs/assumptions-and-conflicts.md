@@ -431,3 +431,12 @@ The following checks found no current-data conflict:
 - Commentary is regenerated from current Legacy values each render. It can change when titles, Global titles, Elite Cup wins, doubles, invincible runs, half-split markers, streaks, league context, or completed split/year records change.
 - Journalist commentary uses deterministic profile styles including championship-first, big-event, dominance, consistency, promotion/storyline, and skeptical perspectives. The style changes wording and argument emphasis without using randomness or inventing achievements.
 - The Legacy table no longer renders Rank, table Commentary/Analysis, or Journalist View toggle columns/controls, and its main desktop table uses a fitted vertical-scroll layout with horizontal overflow hidden.
+
+## Phase 10.10.1 — Legacy Post-Finals Source Sync & Tier B Commentary
+
+- Legacy aggregation now treats completed Post-Finals/final split records beyond Year 1 as valid title-history inputs when those records prove a completed split; active incomplete Closing Split standings and schedule-only data are not promoted into completed title history.
+- League title records are deduplicated by `league year + split + league + winner`, preserving the source label for auditability instead of counting the same champion twice when the same fact appears in Legacy history, Post-Finals transition, League Finals, final standings, or workbook history sources.
+- Elite Cup records are deduplicated by `league year + split/event + winner`, preserving the event/source label and avoiding duplicate trophy counts from overlapping Post-Finals and League Finals records.
+- Completed split invariants remain fact-only: a completed split contributes exactly four league title records when all four league winners are finalized, and one Elite Cup record when the completed event has a recorded winner. If those facts are incomplete, the UI reports diagnostics rather than inventing champions or cup winners.
+- Tier B commentary now includes a compact evidence-based explanation of why the wrestler is Tier B, what is missing for Tier A/S consideration, and the most likely recorded achievement path upward. Tier A/S keeps the expanded premium journalist treatment, while Tier C/D remains minimal.
+- No invented achievements are allowed: missing league titles, Global titles, Elite Cup wins, invincible runs, draws/losses, or winning streaks must remain absent until an authoritative source records them.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildCurrentStandingsFromScheduleComposition, validateCurrentLeagueComposition } from "../current-league-composition";
-import { aggregateEliteCupHistory, aggregateLeagueTitleHistory, enrichLegacyProfilesWithCompletedSplitChampions, summarizeLegacyProfiles } from "../legacy";
+import { aggregateEliteCupHistory, aggregateLeagueTitleHistory, applyLegacyHistoryRecords, enrichLegacyProfilesWithCompletedSplitChampions, summarizeLegacyProfiles } from "../legacy";
 import { generateLegacyCommentary, type LegacyProfile } from "../legacy-commentary";
 import { LEAGUE_NAMES, type LeagueName, type Match, type MatchResult, type StandingRow } from "../types";
 
@@ -76,11 +76,38 @@ describe("Phase 10.8.4 legacy title aggregation", () => {
   });
 
   it("enforces completedSplits times four league title records", () => {
-    const records = ["Opening", "Closing"].flatMap((split) => LEAGUE_NAMES.map((league) => ({ split, league, wrestler: `${split} ${league} Winner` })));
+    const records = ["Opening", "Closing"].flatMap((split) => LEAGUE_NAMES.map((league) => ({ leagueYear: split === "Opening" ? 1 : 2, split, league, wrestler: `${split} ${league} Winner` })));
     const aggregation = aggregateLeagueTitleHistory(records);
     expect(aggregation.completedSplits).toBe(2);
     expect(aggregation.expectedLeagueTitleRecords).toBe(8);
     expect(aggregation.titleRecords).toHaveLength(8);
+  });
+
+  it("includes Year 1 and LY2 Opening Split title and Elite Cup records without hardcoded totals", () => {
+    const titleRecords = [1, 2].flatMap((leagueYear) => LEAGUE_NAMES.map((league) => ({
+      leagueYear,
+      split: leagueYear === 1 ? "Closing Split" : "Opening Split",
+      league,
+      wrestler: `${leagueYear} ${league} Winner`,
+      sourceLabel: leagueYear === 1 ? "Legacy history" : "Post-Finals final table",
+    })));
+    const cupRecords = [1, 2].map((leagueYear) => ({
+      leagueYear,
+      split: leagueYear === 1 ? "Closing Split" : "Opening Split",
+      eventName: "Global Elite Cup",
+      wrestler: `Cup ${leagueYear}`,
+      sourceLabel: leagueYear === 1 ? "Legacy history" : "League Finals completed event",
+    }));
+    expect(aggregateLeagueTitleHistory(titleRecords).titleRecords).toHaveLength(8);
+    expect(aggregateEliteCupHistory(cupRecords).winnerRecords).toHaveLength(2);
+  });
+
+  it("deduplicates duplicate title and Elite Cup records from multiple completed sources", () => {
+    const duplicateTitle = { leagueYear: 2, split: "Opening Split", league: "Global League" as const, wrestler: "Gunther" };
+    const titleRecords = [duplicateTitle, { ...duplicateTitle, sourceLabel: "Post-Finals transition" }, ...LEAGUE_NAMES.filter((league) => league !== "Global League").map((league) => ({ leagueYear: 2, split: "Opening Split", league, wrestler: `${league} Champion` }))];
+    const duplicateCup = { leagueYear: 2, split: "Opening Split", eventName: "Global Elite Cup", wrestler: "Gunther" };
+    expect(aggregateLeagueTitleHistory(titleRecords).titleRecords).toHaveLength(4);
+    expect(aggregateEliteCupHistory([duplicateCup, { ...duplicateCup, sourceLabel: "League Finals event" }]).winnerRecords).toHaveLength(1);
   });
 
   it("aggregates Elite Cup records once per completed split", () => {
@@ -105,7 +132,21 @@ describe("Phase 10.8.4 legacy title aggregation", () => {
     const aggregation = aggregateLeagueTitleHistory(LEAGUE_NAMES.slice(0, 3).map((league) => ({ split: "Opening", league, wrestler: `${league} Winner` })));
     expect(aggregation.completedSplits).toBe(0);
     expect(aggregation.titleRecords).toHaveLength(0);
-    expect(aggregation.warnings.join(" ")).toContain("Completed split has incomplete league winner records: expected 4, found 3.");
+    expect(aggregation.warnings.join(" ")).toContain("Completed split title aggregation incomplete: expected 4 league title records, found 3.");
+  });
+
+  it("updates legacy profile totals from completed history records while preserving record totals", () => {
+    const base: LegacyProfile = { wrestler: "Gunther", currentLeague: "Global League", goatStatusTier: null, leagueWinsTotal: 1, globalChampionWins: 1, eliteCupWins: 1, doubles: 0, invincibleSplits: 0, invincibleHinrunden: 0, invincibleRueckrunden: 0, longestWinStreakOverall: 10, sourceCommentary: null };
+    const enriched = applyLegacyHistoryRecords([base], [1, 2].flatMap((leagueYear) => LEAGUE_NAMES.map((league) => ({
+      leagueYear,
+      split: leagueYear === 1 ? "Closing Split" : "Opening Split",
+      league,
+      wrestler: league === "Global League" ? "Gunther" : `${leagueYear} ${league} Winner`,
+    }))), [
+      { leagueYear: 1, split: "Closing Split", eventName: "Global Elite Cup", wrestler: "Gunther" },
+      { leagueYear: 2, split: "Opening Split", eventName: "Global Elite Cup", wrestler: "Gunther" },
+    ]);
+    expect(enriched[0]).toMatchObject({ leagueWinsTotal: 2, globalChampionWins: 2, eliteCupWins: 2 });
   });
 
   it("refreshes GOAT commentary after a new league title and current league change", () => {

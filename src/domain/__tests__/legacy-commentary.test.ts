@@ -102,6 +102,23 @@ describe("legacy journalist commentary", () => {
     expect(commentary.statCallouts).toContainEqual({ label: "Global titles", value: "1" });
   });
 
+  it("gives Tier B wrestlers a compact path to A/S without inventing achievements", () => {
+    const commentary = generateLegacyCommentary({ ...base, wrestler: "Beckielo", leagueWinsTotal: 1, longestWinStreakOverall: 5 });
+    expect(commentary.feature).toBe(false);
+    expect(commentary.text).toMatch(/Tier B|Tier A|Tier S/i);
+    expect(commentary.text).toMatch(/missing/i);
+    expect(commentary.text).toMatch(/Global League title|Elite Cup win|invincible split|repeated title-level/i);
+    expect(commentary.text).not.toMatch(/already includes .*Elite Cup win/i);
+    expect(commentary.text).not.toMatch(/already includes .*Global League title/i);
+  });
+
+  it("keeps Tier C and D commentary minimal rather than feature-length", () => {
+    const commentary = generateLegacyCommentary({ ...base, longestWinStreakOverall: 4 });
+    expect(commentary.feature).toBe(false);
+    expect(commentary.text).toMatch(/Tier C/i);
+    expect(commentary.text).not.toMatch(/What is missing for Tier A or Tier S/i);
+  });
+
   it("keeps evidence tags aligned with recorded fields", () => {
     const commentary = generateLegacyCommentary({ ...base, eliteCupWins: 2, invincibleRueckrunden: 1 });
     expect(commentary.evidenceTags).toContain("2 Elite Cup Wins");
