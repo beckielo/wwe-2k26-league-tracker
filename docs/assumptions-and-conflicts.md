@@ -411,3 +411,10 @@ The following checks found no current-data conflict:
 - The last direct H2H underline uses authoritative completed history across available years and splits, including earlier current-split weeks. The most recent decisive winner is underlined; draws, no contests, ambiguous results, and no prior direct matchup underline nobody.
 - The current scheduled unplayed match is excluded from previous H2H lookup so the Dashboard does not treat the displayed fixture as its own history.
 - The Current User League Live Table target remains all 12 wrestlers visible at normal desktop 100% browser zoom with no inner vertical or horizontal table scrollbar, preserving rank, wrestler, P/W/D/L, points, and compact status display.
+
+## Phase 10.9.5 — Dashboard User League Live Table Fill Polish
+
+- The Dashboard Current User League Live Table is expected to fill its paired card vertically without an awkward dead-space block below place 12.
+- The live-table card remains a presentation-only dashboard layout polish: it does not change standings calculations, league membership, predictions, workbook handling, result entry, simulation, match context, or live standings source logic.
+- All 12 current-user-league rows must remain visible at normal desktop 100% browser zoom without an inner vertical scrollbar or horizontal scrollbar, preserving rank, wrestler, P/W/D/L, points, and status badges.
+- The table body may expand within the available equal-height dashboard card through CSS sizing and row spacing so the panel remains visually aligned with the Current User-Controlled Show card.
