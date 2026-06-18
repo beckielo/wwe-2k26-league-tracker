@@ -42,8 +42,10 @@ export type LegacyCommentaryCategory =
   | "Global League Mainstay"
   | "Lower League Climber";
 
+export type LegacyJournalistVoice = "Title traditionalist" | "Dominance analyst" | "Streak/value analyst" | "Event prestige columnist" | "Consistency historian" | "Skeptical résumé analyst" | "Upside / trajectory analyst" | "Comparative peer analyst" | "Championship-first analyst" | "Big-event analyst" | "Consistency analyst" | "Promotion/storyline analyst" | "Skeptical columnist";
+
 export interface LegacyCommentary {
-  voice: "Championship-first analyst" | "Big-event analyst" | "Dominance analyst" | "Consistency analyst" | "Promotion/storyline analyst" | "Skeptical columnist";
+  voice: LegacyJournalistVoice;
   category: LegacyCommentaryCategory;
   text: string;
   excerpt: string;
@@ -173,11 +175,71 @@ function excerpt(text: string): string {
 }
 
 function tierBProfile(profile: LegacyProfile): LegacyCommentary["voice"] {
-  const voices = ["Championship-first analyst", "Big-event analyst", "Dominance analyst", "Consistency analyst", "Promotion/storyline analyst", "Skeptical columnist"] as const;
+  const voices = ["Title traditionalist", "Event prestige columnist", "Dominance analyst", "Streak/value analyst", "Consistency historian", "Skeptical résumé analyst", "Upside / trajectory analyst", "Comparative peer analyst"] as const;
   return pick(profile, "tier-b-journalist", voices);
 }
 
-function tierBCommentary(profile: LegacyProfile, category: LegacyCommentaryCategory): string {
+export interface LegacyComparativeSignals {
+  bestLongestStreak: number;
+  tiedBestLongestStreak: boolean;
+  topTierStreak: boolean;
+  strongestNoTitleProfile: boolean;
+  strongestSingleTitleProfile: boolean;
+  bestNonEliteCupResume: boolean;
+  strongestInvincibleBasedCase: boolean;
+  strongestTitleBasedCase: boolean;
+  strongestEventNightCase: boolean;
+  strongestConsistencyWithoutSilverware: boolean;
+  outlierDominanceMarker: boolean;
+  weakResumeVersusPeersInSameTier: boolean;
+  overperformingResumeForCurrentTier: boolean;
+  underAccomplishedRelativeToRawStreakProfile: boolean;
+}
+
+export function comparativeSignals(profile: LegacyProfile, peers: LegacyProfile[] = [profile]): LegacyComparativeSignals {
+  const field = peers.length ? peers : [profile];
+  const score = legacyScore(profile);
+  const best = (fn: (p: LegacyProfile) => number) => Math.max(...field.map(fn));
+  const tier = profile.legacyTier ?? legacyTier(profile);
+  const sameTier = field.filter((p) => (p.legacyTier ?? legacyTier(p)) === tier);
+  const sameAvg = sameTier.reduce((sum, p) => sum + legacyScore(p), 0) / Math.max(1, sameTier.length);
+  const titleCount = (p: LegacyProfile) => p.leagueWinsTotal + p.globalChampionWins + p.eliteCupWins;
+  const noTitles = field.filter((p) => titleCount(p) === 0);
+  const singleTitles = field.filter((p) => titleCount(p) === 1);
+  const bestLongestStreak = best((p) => p.longestWinStreakOverall);
+  return {
+    bestLongestStreak,
+    tiedBestLongestStreak: profile.longestWinStreakOverall > 0 && profile.longestWinStreakOverall === bestLongestStreak,
+    topTierStreak: profile.longestWinStreakOverall > 0 && profile.longestWinStreakOverall >= Math.max(7, bestLongestStreak - 1),
+    strongestNoTitleProfile: titleCount(profile) === 0 && noTitles.length > 0 && score === Math.max(...noTitles.map(legacyScore)),
+    strongestSingleTitleProfile: titleCount(profile) === 1 && singleTitles.length > 0 && score === Math.max(...singleTitles.map(legacyScore)),
+    bestNonEliteCupResume: profile.eliteCupWins === 0 && score === Math.max(...field.filter((p) => p.eliteCupWins === 0).map(legacyScore), -1),
+    strongestInvincibleBasedCase: profile.invincibleSplits + profile.invincibleHinrunden + profile.invincibleRueckrunden > 0 && (profile.invincibleSplits * 3 + profile.invincibleHinrunden + profile.invincibleRueckrunden) === best((p) => p.invincibleSplits * 3 + p.invincibleHinrunden + p.invincibleRueckrunden),
+    strongestTitleBasedCase: profile.leagueWinsTotal + profile.globalChampionWins === best((p) => p.leagueWinsTotal + p.globalChampionWins),
+    strongestEventNightCase: profile.eliteCupWins > 0 && profile.eliteCupWins === best((p) => p.eliteCupWins),
+    strongestConsistencyWithoutSilverware: titleCount(profile) === 0 && profile.longestWinStreakOverall === Math.max(...noTitles.map((p) => p.longestWinStreakOverall), -1),
+    outlierDominanceMarker: profile.longestWinStreakOverall >= 10 || profile.invincibleSplits > 0,
+    weakResumeVersusPeersInSameTier: sameTier.length > 1 && score <= sameAvg - 4,
+    overperformingResumeForCurrentTier: sameTier.length > 1 && score >= sameAvg + 4,
+    underAccomplishedRelativeToRawStreakProfile: profile.longestWinStreakOverall >= 7 && titleCount(profile) === 0,
+  };
+}
+
+function comparativeSentence(profile: LegacyProfile, signals: LegacyComparativeSignals): string | null {
+  const candidates = [
+    signals.tiedBestLongestStreak ? `Against the full legacy field, the ${profile.longestWinStreakOverall}-match streak is tied for the best recorded run in the file.` : null,
+    !signals.tiedBestLongestStreak && signals.topTierStreak ? `Relative to peers, the ${profile.longestWinStreakOverall}-match streak sits in the top band of recorded form markers.` : null,
+  ];
+  if (signals.strongestNoTitleProfile) candidates.push(`Among profiles without recorded silverware, ${profile.wrestler} has the strongest peer-relative case on the current inputs.`);
+  if (signals.underAccomplishedRelativeToRawStreakProfile) candidates.push(`The résumé is under-accomplished relative to that raw streak profile because the same row still records no title or Elite Cup win.`);
+  if (signals.strongestEventNightCase) candidates.push(`The Elite Cup line is not just present; it matches the strongest event-night count in the field.`);
+  if (signals.strongestInvincibleBasedCase) candidates.push(`The invincible-run evidence gives this file one of the strongest dominance bases in the archive.`);
+  if (signals.weakResumeVersusPeersInSameTier) candidates.push(`Compared with nearby tier peers, the supporting résumé is thinner and needs another recorded separator.`);
+  if (signals.overperformingResumeForCurrentTier) candidates.push(`Compared with the same tier, the raw score overperforms the label and makes the case more interesting than the tier alone suggests.`);
+  return candidates.filter((sentence): sentence is string => sentence !== null).slice(0, 1)[0] ?? null;
+}
+
+function tierBCommentary(profile: LegacyProfile, category: LegacyCommentaryCategory, signals: LegacyComparativeSignals): string {
   const proof: string[] = [];
   if (profile.leagueWinsTotal > 0) proof.push(`${profile.leagueWinsTotal} recorded league ${profile.leagueWinsTotal === 1 ? "title" : "titles"}`);
   if (profile.globalChampionWins > 0) proof.push(`${profile.globalChampionWins} Global ${profile.globalChampionWins === 1 ? "title" : "titles"}`);
@@ -200,25 +262,31 @@ function tierBCommentary(profile: LegacyProfile, category: LegacyCommentaryCateg
     : profile.leagueWinsTotal > 0
       ? "adding another completed-split title, an Elite Cup result, or an unbeaten split"
       : "turning the form marker into a recorded title, cup, or unbeaten split";
-  const templates: Record<LegacyCommentary["voice"], string> = {
-    "Championship-first analyst": `Tier B is the right shelf for ${profile.wrestler}: the title file shows ${proofLine}, but the championship ceiling is not proven enough yet. The missing Tier A/S proof is ${missingLine}; the fastest rewrite is ${path}.`,
-    "Big-event analyst": `${profile.wrestler} has a credible file, not yet an elite one, because the archive points to ${proofLine}. The missing separator is ${missingLine}, so a future Global title, Elite Cup run, or finals-level breakthrough would change the tone immediately.`,
-    "Dominance analyst": `The argument for ${profile.wrestler} begins with control: ${proofLine}. The next step is not volume; it is proof at a higher level, especially ${missingLine}, with ${path} doing the most work for an upgrade.`,
-    "Consistency analyst": `${profile.wrestler}'s résumé has shape through ${proofLine}, which explains Tier B without stretching the evidence. To climb, the tracker needs ${missingLine}; repeated title-level splits would matter more than another ordinary stat line.`,
-    "Promotion/storyline analyst": `Right now ${profile.wrestler} reads as an upward-moving Tier B story built on ${proofLine}. The story still lacks ${missingLine}, and ${path} is the achievement route that would make the next tier feel earned.`,
-    "Skeptical columnist": `Tier B is generous but defensible for ${profile.wrestler} because ${proofLine} is on record. Before Tier A or Tier S, the file needs ${missingLine}; until then, the tracker should resist treating promise as proof.`,
+  const templates: Partial<Record<LegacyCommentary["voice"], string>> = {
+    "Title traditionalist": `Tier B is the right shelf for ${profile.wrestler}: the title file shows ${proofLine}, but the championship ceiling is not proven enough yet. The missing Tier A/S proof is ${missingLine}; the fastest rewrite is ${path}.`,
+    "Event prestige columnist": `${profile.wrestler} has a credible file, not yet an elite one, because the archive points to ${proofLine}. The missing separator is ${missingLine}, so a future Global title, Elite Cup run, or finals-level breakthrough would change the tone immediately.`,
+    "Dominance analyst": `Tier B for ${profile.wrestler} begins with control: ${proofLine}. The missing step is not volume; it is proof at a higher level, especially ${missingLine}, with ${path} doing the most work for an upgrade.`,
+    "Consistency historian": `${profile.wrestler}'s résumé has shape through ${proofLine}, which explains Tier B without stretching the evidence. To climb, the tracker needs ${missingLine}; repeated title-level splits would matter more than another ordinary stat line.`,
+    "Upside / trajectory analyst": `Right now ${profile.wrestler} reads as an upward-moving Tier B story built on ${proofLine}. The story still lacks ${missingLine}, and ${path} is the achievement route that would make the next tier feel earned.`,
+    "Skeptical résumé analyst": `Tier B is generous but defensible for ${profile.wrestler} because ${proofLine} is on record. Before Tier A or Tier S, the file needs ${missingLine}; until then, the tracker should resist treating promise as proof.`,
   };
+  templates["Comparative peer analyst"] = `${profile.wrestler} sits in Tier B because the recorded file shows ${proofLine}, but the peer context matters as much as the row itself. ${comparativeSentence(profile, signals) ?? `The missing Tier A/S proof remains ${missingLine}, so the comparison cannot become a promotion without new recorded achievements.`}`;
+  templates["Streak/value analyst"] = `${profile.wrestler} has value beyond the trophy count: ${proofLine}. ${comparativeSentence(profile, signals) ?? `That still needs ${missingLine} before it can be treated as an elite legacy case.`}`;
+  const comparative = comparativeSentence(profile, signals);
   const tail = category === "Streak-Based Threat"
     ? "The streak is real evidence, but it is not counted as silverware."
     : "Every claim here stays tied to recorded fields only.";
-  return `${templates[voice]} ${tail}`;
+  const baseText = templates[voice] ?? templates["Title traditionalist"] ?? "";
+  const comparativeTail = comparative && !baseText.includes(comparative) ? `${comparative} ` : "";
+  return `${baseText} ${comparativeTail}${tail}`.replace(/\s+/g, " ").trim();
 }
 
-export function generateLegacyCommentary(profile: LegacyProfile): LegacyCommentary {
+export function generateLegacyCommentary(profile: LegacyProfile, peers: LegacyProfile[] = [profile]): LegacyCommentary {
+  const signals = comparativeSignals(profile, peers);
   const category = topics(profile)[0].category;
   const tags = evidence(profile);
   const tier = profile.legacyTier ?? legacyTier(profile);
-  const voice = tier === "B" ? tierBProfile(profile) : pick(profile, "voice", ["Championship-first analyst", "Big-event analyst", "Dominance analyst", "Consistency analyst", "Promotion/storyline analyst", "Skeptical columnist"] as const);
+  const voice = tier === "B" ? tierBProfile(profile) : pick(profile, "voice", ["Title traditionalist", "Event prestige columnist", "Dominance analyst", "Streak/value analyst", "Consistency historian", "Skeptical résumé analyst", "Upside / trajectory analyst", "Comparative peer analyst"] as const);
   const c = profile.checkpoints;
   const primary: Record<LegacyCommentaryCategory, readonly string[]> = {
     "Global Championship Standard": [
@@ -266,29 +334,35 @@ export function generateLegacyCommentary(profile: LegacyProfile): LegacyCommenta
   };
 
   if (tier === "B") {
-    const compact = tierBCommentary(profile, category);
+    const compact = tierBCommentary(profile, category, signals);
     return { voice, category, text: compact, excerpt: excerpt(compact), evidenceTags: tags, statCallouts: statCallouts(profile), feature: false };
   }
 
   if (tier !== "S" && tier !== "A") {
-    const compact = `${profile.wrestler} is currently a Tier ${tier} profile. The recorded row shows ${profile.leagueWinsTotal} league titles, ${profile.globalChampionWins} Global titles, ${profile.eliteCupWins} Elite Cup wins and a longest winning streak of ${profile.longestWinStreakOverall}; that is not enough for a full A/S feature column yet.`;
+    const comparison = comparativeSentence(profile, signals);
+    const compact = `${profile.wrestler} is currently a Tier ${tier} profile. The recorded row shows ${profile.leagueWinsTotal} league titles, ${profile.globalChampionWins} Global titles, ${profile.eliteCupWins} Elite Cup wins and a longest winning streak of ${profile.longestWinStreakOverall}; that is not enough for a full A/S feature column yet.${comparison ? ` ${comparison}` : ""}`;
     return { voice, category, text: compact, excerpt: excerpt(compact), evidenceTags: tags, statCallouts: statCallouts(profile), feature: false };
   }
 
   const main = pick(profile, `copy-${category}-${voice}`, primary[category]);
   const support = supportingSentence(profile, category);
+  const comparison = comparativeSentence(profile, signals);
   const scoreLine = `On the deterministic legacy model, that produces Tier ${tier} from a ${legacyScore(profile)}-point résumé: ${profile.leagueWinsTotal} league titles, ${profile.globalChampionWins} Global titles, ${profile.eliteCupWins} Elite Cup wins, ${profile.doubles} doubles and a longest winning streak of ${profile.longestWinStreakOverall}.`;
-  const perspective = voice === "Skeptical columnist"
+  const perspective = voice === "Skeptical résumé analyst"
     ? `The cautious reading still has to respect the recorded evidence; the case is elevated by what is present, not by anything missing from the workbook.`
-    : voice === "Big-event analyst"
+    : voice === "Event prestige columnist"
       ? `The event-night lens matters here, so cup production and title conversions carry more of the argument than reputation or table aesthetics.`
       : voice === "Dominance analyst"
         ? `Dominance markers such as invincible phases and streak length shape the tone, but only where the tracker actually records them.`
-        : voice === "Consistency analyst"
+        : voice === "Consistency historian"
           ? `The value is not just the peak; it is how many separate recorded lines keep pointing back to top-end relevance.`
-          : voice === "Promotion/storyline analyst"
+          : voice === "Upside / trajectory analyst"
             ? `The career arc is read through the current league context without pretending that movement achievements exist when the archive does not say so.`
-            : `The championship-first case begins with trophies and only then moves to supporting form notes.`;
-  const text = [main, support, scoreLine, perspective].filter(Boolean).join(" ");
+            : voice === "Comparative peer analyst"
+            ? `Peer context shapes the final read: the row is measured against the rest of the archive before the tier is explained.`
+            : voice === "Streak/value analyst"
+              ? `The value lens gives streaks and form markers weight without converting them into unrecorded trophies.`
+              : `The title-traditionalist case begins with trophies and only then moves to supporting form notes.`;
+  const text = [main, support, comparison, scoreLine, perspective].filter(Boolean).join(" ");
   return { voice, category, text, excerpt: excerpt(text), evidenceTags: tags, statCallouts: statCallouts(profile), feature: true };
 }

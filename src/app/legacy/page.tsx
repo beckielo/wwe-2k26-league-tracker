@@ -4,7 +4,9 @@ import { loadLegacyTableData } from "@/data/workbook";
 
 export const dynamic = "force-dynamic";
 
-export default function LegacyPage() {
+export default async function LegacyPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await searchParams;
+  const showDiagnostics = params?.debugLegacy === "1";
   const data = loadLegacyTableData();
   const { summary } = data;
   return <>
@@ -20,7 +22,7 @@ export default function LegacyPage() {
       <Stat label="Elite Cup records" value={summary.eliteCupRecords} detail="Recorded historical event total" />
     </div>
     {data.policyNote && <p className="legacy-policy">{data.policyNote}</p>}
-    {summary.diagnostics.length > 0 && <div className="legacy-diagnostics">{summary.diagnostics.map((diagnostic) => <p key={diagnostic}>{diagnostic}</p>)}{summary.audit?.sources.map((source) => <p key={source.source}><strong>{source.source}:</strong> {source.leagueTitleRecords} title records · {source.eliteCupRecords} Elite Cup records{source.notes.length ? ` — ${source.notes.join(" ")}` : ""}</p>)}</div>}
+    {showDiagnostics && summary.diagnostics.length > 0 && <div className="legacy-diagnostics">{summary.diagnostics.map((diagnostic) => <p key={diagnostic}>{diagnostic}</p>)}{summary.audit?.sources.map((source) => <p key={source.source}><strong>{source.source}:</strong> {source.leagueTitleRecords} title records · {source.eliteCupRecords} Elite Cup records{source.notes.length ? ` — ${source.notes.join(" ")}` : ""}</p>)}</div>}
     <LegacyTable profiles={data.profiles} />
   </>;
 }

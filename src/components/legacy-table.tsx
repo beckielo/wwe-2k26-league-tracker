@@ -11,8 +11,8 @@ export function LegacyTable({ profiles }: { profiles: LegacyProfile[] }) {
   const [selected, setSelected] = useState(defaultFeature?.wrestler ?? "");
   const selectedProfile = sortedProfiles.find((profile) => profile.wrestler === selected) ?? defaultFeature;
   const commentary = useMemo(
-    () => selectedProfile ? generateLegacyCommentary(selectedProfile) : null,
-    [selectedProfile],
+    () => selectedProfile ? generateLegacyCommentary(selectedProfile, sortedProfiles) : null,
+    [selectedProfile, sortedProfiles],
   );
 
   return <div className="legacy-layout">
