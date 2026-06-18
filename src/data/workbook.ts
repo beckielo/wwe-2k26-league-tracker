@@ -7,7 +7,7 @@ import { validateTrackerData } from "@/domain/validation";
 import { buildCurrentStandingsFromScheduleComposition, buildLeaguesFromStandings, validateCurrentLeagueComposition } from "@/domain/current-league-composition";
 import { parseAppWorkbookBaseline } from "@/domain/app-workbook-baseline";
 import { ACCEPTED_SCHEDULE_SHEET } from "@/domain/workbook-writeback";
-import { enrichLegacyProfilesFromCurrentMaster, parseLegacyTracker, summarizeLegacyProfiles, type LegacyTableData } from "@/domain/legacy";
+import { applyLegacyHistoryRecords, enrichLegacyProfilesFromCurrentMaster, extractCompletedSplitTitleRecordsFromFinalStandings, parseLegacyTracker, summarizeLegacyProfiles, type LegacyTableData } from "@/domain/legacy";
 import {
   LEAGUE_NAMES,
   type HeadToHeadRecord,
@@ -100,8 +100,13 @@ export function loadLegacyTableData(): LegacyTableData & { sourceFile: string; s
     source: { file: sourceFile, sheet: ACCEPTED_SCHEDULE_SHEET, row: index + 2 },
   }));
   const currentCompositionStandings = buildCurrentStandingsFromScheduleComposition(standings, currentMatches, [], currentSplit) ?? standings;
-  const profiles = enrichLegacyProfilesFromCurrentMaster(legacy.profiles, currentCompositionStandings, streaks);
-  return { ...legacy, profiles, summary: summarizeLegacyProfiles(profiles), sourceFile, sourceSheet: "Legacy_Tracker" };
+  const currentProfiles = enrichLegacyProfilesFromCurrentMaster(legacy.profiles, currentCompositionStandings, streaks);
+  const finalStandingHistory = standings.every((row) => row.matches >= 22) && /finals|post-finals|abgeschlossen/i.test(`${dashboard.get("League Finals") ?? ""} ${dashboard.get("Ligaphase") ?? ""} ${dashboard.get("Aktueller Stand") ?? ""}`)
+    ? extractCompletedSplitTitleRecordsFromFinalStandings(standings, parseLeagueYear(leagueYearLabel), currentSplit, "Current master final standings")
+    : { titleRecords: [], warnings: [] };
+  const profiles = applyLegacyHistoryRecords(currentProfiles, finalStandingHistory.titleRecords, []);
+  const summary = summarizeLegacyProfiles(profiles);
+  return { ...legacy, profiles, summary: { ...summary, diagnostics: [...summary.diagnostics, ...finalStandingHistory.warnings] }, sourceFile, sourceSheet: "Legacy_Tracker" };
 }
 
 type CellValue = string | number | boolean | null | undefined;

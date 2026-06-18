@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import { sortLegacyProfiles, type LegacyProfile } from "./legacy-commentary";
-import { LEAGUE_NAMES, type LeagueName, type StandingRow, type StreakRecord } from "./types";
+import { LEAGUE_NAMES, type LeagueName, type SplitName, type StandingRow, type StreakRecord } from "./types";
 
 type Cell = string | number | boolean | null | undefined;
 
@@ -108,14 +108,70 @@ export function summarizeLegacyProfiles(profiles: LegacyProfile[]): LegacySummar
 export interface EliteCupAggregation {
   completedSplits: number;
   expectedEliteCupRecords: number;
-  winnerRecords: { split: string; wrestler: string }[];
+  winnerRecords: LegacyEliteCupRecord[];
   warnings: string[];
 }
 
-export function aggregateEliteCupHistory(records: { split: string; wrestler: string }[], completedSplits?: string[]): EliteCupAggregation {
-  const splitNames = completedSplits ?? Array.from(new Set(records.map((record) => record.split)));
-  const winnerRecords = splitNames.flatMap((split) => records.filter((record) => record.split === split).slice(0, 1));
-  const warnings = splitNames.flatMap((split) => records.some((record) => record.split === split) ? [] : [`Completed split has no recorded Elite Cup winner: ${split}.`]);
+export interface LegacyTitleRecord {
+  leagueYear: number;
+  split: SplitName | string;
+  league: LeagueName;
+  wrestler: string;
+  sourceLabel?: string;
+}
+
+export interface LegacyEliteCupRecord {
+  leagueYear: number;
+  split: SplitName | string;
+  eventName: string;
+  wrestler: string;
+  sourceLabel?: string;
+}
+
+type LooseEliteCupRecord = Partial<LegacyEliteCupRecord> & { split: string; wrestler: string };
+
+function normalizedIdentity(...parts: (string | number | undefined)[]): string {
+  return parts.map((part) => String(part ?? "").trim().toLowerCase()).join("||");
+}
+
+function normalizeTitleRecord(record: Partial<LegacyTitleRecord> & { split: string; league: LeagueName; wrestler: string }): LegacyTitleRecord {
+  return {
+    leagueYear: record.leagueYear ?? 1,
+    split: record.split,
+    league: record.league,
+    wrestler: record.wrestler,
+    sourceLabel: record.sourceLabel,
+  };
+}
+
+function normalizeEliteCupRecord(record: LooseEliteCupRecord): LegacyEliteCupRecord {
+  return {
+    leagueYear: record.leagueYear ?? 1,
+    split: record.split,
+    eventName: record.eventName ?? "Global Elite Cup",
+    wrestler: record.wrestler,
+    sourceLabel: record.sourceLabel,
+  };
+}
+
+export function aggregateEliteCupHistory(records: LooseEliteCupRecord[], completedSplits?: string[]): EliteCupAggregation {
+  const deduped = Array.from(new Map(records.map((record) => {
+    const normalized = normalizeEliteCupRecord(record);
+    return [normalizedIdentity(normalized.leagueYear, normalized.split, normalized.eventName, normalized.wrestler), normalized] as const;
+  })).values());
+  const splitNames = completedSplits ?? Array.from(new Set(deduped.map((record) => `${record.leagueYear}:${record.split}`)));
+  const winnerRecords = splitNames.flatMap((splitName) => {
+    const [yearPrefix, ...splitParts] = splitName.includes(":") ? splitName.split(":") : [];
+    const wantedYear = yearPrefix ? Number(yearPrefix) : null;
+    const wantedSplit = yearPrefix ? splitParts.join(":") : splitName;
+    return deduped.filter((record) => record.split === wantedSplit && (wantedYear === null || record.leagueYear === wantedYear)).slice(0, 1);
+  });
+  const warnings = splitNames.flatMap((splitName) => {
+    const [yearPrefix, ...splitParts] = splitName.includes(":") ? splitName.split(":") : [];
+    const wantedYear = yearPrefix ? Number(yearPrefix) : null;
+    const wantedSplit = yearPrefix ? splitParts.join(":") : splitName;
+    return deduped.some((record) => record.split === wantedSplit && (wantedYear === null || record.leagueYear === wantedYear)) ? [] : ["Completed split Elite Cup record missing."];
+  });
   return {
     completedSplits: splitNames.length,
     expectedEliteCupRecords: splitNames.length,
@@ -127,26 +183,73 @@ export function aggregateEliteCupHistory(records: { split: string; wrestler: str
 export interface LeagueTitleAggregation {
   completedSplits: number;
   expectedLeagueTitleRecords: number;
-  titleRecords: { split: string; league: LeagueName; wrestler: string }[];
+  titleRecords: LegacyTitleRecord[];
   warnings: string[];
 }
 
-export function aggregateLeagueTitleHistory(records: { split: string; league: LeagueName; wrestler: string }[]): LeagueTitleAggregation {
-  const bySplit = new Map<string, { split: string; league: LeagueName; wrestler: string }[]>();
-  for (const record of records) bySplit.set(record.split, [...(bySplit.get(record.split) ?? []), record]);
+export function aggregateLeagueTitleHistory(records: (Partial<LegacyTitleRecord> & { split: string; league: LeagueName; wrestler: string })[]): LeagueTitleAggregation {
+  const deduped = Array.from(new Map(records.map((record) => {
+    const normalized = normalizeTitleRecord(record);
+    return [normalizedIdentity(normalized.leagueYear, normalized.split, normalized.league, normalized.wrestler), normalized] as const;
+  })).values());
+  const bySplit = new Map<string, LegacyTitleRecord[]>();
+  for (const record of deduped) {
+    const splitKey = normalizedIdentity(record.leagueYear, record.split);
+    bySplit.set(splitKey, [...(bySplit.get(splitKey) ?? []), record]);
+  }
   const titleRecords: LeagueTitleAggregation["titleRecords"] = [];
   const warnings: string[] = [];
   for (const splitRecords of bySplit.values()) {
     const uniqueLeagues = new Set(splitRecords.map((record) => record.league));
     if (uniqueLeagues.size === 4) titleRecords.push(...splitRecords.filter((record, index, all) => all.findIndex((candidate) => candidate.league === record.league) === index));
-    else warnings.push(`Completed split has incomplete league winner records: expected 4, found ${uniqueLeagues.size}.`);
+    else warnings.push(`Completed split title aggregation incomplete: expected 4 league title records, found ${uniqueLeagues.size}.`);
   }
-  const completedSplits = new Set(titleRecords.map((record) => record.split)).size;
+  const completedSplits = new Set(titleRecords.map((record) => normalizedIdentity(record.leagueYear, record.split))).size;
   return {
     completedSplits,
     expectedLeagueTitleRecords: completedSplits * 4,
     titleRecords,
     warnings: titleRecords.length === completedSplits * 4 ? warnings : [...warnings, `Legacy title invariant failed: expected ${completedSplits * 4}, found ${titleRecords.length}.`],
+  };
+}
+
+export function applyLegacyHistoryRecords(
+  profiles: LegacyProfile[],
+  titleRecords: LegacyTitleRecord[],
+  eliteCupRecords: LegacyEliteCupRecord[],
+): LegacyProfile[] {
+  const titleCounts = new Map<string, number>();
+  const globalCounts = new Map<string, number>();
+  const cupCounts = new Map<string, number>();
+  for (const record of aggregateLeagueTitleHistory(titleRecords).titleRecords) {
+    titleCounts.set(record.wrestler, (titleCounts.get(record.wrestler) ?? 0) + 1);
+    if (record.league === "Global League") globalCounts.set(record.wrestler, (globalCounts.get(record.wrestler) ?? 0) + 1);
+  }
+  for (const record of aggregateEliteCupHistory(eliteCupRecords).winnerRecords) {
+    cupCounts.set(record.wrestler, (cupCounts.get(record.wrestler) ?? 0) + 1);
+  }
+  return sortLegacyProfiles(profiles.map((profile) => ({
+    ...profile,
+    leagueWinsTotal: Math.max(profile.leagueWinsTotal, titleCounts.get(profile.wrestler) ?? 0),
+    globalChampionWins: Math.max(profile.globalChampionWins, globalCounts.get(profile.wrestler) ?? 0),
+    eliteCupWins: Math.max(profile.eliteCupWins, cupCounts.get(profile.wrestler) ?? 0),
+  })));
+}
+
+export function extractCompletedSplitTitleRecordsFromFinalStandings(
+  standings: StandingRow[],
+  leagueYear: number,
+  split: SplitName,
+  sourceLabel: string,
+): { titleRecords: LegacyTitleRecord[]; warnings: string[] } {
+  const championRows = standings.filter((row) => row.rank === 1 && /champion/i.test(row.status));
+  const byLeague = new Map(championRows.map((row) => [row.league, row]));
+  if (byLeague.size !== 4) {
+    return { titleRecords: [], warnings: [`Completed split title aggregation incomplete: expected 4 league title records, found ${byLeague.size}.`] };
+  }
+  return {
+    titleRecords: LEAGUE_NAMES.map((leagueName) => ({ leagueYear, split, league: leagueName, wrestler: byLeague.get(leagueName)!.wrestler, sourceLabel })),
+    warnings: [],
   };
 }
 
