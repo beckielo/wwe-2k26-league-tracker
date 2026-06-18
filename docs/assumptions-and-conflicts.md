@@ -402,3 +402,12 @@ The following checks found no current-data conflict:
 - Dashboard bout rows no longer render per-match `READY` / result-status badges. Result status may still exist in app state and workflow logic, but the compact Dashboard match list does not show those badges.
 - Prediction labels, calculation explanations, evidence text, form-edge text, and visible confidence labels are internal-only for the compact Dashboard match rows. The Dashboard keeps the essential presentation: bout identifier, wrestler names, win chance bar, and percentage values for both wrestlers.
 - The Current User League Live Table remains paired with the show panel, keeps its full live standings link, and the Social Feed remains below the two primary panels.
+
+## Phase 10.9.4 — Dashboard Match Context and Responsive Table Fit
+
+- The Dashboard `Current User-Controlled Show` now labels scheduled rows as `MATCH 01` through `MATCH 06` for display only; internal schedule/result identifiers remain unchanged.
+- Scheduled wrestler names are prefixed with the current active split rank from the current user league live standings, using `#<rank> Wrestler Name`. If a scheduled wrestler is missing from those standings, the Dashboard shows the wrestler name without inventing a rank.
+- Recent form indicators use only recorded match history: win = 🟩, draw/no contest = ⬜, and loss/DQ loss by official resolved winner/loser fallback = 🟥. Missing history is not padded with fake outcomes.
+- The last direct H2H underline uses authoritative completed history across available years and splits, including earlier current-split weeks. The most recent decisive winner is underlined; draws, no contests, ambiguous results, and no prior direct matchup underline nobody.
+- The current scheduled unplayed match is excluded from previous H2H lookup so the Dashboard does not treat the displayed fixture as its own history.
+- The Current User League Live Table target remains all 12 wrestlers visible at normal desktop 100% browser zoom with no inner vertical or horizontal table scrollbar, preserving rank, wrestler, P/W/D/L, points, and compact status display.

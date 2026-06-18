@@ -4,6 +4,9 @@ import Link from "next/link";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { reconstructActiveSplitLiveStandings } from "@/domain/tracker-state";
 import { generateSocialFeed, predictMatch } from "@/domain/match-predictions";
+import { buildHistoricalResults } from "@/domain/match-history";
+import { getLastHeadToHead } from "@/domain/head-to-head";
+import { getRecentForm } from "@/domain/recent-form";
 import { getWorkflowSummary } from "@/domain/week-progression";
 import { getWeekDisplay } from "@/domain/week-display";
 import type { LeagueName, Match, MatchResult, StandingRow, TrackerMeta, ValidationIssue } from "@/domain/types";
@@ -49,6 +52,9 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
     completedThroughWeek: props.workbookCompletedThroughWeek,
   });
   const userLeagueRows = live.standings.filter((row) => row.league === userLeague).sort((a, b) => a.rank - b.rank);
+  const currentRanks = new Map(userLeagueRows.map((row) => [row.wrestler, row.rank]));
+  const allKnownMatches = [...props.workbookMatches.filter((match) => !matches.some((active) => active.id === match.id)), ...matches];
+  const matchHistory = buildHistoricalResults(allKnownMatches, props.workbookResults, state.confirmedResults);
   const card = matches
     .filter((match) => match.week === yearWeek && match.league === userLeague)
     .sort((a, b) => a.matchNumber - b.matchNumber);
@@ -112,11 +118,22 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
           <Link href="/schedule">Full schedule <span aria-hidden>→</span></Link>
         </header>
         {card.length ? <ol className="fight-card-list fight-card-list-compact">
-          {card.map((match) => <li key={match.id} className="fight-card-bout-compact">
-            <span className="bout-number">Bout {String(match.matchNumber).padStart(2, "0")}</span>
-            <div className="matchup"><strong>{match.wrestlerA}</strong><span>VS</span><strong>{match.wrestlerB}</strong></div>
-            <PredictionStrip prediction={predictMatch(match, live.standings, state.confirmedResults)} />
-          </li>)}
+          {card.map((match) => {
+            const leftForm = getRecentForm(match.wrestlerA, matchHistory).lastOutcomes.map((outcome) => outcome.emoji).join(" ");
+            const rightForm = getRecentForm(match.wrestlerB, matchHistory).lastOutcomes.map((outcome) => outcome.emoji).join(" ");
+            const h2h = getLastHeadToHead(match.wrestlerA, match.wrestlerB, matchHistory, match.id);
+            return <li key={match.id} className="fight-card-bout-compact">
+              <span className="bout-number">MATCH {String(match.matchNumber).padStart(2, "0")}</span>
+              <div className="matchup matchup-context">
+                <span className="form-strip" aria-label={`${match.wrestlerA} recent form`}>{leftForm}</span>
+                <strong className={h2h.shouldUnderlineLeft ? "h2h-last-winner" : undefined}>{formatRankedWrestler(match.wrestlerA, currentRanks.get(match.wrestlerA))}</strong>
+                <span>VS</span>
+                <strong className={h2h.shouldUnderlineRight ? "h2h-last-winner" : undefined}>{formatRankedWrestler(match.wrestlerB, currentRanks.get(match.wrestlerB))}</strong>
+                <span className="form-strip" aria-label={`${match.wrestlerB} recent form`}>{rightForm}</span>
+              </div>
+              <PredictionStrip prediction={predictMatch(match, live.standings, state.confirmedResults)} />
+            </li>;
+          })}
         </ol> : <div className="p-6">
           <EmptyState title="No current card available" description="The control center will display matches only after they are present in the workbook schedule or an explicitly accepted schedule snapshot." />
           <div className="mt-4"><Link href="/schedule-setup" className="action-button action-secondary">Review schedule setup</Link></div>
@@ -128,6 +145,10 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
     <SocialFeed comments={socialFeed} />
     <p className="dashboard-diagnostics-note">Source Warnings remain available in review workflows · Non-blocking · details contained.</p>
   </>;
+}
+
+function formatRankedWrestler(wrestler: string, rank?: number) {
+  return rank ? `#${rank} ${wrestler}` : wrestler;
 }
 
 function PredictionStrip({ prediction }: { prediction: ReturnType<typeof predictMatch> }) {
