@@ -141,6 +141,25 @@ export interface LegacyEliteCupRecord {
   sourceLabel?: string;
 }
 
+export function extractCompletedEliteCupRecordsFromFinalStandings(
+  standings: StandingRow[],
+  leagueYear: number,
+  split: SplitName,
+  sourceLabel: string,
+): { eliteCupRecords: LegacyEliteCupRecord[]; warnings: string[] } {
+  const cupRows = standings.filter((row) => row.league === "Global League" && /champion\s*\+\s*elite cup/i.test(row.status));
+  if (cupRows.length !== 1) {
+    return {
+      eliteCupRecords: [],
+      warnings: [`Completed split Elite Cup record missing: expected 1 winner from final standings status, found ${cupRows.length}.`],
+    };
+  }
+  return {
+    eliteCupRecords: [{ leagueYear, split, eventName: "Global Elite Cup", wrestler: cupRows[0].wrestler, sourceLabel }],
+    warnings: [],
+  };
+}
+
 type LooseEliteCupRecord = Partial<LegacyEliteCupRecord> & { split: string; wrestler: string };
 
 function normalizedIdentity(...parts: (string | number | undefined)[]): string {
