@@ -127,7 +127,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
               <div className="matchup matchup-context">
                 <span className="form-strip" aria-label={`${match.wrestlerA} recent form`}>{leftForm}</span>
                 <strong className={h2h.shouldUnderlineLeft ? "h2h-last-winner" : undefined}>{formatRankedWrestler(match.wrestlerA, currentRanks.get(match.wrestlerA))}</strong>
-                <span>VS</span>
+                <span className="matchup-vs">VS</span>
                 <strong className={h2h.shouldUnderlineRight ? "h2h-last-winner" : undefined}>{formatRankedWrestler(match.wrestlerB, currentRanks.get(match.wrestlerB))}</strong>
                 <span className="form-strip" aria-label={`${match.wrestlerB} recent form`}>{rightForm}</span>
               </div>
@@ -163,11 +163,11 @@ function PredictionStrip({ prediction }: { prediction: ReturnType<typeof predict
 function UserLeagueLiveTable({ league, rows }: { league: LeagueName; rows: StandingRow[] }) {
   return <section className={`dashboard-live-table dashboard-equal-panel league-${LEAGUE_VISUALS[league].key}`} aria-labelledby="dashboard-live-table-title">
     <header>
-      <div className="dashboard-live-table-title"><LeagueBrandMark league={league} usage="compact" /><span><p className="broadcast-kicker">Current user league live table</p><h2 id="dashboard-live-table-title">{league}</h2></span></div>
+      <div className="dashboard-live-table-title"><LeagueBrandMark league={league} usage="compact" /><span><span className="dashboard-live-table-heading-pill"><p className="broadcast-kicker">Current user table</p><h2 id="dashboard-live-table-title">{league}</h2></span></span></div>
       <Link href="/live-standings">Full Live Standings <span aria-hidden>→</span></Link>
     </header>
     <div className="dashboard-live-table-wrap dashboard-live-table-wrap-compact"><table className="dashboard-live-table-compact">
-      <thead><tr><th>#</th><th>Wrestler</th><th>P</th><th>W</th><th>D</th><th>L</th><th>Pts</th><th>Status</th></tr></thead>
+      <thead><tr><th>#</th><th>Wrestler</th><th>M</th><th>W</th><th>D</th><th>L</th><th>Pts</th><th>Status</th></tr></thead>
       <tbody>{rows.map((row) => <tr key={row.wrestler} className={`placement-${placementZone(row.rank, league)}`}>
         <td>{row.rank}</td><td><strong>{row.wrestler}</strong></td><td>{row.matches}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td><td><strong>{row.points}</strong></td><td><span className="zone-pill">{placementLabel(league, row.rank)}</span></td>
       </tr>)}</tbody>

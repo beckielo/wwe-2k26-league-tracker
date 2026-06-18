@@ -10,7 +10,7 @@ describe("Phase 10.9.5 dashboard user league live table fill polish", () => {
 
     expect(dashboard).toContain("<tbody>{rows.map((row) =>");
     expect(dashboard).not.toContain("rows.slice");
-    expect(dashboard).toContain("<th>#</th><th>Wrestler</th><th>P</th><th>W</th><th>D</th><th>L</th><th>Pts</th><th>Status</th>");
+    expect(dashboard).toContain("<th>#</th><th>Wrestler</th><th>M</th><th>W</th><th>D</th><th>L</th><th>Pts</th><th>Status</th>");
     expect(dashboard).toContain("placementLabel(league, row.rank)");
   });
 
