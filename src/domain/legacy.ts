@@ -186,11 +186,24 @@ function normalizeEliteCupRecord(record: LooseEliteCupRecord): LegacyEliteCupRec
   };
 }
 
+function isManualCorrectionSource(sourceLabel?: string): boolean {
+  return /manual historical correction|manual correction/i.test(sourceLabel ?? "");
+}
+
+function preferEliteCupRecord(existing: LegacyEliteCupRecord | undefined, candidate: LegacyEliteCupRecord): LegacyEliteCupRecord {
+  if (!existing) return candidate;
+  if (isManualCorrectionSource(existing.sourceLabel) && !isManualCorrectionSource(candidate.sourceLabel)) return candidate;
+  return existing;
+}
+
 export function aggregateEliteCupHistory(records: LooseEliteCupRecord[], completedSplits?: string[]): EliteCupAggregation {
-  const deduped = Array.from(new Map(records.map((record) => {
+  const byIdentity = new Map<string, LegacyEliteCupRecord>();
+  for (const record of records) {
     const normalized = normalizeEliteCupRecord(record);
-    return [normalizedIdentity(normalized.leagueYear, normalized.split, normalized.eventName, normalized.wrestler), normalized] as const;
-  })).values());
+    const key = normalizedIdentity(normalized.leagueYear, normalized.split, normalized.eventName, normalized.wrestler);
+    byIdentity.set(key, preferEliteCupRecord(byIdentity.get(key), normalized));
+  }
+  const deduped = Array.from(byIdentity.values());
   const splitNames = completedSplits ?? Array.from(new Set(deduped.map((record) => `${record.leagueYear}:${record.split}`)));
   const winnerRecords = splitNames.flatMap((splitName) => {
     const [yearPrefix, ...splitParts] = splitName.includes(":") ? splitName.split(":") : [];
