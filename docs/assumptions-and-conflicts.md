@@ -466,3 +466,11 @@ The following checks found no current-data conflict:
 - Elite Cup deduplication continues to use league year, split/event window, event identity/name, and winner, so this manual Roman Reigns record is not counted twice if an automatic source later exposes the same result.
 - If an automatic source and the manual fallback both expose the same Roman Reigns LY2 Opening Split Elite Cup record, the aggregation counts one record and prefers the automatic source label over the manual fallback label.
 - No other historical results, League Finals outcomes, league title records, live standings, current split standings, schedules, simulations, result entry flows, workbook writeback data, or source workbook content were invented or altered.
+
+## Phase 10.10.5 — Legacy Manual Elite Cup Propagation Fix
+
+- The user-confirmed Roman Reigns League Year 2 Opening Split Elite Cup correction now enters the canonical Elite Cup aggregation before final normalization and deduplication, alongside automatic/fallback Elite Cup records.
+- Elite Cup event aliases such as Elite Cup, Global Elite Cup, League Finals Elite Cup, and Global League Elite Cup normalize to the same event identity for deduplication, and wrestler names are whitespace-normalized so the correction attaches to the existing Roman Reigns profile rather than creating a second identity.
+- Summary card totals, wrestler Legacy profile stats, Legacy table row values, and commentary all use the same canonical deduplicated Elite Cup records list produced by the legacy aggregation pipeline.
+- Existing Legacy_Tracker Elite Cup totals remain source-backed historical records, so Gunther keeps his existing Elite Cup while Roman Reigns receives the confirmed LY2 Opening Split correction.
+- No additional Elite Cup, Global title, league title, or other records were invented.
