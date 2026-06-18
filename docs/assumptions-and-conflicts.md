@@ -440,3 +440,12 @@ The following checks found no current-data conflict:
 - Completed split invariants remain fact-only: a completed split contributes exactly four league title records when all four league winners are finalized, and one Elite Cup record when the completed event has a recorded winner. If those facts are incomplete, the UI reports diagnostics rather than inventing champions or cup winners.
 - Tier B commentary now includes a compact evidence-based explanation of why the wrestler is Tier B, what is missing for Tier A/S consideration, and the most likely recorded achievement path upward. Tier A/S keeps the expanded premium journalist treatment, while Tier C/D remains minimal.
 - No invented achievements are allowed: missing league titles, Global titles, Elite Cup wins, invincible runs, draws/losses, or winning streaks must remain absent until an authoritative source records them.
+
+## Phase 10.10.2 — Legacy Completed Split Audit, Source Fallback & Commentary Diversity Fix
+- Legacy completed split ingestion now has an internal source audit that records detected completed splits, title records, Elite Cup records, duplicate removal, checked sources, and missing-record diagnostics.
+- `Legacy_Tracker` remains a valid historical source, but it is not sufficient by itself when completed Post-Finals/final standings or League Finals history exists elsewhere. Completed Post-Finals/final standings can contribute the LY2 Opening Split league title records; active Closing Split matches are not counted as completed legacy records.
+- Completed split invariants remain `completedSplits × 4 = expected league title records` and `completedSplits × 1 = expected Elite Cup records` when each completed split has a completed Elite Cup event.
+- League title records deduplicate by `leagueYear + split + league + winner`; Elite Cup records deduplicate by `leagueYear + split/event window + event name + winner`.
+- If a completed split is detected but title or Elite Cup records are missing, the Legacy page shows compact source diagnostics with source counts rather than silently presenting incomplete totals as final truth.
+- Tier B commentary now uses deterministic journalist profiles with varied championship-first, big-event, dominance, consistency, storyline, and skeptical résumé viewpoints while referencing only recorded stats and explaining the missing Tier A/S proof.
+- The old GOAT explanatory text from the workbook policy row is intentionally not rendered on the Legacy page to keep the page cleaner.

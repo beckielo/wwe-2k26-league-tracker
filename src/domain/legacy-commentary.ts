@@ -172,10 +172,18 @@ function excerpt(text: string): string {
   return firstSentence.length <= 118 ? firstSentence : `${firstSentence.slice(0, 115).trimEnd()}…`;
 }
 
+function tierBProfile(profile: LegacyProfile): LegacyCommentary["voice"] {
+  const voices = ["Championship-first analyst", "Big-event analyst", "Dominance analyst", "Consistency analyst", "Promotion/storyline analyst", "Skeptical columnist"] as const;
+  return pick(profile, "tier-b-journalist", voices);
+}
+
 function tierBCommentary(profile: LegacyProfile, category: LegacyCommentaryCategory): string {
   const proof: string[] = [];
   if (profile.leagueWinsTotal > 0) proof.push(`${profile.leagueWinsTotal} recorded league ${profile.leagueWinsTotal === 1 ? "title" : "titles"}`);
+  if (profile.globalChampionWins > 0) proof.push(`${profile.globalChampionWins} Global ${profile.globalChampionWins === 1 ? "title" : "titles"}`);
+  if (profile.eliteCupWins > 0) proof.push(`${profile.eliteCupWins} Elite Cup ${profile.eliteCupWins === 1 ? "win" : "wins"}`);
   if (profile.longestWinStreakOverall >= 7) proof.push(`a ${profile.longestWinStreakOverall}-match winning streak`);
+  if (profile.invincibleSplits > 0) proof.push(`${profile.invincibleSplits} complete invincible ${profile.invincibleSplits === 1 ? "split" : "splits"}`);
   if (profile.invincibleHinrunden > 0) proof.push(`${profile.invincibleHinrunden} invincible Hinrunde ${profile.invincibleHinrunden === 1 ? "run" : "runs"}`);
   if (profile.invincibleRueckrunden > 0) proof.push(`${profile.invincibleRueckrunden} invincible Rückrunde ${profile.invincibleRueckrunden === 1 ? "run" : "runs"}`);
   if (proof.length === 0) proof.push(`a ${legacyScore(profile)}-point résumé with ${profile.currentLeague} context`);
@@ -184,28 +192,33 @@ function tierBCommentary(profile: LegacyProfile, category: LegacyCommentaryCateg
   if (profile.eliteCupWins === 0) missing.push("an Elite Cup win");
   if (profile.invincibleSplits === 0) missing.push("a complete invincible split");
   if (profile.leagueWinsTotal < 2) missing.push("repeated title-level performance across completed splits");
-  const upward = profile.currentLeague !== "Global League"
-    ? `The cleanest path upward is converting that record into Global League proof, then adding either a top title or Elite Cup result.`
+  const voice = tierBProfile(profile);
+  const proofLine = proof.slice(0, 3).join(proof.length > 2 ? ", " : " and ");
+  const missingLine = missing.slice(0, 3).join(missing.length > 2 ? ", " : " or ");
+  const path = profile.currentLeague !== "Global League"
+    ? "moving that production into the Global League and backing it with a recorded trophy"
     : profile.leagueWinsTotal > 0
-      ? `The most direct promotion case would be another completed-split title, especially if it comes with Global or Elite Cup proof.`
-      : `The most direct promotion case would be turning the form marker into a recorded title or cup result.`;
-  const openers = [
-    `${profile.wrestler} has a credible Tier B résumé because the archive already includes ${proof.join(" and ")}.`,
-    `Tier B fits ${profile.wrestler} right now: the recorded case is built on ${proof.join(" plus ")}.`,
-    `${profile.wrestler}'s Tier B status is evidence-backed, led by ${proof.join(" and ")}.`,
-  ];
-  const gap = `What is missing for Tier A or Tier S is ${missing.slice(0, 4).join(", ")}.`;
-  const categoryTail = category === "Streak-Based Threat"
-    ? `The streak matters, but the tracker does not convert it into silverware that is not recorded.`
-    : `That keeps the note meaningful without inflating the résumé beyond recorded achievements.`;
-  return `${pick(profile, "tier-b-open", openers)} ${gap} ${upward} ${categoryTail}`;
+      ? "adding another completed-split title, an Elite Cup result, or an unbeaten split"
+      : "turning the form marker into a recorded title, cup, or unbeaten split";
+  const templates: Record<LegacyCommentary["voice"], string> = {
+    "Championship-first analyst": `Tier B is the right shelf for ${profile.wrestler}: the title file shows ${proofLine}, but the championship ceiling is not proven enough yet. The missing Tier A/S proof is ${missingLine}; the fastest rewrite is ${path}.`,
+    "Big-event analyst": `${profile.wrestler} has a credible file, not yet an elite one, because the archive points to ${proofLine}. The missing separator is ${missingLine}, so a future Global title, Elite Cup run, or finals-level breakthrough would change the tone immediately.`,
+    "Dominance analyst": `The argument for ${profile.wrestler} begins with control: ${proofLine}. The next step is not volume; it is proof at a higher level, especially ${missingLine}, with ${path} doing the most work for an upgrade.`,
+    "Consistency analyst": `${profile.wrestler}'s résumé has shape through ${proofLine}, which explains Tier B without stretching the evidence. To climb, the tracker needs ${missingLine}; repeated title-level splits would matter more than another ordinary stat line.`,
+    "Promotion/storyline analyst": `Right now ${profile.wrestler} reads as an upward-moving Tier B story built on ${proofLine}. The story still lacks ${missingLine}, and ${path} is the achievement route that would make the next tier feel earned.`,
+    "Skeptical columnist": `Tier B is generous but defensible for ${profile.wrestler} because ${proofLine} is on record. Before Tier A or Tier S, the file needs ${missingLine}; until then, the tracker should resist treating promise as proof.`,
+  };
+  const tail = category === "Streak-Based Threat"
+    ? "The streak is real evidence, but it is not counted as silverware."
+    : "Every claim here stays tied to recorded fields only.";
+  return `${templates[voice]} ${tail}`;
 }
 
 export function generateLegacyCommentary(profile: LegacyProfile): LegacyCommentary {
   const category = topics(profile)[0].category;
   const tags = evidence(profile);
   const tier = profile.legacyTier ?? legacyTier(profile);
-  const voice = pick(profile, "voice", ["Championship-first analyst", "Big-event analyst", "Dominance analyst", "Consistency analyst", "Promotion/storyline analyst", "Skeptical columnist"] as const);
+  const voice = tier === "B" ? tierBProfile(profile) : pick(profile, "voice", ["Championship-first analyst", "Big-event analyst", "Dominance analyst", "Consistency analyst", "Promotion/storyline analyst", "Skeptical columnist"] as const);
   const c = profile.checkpoints;
   const primary: Record<LegacyCommentaryCategory, readonly string[]> = {
     "Global Championship Standard": [
