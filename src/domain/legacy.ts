@@ -89,6 +89,18 @@ export interface LegacySummary {
 }
 
 export interface LegacySourceAudit { source: string; leagueTitleRecords: number; eliteCupRecords: number; notes: string[]; }
+export interface CanonicalEliteCupEventSlot extends LegacyEliteCupRecord {
+  slotKey: string;
+  sourceLabels: string[];
+}
+
+export interface LegacyEliteCupCandidateAudit {
+  rawCandidateCount: number;
+  canonicalEventSlotCount: number;
+  slots: CanonicalEliteCupEventSlot[];
+  conflicts: string[];
+}
+
 export interface LegacyCompletedSplitAudit {
   detectedCompletedSplits: string[];
   leagueTitleRecords: LegacyTitleRecord[];
@@ -96,6 +108,7 @@ export interface LegacyCompletedSplitAudit {
   duplicateRecordsRemoved: number;
   sources: LegacySourceAudit[];
   diagnostics: string[];
+  eliteCupCandidateAudit?: LegacyEliteCupCandidateAudit;
 }
 
 
@@ -123,6 +136,10 @@ export interface EliteCupAggregation {
   expectedEliteCupRecords: number;
   winnerRecords: LegacyEliteCupRecord[];
   warnings: string[];
+  rawCandidateCount: number;
+  canonicalEventSlotCount: number;
+  eventSlots: CanonicalEliteCupEventSlot[];
+  conflicts: string[];
 }
 
 export interface LegacyTitleRecord {
@@ -212,7 +229,6 @@ export function canonicalEliteCupRecordKey(record: LooseEliteCupRecord): string 
     normalized.leagueYear,
     normalized.split,
     normalizeEliteCupEventIdentity(normalized.eventName),
-    normalizeWrestlerIdentity(normalized.wrestler),
   );
 }
 
@@ -243,31 +259,57 @@ export function inspectCanonicalEliteCupRecordDuplicates(records: LooseEliteCupR
 }
 
 export function aggregateEliteCupHistory(records: LooseEliteCupRecord[], completedSplits?: string[]): EliteCupAggregation {
-  const byIdentity = new Map<string, LegacyEliteCupRecord>();
+  const bySlot = new Map<string, LegacyEliteCupRecord[]>();
   for (const record of records) {
     const normalized = normalizeEliteCupRecord(record);
     const key = canonicalEliteCupRecordKey(normalized);
-    byIdentity.set(key, preferEliteCupRecord(byIdentity.get(key), normalized));
+    bySlot.set(key, [...(bySlot.get(key) ?? []), normalized]);
   }
-  const deduped = Array.from(byIdentity.values());
-  const splitNames = completedSplits ?? Array.from(new Set(deduped.map((record) => `${record.leagueYear}:${record.split}`)));
+
+  const eventSlots: CanonicalEliteCupEventSlot[] = [];
+  const conflicts: string[] = [];
+  for (const [slotKey, slotRecords] of bySlot.entries()) {
+    const byWinner = new Map<string, LegacyEliteCupRecord[]>();
+    for (const record of slotRecords) {
+      const winnerKey = normalizedIdentity(normalizeWrestlerIdentity(record.wrestler));
+      byWinner.set(winnerKey, [...(byWinner.get(winnerKey) ?? []), record]);
+    }
+    if (byWinner.size > 1) {
+      const sample = slotRecords[0];
+      conflicts.push(`Elite Cup event slot conflict: ${sample.leagueYear} ${sample.split} ${normalizeEliteCupEventIdentity(sample.eventName)} has conflicting winners (${Array.from(new Set(slotRecords.map((record) => record.wrestler))).join(" vs ")}).`);
+      continue;
+    }
+    const canonicalRecord = slotRecords.reduce((existing, candidate) => preferEliteCupRecord(existing, candidate));
+    eventSlots.push({
+      ...canonicalRecord,
+      slotKey,
+      sourceLabels: Array.from(new Set(slotRecords.map((record) => record.sourceLabel ?? "unknown source"))),
+    });
+  }
+
+  const splitNames = completedSplits ?? Array.from(new Set(eventSlots.map((record) => `${record.leagueYear}:${record.split}`)));
   const winnerRecords = splitNames.flatMap((splitName) => {
     const [yearPrefix, ...splitParts] = splitName.includes(":") ? splitName.split(":") : [];
     const wantedYear = yearPrefix ? Number(yearPrefix) : null;
     const wantedSplit = yearPrefix ? splitParts.join(":") : splitName;
-    return deduped.filter((record) => record.split === wantedSplit && (wantedYear === null || record.leagueYear === wantedYear));
+    return eventSlots.filter((record) => record.split === wantedSplit && (wantedYear === null || record.leagueYear === wantedYear));
   });
   const warnings = splitNames.flatMap((splitName) => {
     const [yearPrefix, ...splitParts] = splitName.includes(":") ? splitName.split(":") : [];
     const wantedYear = yearPrefix ? Number(yearPrefix) : null;
     const wantedSplit = yearPrefix ? splitParts.join(":") : splitName;
-    return deduped.some((record) => record.split === wantedSplit && (wantedYear === null || record.leagueYear === wantedYear)) ? [] : ["Completed split Elite Cup record missing."];
+    return eventSlots.some((record) => record.split === wantedSplit && (wantedYear === null || record.leagueYear === wantedYear)) ? [] : ["Completed split Elite Cup record missing."];
   });
+  const completedSplitWarnings = winnerRecords.length === splitNames.length ? warnings : [...warnings, `Completed split Elite Cup aggregation incomplete: expected ${splitNames.length} Elite Cup winner records, found ${winnerRecords.length}.`];
   return {
     completedSplits: splitNames.length,
     expectedEliteCupRecords: splitNames.length,
     winnerRecords,
-    warnings: winnerRecords.length === splitNames.length ? warnings : [...warnings, `Completed split Elite Cup aggregation incomplete: expected ${splitNames.length} Elite Cup winner records, found ${winnerRecords.length}.`],
+    warnings: [...completedSplitWarnings, ...conflicts],
+    rawCandidateCount: records.length,
+    canonicalEventSlotCount: winnerRecords.length,
+    eventSlots,
+    conflicts,
   };
 }
 
@@ -343,6 +385,12 @@ export function auditLegacyCompletedSplitSources(sources: LegacyCompletedSplitSo
     duplicateRecordsRemoved,
     sources: checkedSources,
     diagnostics: Array.from(new Set(diagnostics)),
+    eliteCupCandidateAudit: {
+      rawCandidateCount: cupAggregation.rawCandidateCount,
+      canonicalEventSlotCount: cupAggregation.canonicalEventSlotCount,
+      slots: cupAggregation.eventSlots,
+      conflicts: cupAggregation.conflicts,
+    },
   };
 }
 
@@ -375,7 +423,7 @@ export function applyLegacyHistoryRecords(
     ...profile,
     leagueWinsTotal: Math.max(profile.leagueWinsTotal, titleCounts.get(profile.wrestler) ?? 0),
     globalChampionWins: Math.max(profile.globalChampionWins, globalCounts.get(profile.wrestler) ?? 0),
-    eliteCupWins: eliteCupRecords.length > 0 ? (cupCounts.get(profile.wrestler) ?? 0) : profile.eliteCupWins,
+    eliteCupWins: cupCounts.get(profile.wrestler) ?? 0,
   })));
 }
 
