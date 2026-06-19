@@ -514,3 +514,10 @@ The first implementation slice should:
 7. Add explicit warnings for genuinely unresolved rules and stale table ranges; do not warn that the active League Year 2 calendar, double round robin, or tiebreak order conflicts with the historical PDF.
 
 **Acceptance criteria for the first step:** the package can ingest the current master, report zero roster/schedule/result/points errors for the verified baseline, report only the remaining structural/rule warnings, and return the National League Week 14 matchups solely from the authoritative workbook reference. No UI, fixture generator, result editor, or workbook writer should be included yet.
+
+## Phase 11.1C — Standings Layout Alignment Polish
+
+- This phase is a pure UI polish pass; standings calculations, source reconstruction, week review flow, lock/promote behavior, dashboard data, and live standings data logic were intentionally left unchanged.
+- Mini Standings Preview league cards now share equalized card structure and row spacing so the 2x2 preview grid feels balanced without awkward bottom dead space.
+- The Dashboard Current User Table retains the Full Live Standings pill styling while removing the arrow from the link label.
+- Full Live Standings league cards now stretch consistently within the 2x2 grid, use a standardized header/table structure, and reduce excess vertical space inside the cards.
