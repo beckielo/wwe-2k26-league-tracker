@@ -211,7 +211,7 @@ Review before editing. </div>
             <label
               key={name}
               className={
-                "cursor-pointer border p-4 font-bold transition " +
+                "cursor-pointer rounded-lg border p-4 font-bold transition " +
                 (effectiveWinner === name
                   ? "border-red-400 bg-red-400/10"
                   : "border-white/10 bg-white/[.02] hover:border-white/25")
