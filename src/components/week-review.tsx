@@ -67,14 +67,15 @@ const progress = summary.progress;
 const latestLockedWeek = summary.latestLockedWeek;
 
 const activeSplit = state.activeWorkflow?.split ?? split;
-const activeSplitWeek = latestLockedWeek !== null && activeSplit === "Closing Split" ? Math.max(1, latestLockedWeek - 24) : latestLockedWeek;
+const miniStandingsCompletedThroughWeek = latestLockedWeek ?? workbookCurrentWeek;
+const activeSplitWeek = activeSplit === "Closing Split" ? Math.max(1, miniStandingsCompletedThroughWeek - 24) : miniStandingsCompletedThroughWeek;
 const liveStandings = reconstructActiveSplitLiveStandings({
 previousFinalStandings: baselineStandings,
 scheduledMatches: workflowMatches,
 masterResults: workbookResults,
-localResults: state.confirmedResults,
+localResults: state.confirmedResults.filter((result) => result.week <= miniStandingsCompletedThroughWeek),
 split: activeSplit,
-completedThroughWeek: workbookCurrentWeek,
+completedThroughWeek: miniStandingsCompletedThroughWeek,
 });
 const updatedStandings = liveStandings.standings;
 const localMatchResults = state.confirmedResults.map((result): MatchResult => {
@@ -290,83 +291,6 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
     </section>
   )}
 
-  {latestLockedWeek !== null && (
-    <div className="flex flex-col justify-between gap-4 border border-emerald-400/30 bg-emerald-400/10 p-5 sm:flex-row sm:items-center">
-      <div>
-        <p className="font-black uppercase text-emerald-200">
-          Week {latestLockedWeek} is complete and locked
-        </p>
-        <p className="mt-1 text-sm text-slate-300">
-          Its results are protected from edits. Progression and standings
-          are local app-state only; Excel remains unchanged.
-        </p>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => unlock(latestLockedWeek)}
-        className="border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-amber-200"
-      >
-        Unlock Week {latestLockedWeek} with warning
-      </button>
-    </div>
-  )}
-  {progress && (
-    <div className="border border-white/10 bg-[#111722] p-5">
-        <div className="flex flex-col justify-between gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-center">
-          <div>
-            <p className="font-black uppercase">Close Week {week}</p>
-            <p className="mt-1 text-sm text-slate-400">
-              {progress.status === "complete-unlocked"
-                ? "All validation passed. Locking protects these results and advances the workflow."
-                : "Locking stays disabled until all 24 authoritative results pass validation."}
-            </p>
-          </div>
-
-          <button
-            disabled={progress.status !== "complete-unlocked"}
-            onClick={markComplete}
-            className="bg-emerald-500 px-5 py-4 text-xs font-black uppercase tracking-wider text-white disabled:cursor-not-allowed disabled:opacity-35"
-          >
-            Complete & lock Week {week}
-          </button>
-        </div>
-
-        <div className="mt-5 flex flex-wrap gap-3">
-          <Link
-            href="/results"
-            className="border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300"
-          >
-            Result Entry
-          </Link>
-
-          <Link
-            href="/simulation"
-            className="border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300"
-          >
-            Simulation
-          </Link>
-
-          <StateControls
-            downloadExport={downloadExport}
-            importInput={importInput}
-            importFile={importFile}
-            reset={reset}
-          />
-        </div>
-      </div>
-  )}
-
-  <PromoteCurrentMaster
-    state={state}
-    allMatches={workflowMatches}
-    baselineStandings={baselineStandings}
-    userLeague={workflowUserLeague}
-    workbookCompletedThroughWeek={workbookCurrentWeek}
-    source={sourceFile}
-    promptPreview={<MiniLiveStandingsPreview standings={updatedStandings} split={activeSplit} splitWeek={activeSplitWeek} latestLockedWeek={latestLockedWeek} />}
-  />
-
   {progress ? (
     <>
       <div className="border border-white/10 bg-[#111722] p-5">
@@ -451,6 +375,83 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
     </div>
   )}
 
+  {latestLockedWeek !== null && (
+    <div className="flex flex-col justify-between gap-4 border border-emerald-400/30 bg-emerald-400/10 p-5 sm:flex-row sm:items-center">
+      <div>
+        <p className="font-black uppercase text-emerald-200">
+          Week {latestLockedWeek} is complete and locked
+        </p>
+        <p className="mt-1 text-sm text-slate-300">
+          Its results are protected from edits. Progression and standings
+          are local app-state only; Excel remains unchanged.
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => unlock(latestLockedWeek)}
+        className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-amber-200"
+      >
+        Unlock Week {latestLockedWeek} with warning
+      </button>
+    </div>
+  )}
+  {progress && (
+    <div className="border border-white/10 bg-[#111722] p-5">
+        <div className="flex flex-col justify-between gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-center">
+          <div>
+            <p className="font-black uppercase">Close Week {week}</p>
+            <p className="mt-1 text-sm text-slate-400">
+              {progress.status === "complete-unlocked"
+                ? "All validation passed. Locking protects these results and advances the workflow."
+                : "Locking stays disabled until all 24 authoritative results pass validation."}
+            </p>
+          </div>
+
+          <button
+            disabled={progress.status !== "complete-unlocked"}
+            onClick={markComplete}
+            className="rounded-lg bg-emerald-500 px-5 py-4 text-xs font-black uppercase tracking-wider text-white disabled:cursor-not-allowed disabled:opacity-35"
+          >
+            Complete & lock Week {week}
+          </button>
+        </div>
+
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Link
+            href="/results"
+            className="rounded-lg border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300"
+          >
+            Result Entry
+          </Link>
+
+          <Link
+            href="/simulation"
+            className="rounded-lg border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300"
+          >
+            Simulation
+          </Link>
+
+          <StateControls
+            downloadExport={downloadExport}
+            importInput={importInput}
+            importFile={importFile}
+            reset={reset}
+          />
+        </div>
+      </div>
+  )}
+
+  <PromoteCurrentMaster
+    state={state}
+    allMatches={workflowMatches}
+    baselineStandings={baselineStandings}
+    userLeague={workflowUserLeague}
+    workbookCompletedThroughWeek={workbookCurrentWeek}
+    source={sourceFile}
+    promptPreview={<MiniLiveStandingsPreview standings={updatedStandings} split={activeSplit} splitWeek={activeSplitWeek} latestLockedWeek={latestLockedWeek} />}
+  />
+
   <div className="flex flex-col gap-2 text-xs text-slate-500 sm:flex-row sm:justify-between">
     <span>
       Last export:{" "}
@@ -491,7 +492,7 @@ return (
         <h2 className="mt-1 text-xl font-black uppercase">Mini standings preview</h2>
         <p className="mt-1 text-xs text-slate-400">{split}{splitWeek ? ` · Split Week ${splitWeek}` : ""}{latestLockedWeek ? ` · updated through locked Year Week ${latestLockedWeek}` : ""}</p>
       </div>
-      <Link href="/live-standings" className="border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">Full Live Standings <span aria-hidden>→</span></Link>
+      <Link href="/live-standings" className="rounded-lg border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">Full Live Standings <span aria-hidden>→</span></Link>
     </div>
     <div className="mt-4 grid gap-4 xl:grid-cols-4">
       {LEAGUE_NAMES.map((league) => {
@@ -540,13 +541,13 @@ reset: () => void;
 return (
 <> <button
      onClick={downloadExport}
-     className="border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300"
+     className="rounded-lg border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300"
    >
 Export JSON </button>
 
   <button
     onClick={() => importInput.current?.click()}
-    className="border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300"
+    className="rounded-lg border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300"
   >
     Import JSON
   </button>
@@ -561,7 +562,7 @@ Export JSON </button>
 
   <button
     onClick={reset}
-    className="ml-auto border border-red-400/30 bg-red-400/5 px-4 py-3 text-xs font-black uppercase tracking-wider text-red-300"
+    className="rounded-lg ml-auto border border-red-400/30 bg-red-400/5 px-4 py-3 text-xs font-black uppercase tracking-wider text-red-300"
   >
     Reset local tracker state
   </button>

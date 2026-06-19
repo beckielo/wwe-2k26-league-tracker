@@ -65,21 +65,21 @@ export function WorkflowSummaryBanner({
 
         <div className="flex flex-wrap gap-3 xl:justify-end">
           {summary.recommendedAction !== "complete" && (
-            <Link href={summary.recommendedHref} className="bg-red-500 px-5 py-3 text-xs font-black uppercase tracking-[.14em] text-white">
+            <Link href={summary.recommendedHref} className="rounded-lg bg-red-500 px-5 py-3 text-xs font-black uppercase tracking-[.14em] text-white">
               {summary.recommendedLabel} →
             </Link>
           )}
           {summary.activeWeek !== null && (
             <>
               {summary.recommendedHref !== "/results" && (
-                <Link href="/results" className="border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">
+                <Link href="/results" className="rounded-lg border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">
                   Enter {workflowUserLeague} Results
                 </Link>
               )}
-              <Link href="/simulation" className="border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">Simulation</Link>
+              <Link href="/simulation" className="rounded-lg border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">Simulation</Link>
             </>
           )}
-          <Link href="/week-review" className="border border-emerald-400/30 px-4 py-3 text-xs font-black uppercase tracking-wider text-emerald-300">Week Review</Link>
+          <Link href="/week-review" className="rounded-lg border border-emerald-400/30 px-4 py-3 text-xs font-black uppercase tracking-wider text-emerald-300">Week Review</Link>
         </div>
       </div>
       <div className="border-t border-white/10 bg-black/20 px-6 py-3 text-xs text-slate-500">
@@ -99,7 +99,7 @@ function Badge({
   tone?: "default" | "warning";
 }) {
   return (
-    <span className={`border px-3 py-2 ${tone === "warning" ? "border-amber-400/30 bg-amber-400/10 text-amber-200" : "border-white/10 bg-white/[.03] text-slate-300"}`}>
+    <span className={`rounded-lg border px-3 py-2 ${tone === "warning" ? "border-amber-400/30 bg-amber-400/10 text-amber-200" : "border-white/10 bg-white/[.03] text-slate-300"}`}>
       <span className="text-slate-600">{label}:</span> {value}
     </span>
   );
