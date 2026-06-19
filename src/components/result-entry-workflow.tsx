@@ -168,7 +168,7 @@ return (
 
         <Link
           href={summary.recommendedHref}
-          className="inline-block bg-red-500 px-4 py-3 text-xs font-black uppercase tracking-wider text-white"
+          className="inline-block rounded-lg bg-red-500 px-4 py-3 text-xs font-black uppercase tracking-wider text-white"
         >
           {summary.recommendedLabel} →
         </Link>

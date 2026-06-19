@@ -521,3 +521,11 @@ The first implementation slice should:
 - Mini Standings Preview league cards now share equalized card structure and row spacing so the 2x2 preview grid feels balanced without awkward bottom dead space.
 - The Dashboard Current User Table retains the Full Live Standings pill styling while removing the arrow from the link label.
 - Full Live Standings league cards now stretch consistently within the 2x2 grid, use a standardized header/table structure, and reduce excess vertical space inside the cards.
+
+
+## Phase 11.1D — Live Standings Alignment + Results Button Radius Fix
+
+- This phase is UI-only and intentionally does not change standings logic, data-source logic, simulation logic, result logic, workflow logic, week-review logic, or dashboard logic.
+- Full Live Standings league cards now keep a cleaner, consistent 2x2 grid so Global aligns with Continental and National aligns with Regional while preserving existing card sizing and spacing language.
+- Result Entry winner selection boxes now use the site rounded-corner language.
+- The Weekly Workflow action button on Result Entry now uses the same rounded-corner treatment while preserving its color, size, and placement.
