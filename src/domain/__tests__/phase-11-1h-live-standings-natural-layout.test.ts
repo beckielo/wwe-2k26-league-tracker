@@ -25,9 +25,12 @@ describe("Phase 11.1I full Live Standings equal card layout", () => {
 
     expect(component).toContain("full-live-standings league-${visual.key}");
     expect(component).toContain("full-live-standings-row placement-${zone}");
-    expect(css).toContain("grid-template-columns:50px minmax(150px,1fr) repeat(4,40px) 62px minmax(230px,.95fr)");
-    expect(css).toContain(".live-table th:last-child,.live-table td:last-child { min-width:230px; overflow:visible; }");
-    expect(css).toContain(".full-live-standings .zone-pill { flex:0 1 auto; min-width:0; overflow:visible; }");
+    expect(css).toContain("grid-template-columns:44px minmax(94px,1fr) repeat(4,30px) 54px minmax(220px,.9fr)");
+    expect(css).toContain(".live-table th:last-child,.live-table td:last-child { min-width:0; overflow:visible; }");
+    expect(css).toContain("overflow:hidden; }.live-table { display:grid; flex:1 1 auto;");
+    expect(css).toContain(".full-live-standings .zone-pill { flex:0 1 auto; min-width:0; overflow:visible; white-space:normal; text-align:center; }");
+    expect(component).toContain('<th title="Matches played">M</th>');
+    expect(component).not.toContain('<th title="Matches played">P</th>');
     expect(css).not.toContain(".mini-standings-table-wrap { --live-standings-row-height");
     expect(css).not.toContain(".dashboard-live-table-wrap{--live-standings-row-height");
   });
