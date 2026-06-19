@@ -36,7 +36,7 @@ const legend = [
 function LeagueTable({ league, rows, userLeague }: { league: LeagueName; rows: StandingRow[]; userLeague: LeagueName }) {
   const visual = LEAGUE_VISUALS[league];
   const isUserLeague = league === userLeague;
-  return <section className={`live-league-panel league-${visual.key}${isUserLeague ? " is-user-league" : ""}`} aria-label={`${league} live standings`}>
+  return <section className={`live-league-panel full-live-standings league-${visual.key}${isUserLeague ? " is-user-league" : ""}`} aria-label={`${league} live standings`}>
     <header className="live-league-header">
       <LeagueDecorativeArt league={league} className="live-league-decoration" />
       <LeagueBrandMark league={league} usage="watermark" className="live-league-watermark" />
@@ -52,7 +52,7 @@ function LeagueTable({ league, rows, userLeague }: { league: LeagueName; rows: S
         <thead><tr><th>Rank</th><th>Wrestler</th><th title="Matches played">P</th><th title="Wins">W</th><th title="Draws">D</th><th title="Losses">L</th><th>Points</th><th>Position status</th></tr></thead>
         <tbody>{rows.map((row) => {
           const zone = placementZone(row.rank, league);
-          return <tr key={row.wrestler} className={`placement-${zone}`}>
+          return <tr key={row.wrestler} className={`full-live-standings-row placement-${zone}`}>
             <td><span className="rank-badge">{row.rank}</span></td>
             <td><strong>{row.wrestler}</strong><small>Seed {row.seed}</small></td>
             <td>{row.matches}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td>
