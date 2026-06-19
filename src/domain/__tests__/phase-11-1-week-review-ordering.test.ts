@@ -32,6 +32,21 @@ describe("Phase 11.1 Week Review ordering and mini standings", () => {
     expect(weekReview).toContain("promptPreview={<MiniLiveStandingsPreview standings={updatedStandings}");
   });
 
+  it("renders the mini standings preview as four readable league cards in a responsive 2x2 desktop grid", () => {
+    expect(weekReview).toContain('className="mini-standings-grid mt-5 grid gap-5 lg:grid-cols-2"');
+    expect(weekReview).not.toContain('className="mt-4 grid gap-4 xl:grid-cols-4"');
+    expect(weekReview).toContain('className="mini-standings-card border border-white/10 bg-[#111722]"');
+    expect(weekReview).toContain('LEAGUE_NAMES.map((league)');
+    expect(weekReview).toContain('<h3 className="text-sm font-black uppercase tracking-[.14em] text-white">{league}</h3>');
+  });
+
+  it("standardizes mini standings card columns to rank, wrestler, points, and status only", () => {
+    expect(weekReview).toContain('<thead><tr><th>#</th><th>Wrestler</th><th>Pts</th><th>Status</th></tr></thead>');
+    expect(weekReview).not.toContain('<th>P</th>');
+    expect(weekReview).toContain('className="mini-standings-wrestler"');
+    expect(weekReview).toContain('className="mini-standings-zone-pill zone-pill"');
+  });
+
   it("rounds workflow navigation buttons across pages that share the banner", () => {
     expect(workflowBanner).toContain('className="rounded-lg bg-red-500');
     expect(workflowBanner).toContain('className="rounded-lg border border-white/15');
