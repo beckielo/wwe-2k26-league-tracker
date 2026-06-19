@@ -515,3 +515,13 @@ The following checks found no current-data conflict:
 - After a successful Promote Current Master action, the GitHub save/continue prompt remains above the mini standings preview. A successful “Yes, save and continue” runs the existing finalization workflow and then navigates to the Dashboard route (`/`) so the next active week is shown.
 - Choosing “No, stay here” does not run Git finalization and does not navigate away. If finalization fails, the user remains on Week Review and sees the existing error state.
 - Underlying safety, workbook generation, current-master promotion, standings, schedule, result-entry, simulation, and lock-validation logic was not removed or intentionally changed in this UI-only phase.
+
+## Phase 11.1 — Week Review ordering and mini standings source
+
+- Week Review now keeps the Active browser-local workflow banner first, then shows Current Active App Week, followed immediately by the compact Scheduled, Manual, Simulation, and State stat cards.
+- Confirmed Results and Missing Results summary boxes remain hidden; Phase 11.1 does not restore them.
+- The completed/locked-week confirmation appears below the current app week/stat cards, then Close Week, Promote Current Master, any GitHub save/continue prompt, and the Mini Live Standings preview.
+- Mini Live Standings is always visible on Week Review. Before the current week is locked it is sourced through the previous locked week, falling back to the workbook/app baseline if no browser-local lock exists.
+- After Complete & Lock Week succeeds, Mini Live Standings uses the newly locked week as its source boundary.
+- Mini Live Standings uses the same `reconstructActiveSplitLiveStandings` source helper as the full Live Standings page and filters browser-local results to the selected locked/baseline boundary so unlocked or unconfirmed current-week results are not counted.
+- Workflow navigation buttons in the shared Active browser-local workflow banner now use rounded corners across Week Review, Result Entry, and Simulation without changing labels, destinations, or workflow logic.

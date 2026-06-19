@@ -153,7 +153,7 @@ export function PromoteCurrentMaster(props: PromoteCurrentMasterProps) {
         type="button"
         disabled={!exports.ok || promoting}
         onClick={promote}
-        className="mt-4 border border-violet-400/30 bg-violet-400/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-violet-200 disabled:cursor-not-allowed disabled:opacity-35"
+        className="rounded-lg mt-4 border border-violet-400/30 bg-violet-400/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-violet-200 disabled:cursor-not-allowed disabled:opacity-35"
       >
         {promoting
           ? "Promoting updated workbook…"
@@ -176,7 +176,7 @@ export function PromoteCurrentMaster(props: PromoteCurrentMasterProps) {
               type="button"
               disabled={finalizing || !gitAutomationEnabled}
               onClick={finalize}
-              className="border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-emerald-200 disabled:cursor-not-allowed disabled:opacity-35"
+              className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-emerald-200 disabled:cursor-not-allowed disabled:opacity-35"
             >
               {finalizing ? "Saving and validating…" : "Yes, save and continue"}
             </button>
@@ -184,14 +184,14 @@ export function PromoteCurrentMaster(props: PromoteCurrentMasterProps) {
               type="button"
               disabled={finalizing}
               onClick={stayHere}
-              className="border border-slate-500/40 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300 disabled:opacity-35"
+              className="rounded-lg border border-slate-500/40 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300 disabled:opacity-35"
             >
               No, stay here
             </button>
           </div>
-          {props.promptPreview}
         </div>
       )}
+      {props.promptPreview}
       {finalizationLogs.length > 0 && (
         <ol className="mt-4 space-y-2 text-sm">
           {finalizationLogs.map((log) => (

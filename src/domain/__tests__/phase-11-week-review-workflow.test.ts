@@ -31,7 +31,8 @@ describe("Phase 11 Week Review workflow overhaul", () => {
     expect(weekReview).toContain("Full Live Standings");
   });
 
-  it("shows the GitHub continuation prompt before the preview and navigates to Dashboard on success", () => {
+  it("shows the GitHub continuation prompt and navigates to Dashboard on success", () => {
+    expect(promote).toContain("Do you want");
     expect(promote.indexOf("Do you want")).toBeLessThan(promote.indexOf("props.promptPreview"));
     expect(promote).toContain('router.push("/")');
     expect(promote).toContain("/api/finalize-current-master");
