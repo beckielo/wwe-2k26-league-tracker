@@ -494,18 +494,26 @@ return (
       </div>
       <Link href="/live-standings" className="rounded-lg border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">Full Live Standings <span aria-hidden>→</span></Link>
     </div>
-    <div className="mt-4 grid gap-4 xl:grid-cols-4">
+    <div className="mini-standings-grid mt-5 grid gap-5 lg:grid-cols-2">
       {LEAGUE_NAMES.map((league) => {
         const rows = standings.filter((row) => row.league === league).sort((a, b) => a.rank - b.rank);
-        return <div key={league} className="dashboard-live-table-wrap dashboard-live-table-wrap-compact border border-white/10 bg-[#111722]">
-          <h3 className="border-b border-white/10 p-3 text-sm font-black uppercase">{league}</h3>
-          <table className="dashboard-live-table-compact">
-            <thead><tr><th>#</th><th>Wrestler</th><th>P</th><th>Pts</th><th>Status</th></tr></thead>
-            <tbody>{rows.map((row) => <tr key={row.wrestler} className={`placement-${placementZone(row.rank, league)}`}>
-              <td>{row.rank}</td><td><strong>{row.wrestler}</strong></td><td>{row.matches}</td><td><strong>{row.points}</strong></td><td><span className="zone-pill">{placementLabel(league, row.rank)}</span></td>
-            </tr>)}</tbody>
-          </table>
-        </div>;
+        return <article key={league} className="mini-standings-card border border-white/10 bg-[#111722]">
+          <header className="mini-standings-card-header border-b border-white/10 px-4 py-3">
+            <h3 className="text-sm font-black uppercase tracking-[.14em] text-white">{league}</h3>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">12 wrestlers</span>
+          </header>
+          <div className="mini-standings-table-wrap">
+            <table className="mini-standings-table">
+              <thead><tr><th>#</th><th>Wrestler</th><th>Pts</th><th>Status</th></tr></thead>
+              <tbody>{rows.map((row) => <tr key={row.wrestler} className={`placement-${placementZone(row.rank, league)}`}>
+                <td className="mini-standings-rank">{row.rank}</td>
+                <td className="mini-standings-wrestler"><strong title={row.wrestler}>{row.wrestler}</strong></td>
+                <td className="mini-standings-points"><strong>{row.points}</strong></td>
+                <td className="mini-standings-status"><span className="mini-standings-zone-pill zone-pill">{placementLabel(league, row.rank)}</span></td>
+              </tr>)}</tbody>
+            </table>
+          </div>
+        </article>;
       })}
     </div>
   </section>

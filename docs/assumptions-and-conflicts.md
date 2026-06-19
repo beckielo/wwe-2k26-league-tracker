@@ -525,3 +525,9 @@ The following checks found no current-data conflict:
 - After Complete & Lock Week succeeds, Mini Live Standings uses the newly locked week as its source boundary.
 - Mini Live Standings uses the same `reconstructActiveSplitLiveStandings` source helper as the full Live Standings page and filters browser-local results to the selected locked/baseline boundary so unlocked or unconfirmed current-week results are not counted.
 - Workflow navigation buttons in the shared Active browser-local workflow banner now use rounded corners across Week Review, Result Entry, and Simulation without changing labels, destinations, or workflow logic.
+
+## Phase 11.1B — Mini Standings Preview UI Fix
+
+- Mini Live Standings on Week Review keeps the same reconstructed Live Standings source and locked-week boundary behavior, but its four league previews now render as a readable responsive grid instead of an overly cramped four-card row.
+- Each mini league card standardizes the preview columns to `#`, `Wrestler`, `Pts`, and `Status` so the section remains compact without sacrificing wrestler-name or status-badge readability.
+- The preview card styling was polished with rounded dark cards, consistent inner padding, cleaner row spacing, numeric alignment, and controlled wrestler-name truncation/status-pill sizing; placement in the Week Review workflow is unchanged.
