@@ -54,7 +54,7 @@ function LeagueTable({ league, rows, userLeague }: { league: LeagueName; rows: S
           const zone = placementZone(row.rank, league);
           return <tr key={row.wrestler} className={`full-live-standings-row placement-${zone}`}>
             <td><span className="rank-badge">{row.rank}</span></td>
-            <td><strong>{row.wrestler}</strong><small>Seed {row.seed}</small></td>
+            <td><span className="live-wrestler-meta"><strong>{row.wrestler}</strong><small>Seed {row.seed}</small></span></td>
             <td>{row.matches}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td>
             <td className="points-cell">{row.points}</td>
             <td><span className="zone-pill">{placementLabel(league, row.rank)}</span></td>
