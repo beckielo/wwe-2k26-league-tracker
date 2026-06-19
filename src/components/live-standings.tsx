@@ -49,7 +49,7 @@ function LeagueTable({ league, rows, userLeague }: { league: LeagueName; rows: S
     </header>
     <div className="live-table-wrap">
       <table className="live-table">
-        <thead><tr><th>Rank</th><th>Wrestler</th><th title="Matches played">P</th><th title="Wins">W</th><th title="Draws">D</th><th title="Losses">L</th><th>Points</th><th>Position status</th></tr></thead>
+        <thead><tr><th>Rank</th><th>Wrestler</th><th title="Matches played">M</th><th title="Wins">W</th><th title="Draws">D</th><th title="Losses">L</th><th>Points</th><th>Position status</th></tr></thead>
         <tbody>{rows.map((row) => {
           const zone = placementZone(row.rank, league);
           return <tr key={row.wrestler} className={`full-live-standings-row placement-${zone}`}>
