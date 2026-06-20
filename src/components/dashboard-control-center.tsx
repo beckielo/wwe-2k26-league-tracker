@@ -6,7 +6,7 @@ import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { reconstructActiveSplitLiveStandings } from "@/domain/tracker-state";
 import { generateSocialFeed, predictMatch } from "@/domain/match-predictions";
 import { buildHistoricalResults } from "@/domain/match-history";
-import { getLastHeadToHead } from "@/domain/head-to-head";
+import { getPreviousHeadToHeadContext } from "@/domain/head-to-head";
 import { getRecentForm } from "@/domain/recent-form";
 import { getWorkflowSummary } from "@/domain/week-progression";
 import { getWeekDisplay } from "@/domain/week-display";
@@ -137,7 +137,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
           {card.map((match) => {
             const leftForm = getRecentForm(match.wrestlerA, matchHistory).lastOutcomes.map((outcome) => outcome.emoji).join(" ");
             const rightForm = getRecentForm(match.wrestlerB, matchHistory).lastOutcomes.map((outcome) => outcome.emoji).join(" ");
-            const h2h = getLastHeadToHead(match.wrestlerA, match.wrestlerB, matchHistory, match.id);
+            const h2h = getPreviousHeadToHeadContext({ wrestlerA: match.wrestlerA, wrestlerB: match.wrestlerB, leagueYear: match.leagueYear, split: match.split, week: match.week, matchNumber: match.matchNumber, currentMatchId: match.id, results: matchHistory });
             return <li key={match.id} className="fight-card-bout-compact">
               <span className="bout-number">MATCH {String(match.matchNumber).padStart(2, "0")}</span>
               <div className="matchup matchup-context">

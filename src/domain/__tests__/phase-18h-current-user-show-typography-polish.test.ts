@@ -22,8 +22,8 @@ describe("Phase 18H current user-controlled show typography polish", () => {
     expect(dashboard).toContain("h2h.shouldUnderlineLeft");
     expect(dashboard).toContain("h2h.shouldUnderlineRight");
     expect(dashboard).toContain("h2h-last-winner");
-    expect(css).toContain(".h2h-last-winner .dashboard-show-name-text{text-decoration:underline");
-    expect(css).toContain("text-underline-offset:4px");
+    expect(css).toContain('.h2h-last-winner .dashboard-show-name-text::after{content:"";position:absolute;right:0;bottom:0;left:0;height:2px');
+    expect(css).toContain("background:#f6d98b");
   });
 
   it("keeps the dashboard show controller icon with larger scoped sizing and spacing", () => {

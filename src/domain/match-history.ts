@@ -13,6 +13,7 @@ export interface HistoricalMatchResult {
   wrestlerB: string;
   resultType: "Winner" | "Draw" | "No Contest";
   winner: string | null;
+  matchNumber?: number;
 }
 
 export function buildHistoricalResults(matches: Match[], masterResults: MatchResult[], localResults: ConfirmedResult[]): HistoricalMatchResult[] {
@@ -31,6 +32,7 @@ export function buildHistoricalResults(matches: Match[], masterResults: MatchRes
       week: match.week,
       wrestlerA: match.wrestlerA,
       wrestlerB: match.wrestlerB,
+      matchNumber: match.matchNumber,
       resultType: result.outcome === "decisive" ? "Winner" : result.outcome === "draw" ? "Draw" : "No Contest",
       winner: result.outcome === "decisive" ? result.winner : null,
     });
@@ -46,9 +48,10 @@ export function buildHistoricalResults(matches: Match[], masterResults: MatchRes
       week: result.week,
       wrestlerA: result.wrestlerA,
       wrestlerB: result.wrestlerB,
+      matchNumber: match?.matchNumber,
       resultType: result.resultType,
       winner: result.winner,
     });
   }
-  return history.sort((a, b) => a.leagueYear - b.leagueYear || a.week - b.week || a.matchId.localeCompare(b.matchId));
+  return history.sort((a, b) => a.leagueYear - b.leagueYear || a.week - b.week || (a.matchNumber ?? 0) - (b.matchNumber ?? 0) || a.matchId.localeCompare(b.matchId));
 }
