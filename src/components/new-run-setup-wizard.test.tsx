@@ -45,17 +45,18 @@ describe("NewRunSetupWizard", () => {
     expect(window.localStorage.getItem("wwe-2k26-tracker-state-v1")).toBeNull();
   });
 
-  it("records skipped backup choice and renders preview with disabled automatic activation", async () => {
+  it("records skipped backup choice and renders automatic preview with activation enabled", async () => {
     renderWizard();
     fireEvent.click(await screen.findByRole("button", { name: "Create New Run" }));
     fireEvent.click(screen.getByRole("button", { name: "No, continue without backup" }));
     fireEvent.click(screen.getByRole("button", { name: "Continue to CAW setup" }));
     fireEvent.click(screen.getByRole("button", { name: "No" }));
     fireEvent.click(screen.getByRole("button", { name: "Automatic" }));
-    fireEvent.click(screen.getByRole("button", { name: "Preview placeholder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview setup" }));
     expect(screen.getByText("Skipped")).toBeTruthy();
-    expect(screen.getByText("Automatic roster generation will be implemented in a later phase.")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Activate Fresh Run" })).toHaveProperty("disabled", true);
+    expect(screen.getByText(/Total active roster count: 48/)).toBeTruthy();
+    expect(screen.getByText(/Validation status: valid/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Activate Fresh Run" })).toHaveProperty("disabled", false);
     await waitFor(() => expect(window.localStorage.getItem("wwe-2k26-tracker-state-v1")).toContain('"confirmedResults":[]'));
   });
 

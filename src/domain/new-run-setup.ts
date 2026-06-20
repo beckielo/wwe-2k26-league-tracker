@@ -1,3 +1,4 @@
+import { HIDDEN_MALE_WRESTLER_POOL, validateWrestlerPool, type WrestlerPoolEntry } from "@/data/wrestlerPool";
 import { generateSchedule, validateSchedule, createAcceptedScheduleSnapshot } from "./schedule-setup";
 import type { TrackerState } from "./tracker-state";
 import { LEAGUE_NAMES, type LeagueName, type StandingRow } from "./types";
@@ -25,6 +26,9 @@ export interface NewRunValidationResult {
   warnings: string[];
 }
 
+export const AUTOMATIC_ROSTER_SIZE = 48;
+export const LEAGUE_ROSTER_SIZE = 12;
+
 export const NEW_RUN_START_BASIS = {
   leagueYear: 1,
   split: "Opening Split",
@@ -48,7 +52,7 @@ export function normalizeSetupName(name: string): string {
   return name.trim().replace(/\s+/g, " ");
 }
 
-function duplicateNames(names: string[]): string[] {
+export function duplicateSetupNames(names: string[]): string[] {
   const seen = new Map<string, string>();
   const duplicates = new Set<string>();
   for (const raw of names) {
@@ -82,23 +86,69 @@ export function flattenManualRoster(manualRoster: Record<LeagueName, string[]>):
   return LEAGUE_NAMES.flatMap((league) => (manualRoster[league] ?? []).map((wrestler, index) => ({ league, seed: index + 1, wrestler })));
 }
 
+
+function cawPoolConflicts(caws: string[], pool: WrestlerPoolEntry[] = HIDDEN_MALE_WRESTLER_POOL): string[] {
+  const poolKeys = new Set(pool.map((entry) => normalizeSetupName(entry.name).toLocaleLowerCase()).filter(Boolean));
+  return caws.map(normalizeSetupName).filter((caw) => caw && poolKeys.has(caw.toLocaleLowerCase()));
+}
+
+function shuffle<T>(items: T[], random: () => number = Math.random): T[] {
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+  }
+  return copy;
+}
+
+export function generateAutomaticRosterDraft(
+  draft: NewRunSetupDraft,
+  options: { pool?: WrestlerPoolEntry[]; random?: () => number } = {},
+): { draft: NewRunSetupDraft; errors: string[] } {
+  const pool = options.pool ?? HIDDEN_MALE_WRESTLER_POOL;
+  const poolErrors = validateWrestlerPool(pool);
+  const normalizedCaws = draft.caws.map(normalizeSetupName).filter(Boolean);
+  const cawDuplicates = duplicateSetupNames(normalizedCaws);
+  const conflicts = cawPoolConflicts(normalizedCaws, pool);
+  const errors = [...poolErrors];
+  if (cawDuplicates.length) errors.push(`Duplicate CAWs are not allowed: ${cawDuplicates.join(", ")}.`);
+  if (conflicts.length) errors.push(`CAWs must not duplicate hidden pool wrestlers: ${[...new Set(conflicts)].join(", ")}.`);
+  if (normalizedCaws.length > AUTOMATIC_ROSTER_SIZE) errors.push(`Automatic roster generation supports at most ${AUTOMATIC_ROSTER_SIZE} CAWs.`);
+  const neededPoolNames = AUTOMATIC_ROSTER_SIZE - normalizedCaws.length;
+  const uniquePoolNames = [...new Map(pool.map((entry) => [normalizeSetupName(entry.name).toLocaleLowerCase(), normalizeSetupName(entry.name)] as const).filter(([key]) => Boolean(key))).values()];
+  if (uniquePoolNames.length < neededPoolNames) errors.push("Not enough wrestlers in the hidden pool for automatic roster generation.");
+  if (errors.length) return { draft: { ...draft, rosterMode: "automatic" }, errors: [...new Set(errors)] };
+
+  const selectedPoolNames = shuffle(uniquePoolNames, options.random).slice(0, neededPoolNames);
+  const randomizedRoster = shuffle([...normalizedCaws, ...selectedPoolNames], options.random);
+  const manualRoster = LEAGUE_NAMES.reduce((roster, league, leagueIndex) => {
+    roster[league] = randomizedRoster.slice(leagueIndex * LEAGUE_ROSTER_SIZE, (leagueIndex + 1) * LEAGUE_ROSTER_SIZE);
+    return roster;
+  }, {} as Record<LeagueName, string[]>);
+  return { draft: { ...draft, rosterMode: "automatic", caws: normalizedCaws, manualRoster }, errors: [] };
+}
+
 export function validateNewRunSetupDraft(draft: NewRunSetupDraft): NewRunValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
-  const cawDuplicates = duplicateNames(draft.caws);
+  const cawDuplicates = duplicateSetupNames(draft.caws);
   if (cawDuplicates.length) errors.push(`Duplicate CAWs are not allowed: ${cawDuplicates.join(", ")}.`);
 
   if (draft.rosterMode === "automatic") {
-    warnings.push("Automatic roster generation is not ready for activation in Phase 14A.");
-    return { valid: false, readyForActivation: false, errors, warnings };
+    errors.push(...validateWrestlerPool());
+    const conflicts = cawPoolConflicts(draft.caws);
+    if (conflicts.length) errors.push(`CAWs must not duplicate hidden pool wrestlers: ${[...new Set(conflicts)].join(", ")}.`);
+    const neededPoolNames = AUTOMATIC_ROSTER_SIZE - draft.caws.map(normalizeSetupName).filter(Boolean).length;
+    const uniquePoolNames = new Set(HIDDEN_MALE_WRESTLER_POOL.map((entry) => normalizeSetupName(entry.name).toLocaleLowerCase()).filter(Boolean));
+    if (neededPoolNames < 0 || uniquePoolNames.size < neededPoolNames) errors.push("Not enough wrestlers in the hidden pool for automatic roster generation.");
   }
 
-  if (draft.rosterMode !== "manual") {
+  if (draft.rosterMode !== "manual" && draft.rosterMode !== "automatic") {
     errors.push("Choose Manual or Automatic roster assignment before preview can be valid.");
     return { valid: false, readyForActivation: false, errors, warnings };
   }
 
-  if (LEAGUE_NAMES.length !== 4) errors.push(`Manual setup expected exactly 4 leagues; found ${LEAGUE_NAMES.length}.`);
+  if (LEAGUE_NAMES.length !== 4) errors.push(`Roster setup expected exactly 4 leagues; found ${LEAGUE_NAMES.length}.`);
   for (const league of LEAGUE_NAMES) {
     const slots = draft.manualRoster[league] ?? [];
     if (slots.length !== 12) errors.push(`${league} must have exactly 12 seed slots.`);
@@ -109,8 +159,8 @@ export function validateNewRunSetupDraft(draft: NewRunSetupDraft): NewRunValidat
 
   const slots = flattenManualRoster(draft.manualRoster);
   const filledNames = slots.map((slot) => normalizeSetupName(slot.wrestler)).filter(Boolean);
-  if (filledNames.length !== 48) errors.push(`Manual active roster must contain exactly 48 filled wrestlers; found ${filledNames.length}.`);
-  const wrestlerDuplicates = duplicateNames(filledNames);
+  if (filledNames.length !== 48) errors.push(`Active roster must contain exactly 48 filled wrestlers; found ${filledNames.length}.`);
+  const wrestlerDuplicates = duplicateSetupNames(filledNames);
   if (wrestlerDuplicates.length) errors.push(`Duplicate active wrestlers are not allowed: ${wrestlerDuplicates.join(", ")}.`);
 
   const cawKeys = new Set(draft.caws.map((caw) => normalizeSetupName(caw).toLocaleLowerCase()).filter(Boolean));
@@ -183,8 +233,6 @@ export function validateFreshRunState(state: TrackerState, standings: StandingRo
 export function activateFreshRunSetup(state: TrackerState, draft: NewRunSetupDraft, activatedAt = new Date().toISOString()): FreshRunActivationResult {
   const validation = validateNewRunSetupDraft(draft);
   if (!validation.valid || !validation.readyForActivation) return { ok: false, state, errors: [...validation.errors, ...validation.warnings] };
-  if (draft.rosterMode === "automatic") return { ok: false, state, errors: ["Automatic roster generation will be implemented in a later phase."] };
-
   const seeds = manualSeeds(draft);
   const rosters = LEAGUE_NAMES.reduce((acc, league) => ({ ...acc, [league]: seeds[league].map((seed) => seed.wrestler) }), {} as Record<LeagueName, string[]>);
   const preview = generateSchedule({ leagueYear: NEW_RUN_START_BASIS.leagueYear, split: NEW_RUN_START_BASIS.split, yearWeekStart: NEW_RUN_START_BASIS.week, seeds, generatedAt: activatedAt });
