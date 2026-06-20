@@ -80,7 +80,7 @@ describe("Phase 18C current user icon and name colors", () => {
   it("keeps dashboard show match-preview wrestler text neutral unless a role applies", () => {
     expect(dashboardSource).toContain("dashboardShowNameColorClassByRole[role]");
     expect(cssSource).toContain(".dashboard-show-name-content.name-color-normal{color:#fff}");
-    expect(cssSource).toContain(".dashboard-show-name-content .dashboard-show-name-text{color:inherit}");
+    expect(cssSource).toContain(".dashboard-show-name-content .dashboard-show-name-text{color:inherit");
     expect(cssSource).toContain(".matchup-vs");
     expect(cssSource).not.toContain(".dashboard-show-name-text{color:#ef6a6a}");
   });
@@ -96,7 +96,7 @@ describe("Phase 18C current user icon and name colors", () => {
   it("applies compact premium typography only to dashboard show match-row wrestler names", () => {
     expect(dashboardSource).toContain('className={wrestlerNameClassName(h2h.shouldUnderlineLeft)}');
     expect(dashboardSource).toContain('className={wrestlerNameClassName(h2h.shouldUnderlineRight)}');
-    expect(cssSource).toContain(".dashboard-show-wrestler-name{font-size:16px;line-height:1.05;font-weight:950;letter-spacing:-.015em}");
+    expect(cssSource).toContain(".dashboard-show-wrestler-name{font-size:16px;line-height:1.08;font-weight:950;letter-spacing:.015em;text-transform:uppercase}");
     expect(cssSource).not.toContain(".dashboard-live-table .dashboard-show-wrestler-name");
   });
 

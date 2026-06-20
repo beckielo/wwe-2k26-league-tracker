@@ -66,7 +66,7 @@ export function WorkflowSummaryBanner({
         <div className="flex flex-wrap gap-3 xl:justify-end">
           {summary.recommendedAction !== "complete" && (
             <Link href={summary.recommendedHref} className="rounded-lg bg-red-500 px-5 py-3 text-xs font-black uppercase tracking-[.14em] text-white">
-              {summary.recommendedLabel} →
+              {summary.recommendedLabel}
             </Link>
           )}
           {summary.activeWeek !== null && (

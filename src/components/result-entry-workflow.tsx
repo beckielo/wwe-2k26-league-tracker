@@ -122,7 +122,7 @@ return (
         href={summary.recommendedHref}
         className="bg-emerald-500 px-4 py-3 text-xs font-black uppercase tracking-wider text-white"
       >
-        {summary.recommendedLabel} →
+        {summary.recommendedLabel}
       </Link>
     </div>
   )}
@@ -175,7 +175,7 @@ return (
           href={summary.recommendedHref}
           className="inline-block rounded-lg bg-red-500 px-4 py-3 text-xs font-black uppercase tracking-wider text-white"
         >
-          {summary.recommendedLabel} →
+          {summary.recommendedLabel}
         </Link>
       </div>
     </Panel>

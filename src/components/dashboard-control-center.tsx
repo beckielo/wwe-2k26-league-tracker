@@ -105,7 +105,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
         <strong>{card.length ? `Complete the ${userLeague} card` : "Connect the next authoritative card"}</strong>
         <p>{card.length ? "Record all six outcomes, then review and lock the week." : "No matchup is shown until an accepted schedule supplies it."}</p>
         <div className="dashboard-workflow-actions dashboard-workflow-actions-spaced">
-          <Link href={nextHref} className="action-button action-primary">{nextLabel}<span aria-hidden>→</span></Link>
+          <Link href={nextHref} className="action-button action-primary">{nextLabel}</Link>
           <Link href="/simulation" className="rounded-lg border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">Simulation</Link>
           <Link href="/week-review" className="rounded-lg border border-emerald-400/30 px-4 py-3 text-xs font-black uppercase tracking-wider text-emerald-300">Week Review</Link>
         </div>
@@ -121,7 +121,6 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
         <strong>{props.legacySummary.leader ?? "Archive pending"}</strong>
         <em>{props.legacySummary.leagueWinners} league title records · {props.legacySummary.eliteCupWinners} Elite Cup records</em>
       </span>
-      <b aria-hidden>→</b>
     </InteractivePanel>
 
     <div className="dashboard-primary-grid dashboard-equal-panels">
@@ -132,7 +131,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
             <h2>{userLeague}</h2>
             <p>{display.compact} · Authoritative schedule</p>
           </span></div>
-          <Link href="/schedule">Full schedule <span aria-hidden>→</span></Link>
+          <Link href="/schedule">Full schedule</Link>
         </header>
         {card.length ? <ol className="fight-card-list fight-card-list-compact">
           {card.map((match) => {
