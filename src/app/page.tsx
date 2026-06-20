@@ -39,6 +39,7 @@ function LeagueCommandCenterDashboard() {
           leader: legacy.profiles[0]?.wrestler ?? null,
           leagueWinners: legacy.summary.leagueTitleRecords,
           eliteCupWinners: legacy.summary.eliteCupRecords,
+          completedSplitAudit: legacy.summary.audit,
         }}
       />
 
