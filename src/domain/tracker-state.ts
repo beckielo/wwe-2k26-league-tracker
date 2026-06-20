@@ -60,8 +60,8 @@ export interface TrackerState {
 }
 
 export interface ActiveWorkflow {
-  leagueYear: 2;
-  split: "Closing Split";
+  leagueYear: number;
+  split: SplitName;
   yearWeek: number;
   splitWeek: number;
   scheduleSource: "accepted generated snapshot" | "accepted imported snapshot";
@@ -356,6 +356,7 @@ export interface ActiveSplitLiveStandingsInput {
   localResults: ConfirmedResult[];
   split: SplitName;
   completedThroughWeek: number;
+  activeLeagueYear?: number;
   rosterReplacements?: RosterReplacementLogEntry[];
   newRunSetupDraft?: NewRunSetupDraft;
 }
@@ -369,8 +370,9 @@ export interface ActiveSplitLiveStandings {
 export function reconstructActiveSplitLiveStandings(input: ActiveSplitLiveStandingsInput): ActiveSplitLiveStandings {
   const startWeek = splitStartWeek(input.split);
   const latestLocalWeek = Math.max(input.completedThroughWeek, ...input.localResults.map((result) => result.week));
-  const activeMatches = input.scheduledMatches.filter((match) => match.leagueYear === 2 && match.split === input.split && match.week >= startWeek && match.week <= latestLocalWeek);
-  const allSplitMatches = applyRosterReplacementsToMatches(input.scheduledMatches.filter((match) => match.leagueYear === 2 && match.split === input.split), input.rosterReplacements ?? [], new Set(input.localResults.map((result) => result.matchId)));
+  const activeLeagueYear = input.activeLeagueYear ?? 2;
+  const activeMatches = input.scheduledMatches.filter((match) => match.leagueYear === activeLeagueYear && match.split === input.split && match.week >= startWeek && match.week <= latestLocalWeek);
+  const allSplitMatches = applyRosterReplacementsToMatches(input.scheduledMatches.filter((match) => match.leagueYear === activeLeagueYear && match.split === input.split), input.rosterReplacements ?? [], new Set(input.localResults.map((result) => result.matchId)));
   const diagnostics: string[] = [];
   if (allSplitMatches.length === 0 && input.masterResults.length === 0 && input.localResults.length === 0) {
     return { composition: input.previousFinalStandings, standings: input.previousFinalStandings, diagnostics: [] };

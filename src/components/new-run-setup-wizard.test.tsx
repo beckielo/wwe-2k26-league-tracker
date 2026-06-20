@@ -45,7 +45,7 @@ describe("NewRunSetupWizard", () => {
     expect(window.localStorage.getItem("wwe-2k26-tracker-state-v1")).toBeNull();
   });
 
-  it("records skipped backup choice and renders preview without activation", async () => {
+  it("records skipped backup choice and renders preview with disabled automatic activation", async () => {
     renderWizard();
     fireEvent.click(await screen.findByRole("button", { name: "Create New Run" }));
     fireEvent.click(screen.getByRole("button", { name: "No, continue without backup" }));
@@ -54,7 +54,8 @@ describe("NewRunSetupWizard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Automatic" }));
     fireEvent.click(screen.getByRole("button", { name: "Preview placeholder" }));
     expect(screen.getByText("Skipped")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Activation coming in Phase 14B" })).toHaveProperty("disabled", true);
+    expect(screen.getByText("Automatic roster generation will be implemented in a later phase.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Activate Fresh Run" })).toHaveProperty("disabled", true);
     await waitFor(() => expect(window.localStorage.getItem("wwe-2k26-tracker-state-v1")).toContain('"confirmedResults":[]'));
   });
 

@@ -51,7 +51,7 @@ useTrackerState();
 const [messages, setMessages] = useState<string[]>([]);
 const importInput = useRef<HTMLInputElement>(null);
 const workflowMatches = getActiveWorkflowMatches(state, allMatches);
-const workflowBaseline = state.activeWorkflow ? 24 : workbookCurrentWeek;
+const workflowBaseline = state.activeWorkflow ? (state.activeWorkflow.split === "Closing Split" ? 24 : 0) : workbookCurrentWeek;
 const workflowUserLeague = state.activeWorkflow?.userLeague ?? userLeague;
 
 const summary = getWorkflowSummary(
