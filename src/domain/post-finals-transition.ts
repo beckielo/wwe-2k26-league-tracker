@@ -88,6 +88,26 @@ export interface PostFinalsTransitionInput {
   manualReviews?: ManualReview[];
 }
 
+export function buildNextSplitStandings(assignments: PostFinalsAssignment[]): StandingRow[] {
+  return LEAGUE_NAMES.flatMap((league) =>
+    assignments
+      .filter((assignment) => assignment.newLeague === league)
+      .sort(proposedSort)
+      .map((assignment, index) => ({
+        league,
+        rank: index + 1,
+        wrestler: assignment.wrestler,
+        seed: index + 1,
+        matches: 0,
+        wins: 0,
+        draws: 0,
+        losses: 0,
+        points: 0,
+        status: "post-finals reset",
+      })),
+  );
+}
+
 const tier = new Map<LeagueName, number>(LEAGUE_NAMES.map((league, index) => [league, index]));
 
 function defaultComposition(): Record<LeagueName, PostFinalsAssignment[]> {

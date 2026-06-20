@@ -46,7 +46,8 @@ export function isRosterReplacementWindow(state: TrackerState): RosterReplacemen
   if (!state.activeWorkflow && lockedWeeks.has(11) && !hasWeek12Started) {
     return { unlocked: true, windowType: "After Hinrunde", reason: "Roster replacement is open after Week 11 and before Week 12 starts." };
   }
-  const finalsComplete = new Set((state.completedFinalsNights ?? []).map((entry) => entry.night)).size >= 2;
+  const finalsComplete = new Set((state.completedFinalsNights ?? []).map((entry) => entry.night)).size >= 2
+    && (state.leagueFinalsResults ?? []).length > 0;
   if (finalsComplete && !state.activeWorkflow) {
     return { unlocked: true, windowType: "Post-finals", reason: "Roster replacement is open after League Finals and before the next split starts." };
   }
