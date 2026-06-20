@@ -15,6 +15,7 @@ StandingRow,
 StreakRecord,
 } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
+import { useCurrentUser } from "./current-user-switcher";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { getWeekDisplay } from "@/domain/week-display";
 
@@ -32,6 +33,7 @@ userWrestler: string;
 
 export function SimulationWorkflow(props: SimulationWorkflowProps) {
 const { state, hydrated } = useTrackerState();
+const selectedUser = useCurrentUser(props.standings).currentUser;
 
 if (!hydrated) {
 return ( <div className="border border-white/10 p-6 text-sm text-slate-500">
@@ -41,7 +43,7 @@ Loading local tracker state… </div>
 
 const workflowMatches = getActiveWorkflowMatches(state, props.matches);
 const workflowBaseline = state.activeWorkflow ? 24 : props.workbookCurrentWeek;
-const workflowUserLeague = state.activeWorkflow?.userLeague ?? props.userLeague;
+const workflowUserLeague = selectedUser?.league ?? props.userLeague;
 const summary = getWorkflowSummary(
 state,
 workflowMatches,
@@ -55,7 +57,7 @@ if (week === null) {
 return ( <WorkflowSummaryBanner
      matches={props.matches}
      workbookCurrentWeek={props.workbookCurrentWeek}
-     userLeague={props.userLeague}
+     userLeague={workflowUserLeague}
    />
 );
 }
@@ -82,7 +84,7 @@ return (
 <> <div className="mb-8"> <WorkflowSummaryBanner
        matches={props.matches}
        workbookCurrentWeek={props.workbookCurrentWeek}
-       userLeague={props.userLeague}
+       userLeague={workflowUserLeague}
        compact
      /> </div>
 

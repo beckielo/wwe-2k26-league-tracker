@@ -11,6 +11,7 @@ import { getWorkflowSummary } from "@/domain/week-progression";
 import { getWeekDisplay } from "@/domain/week-display";
 import type { LeagueName, Match, MatchResult, StandingRow, TrackerMeta, ValidationIssue } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
+import { CurrentUserSwitcher, useCurrentUser } from "./current-user-switcher";
 import { EmptyState, StatusBadge } from "./ui";
 import { InteractivePanel, LeagueBrandMark, LeagueDecorativeArt, LeagueWatermark } from "./brand-assets";
 import { LEAGUE_VISUALS, placementLabel, placementZone } from "@/domain/visual-identity";
@@ -33,15 +34,17 @@ interface DashboardControlCenterProps {
 
 export function DashboardControlCenter(props: DashboardControlCenterProps) {
   const { state, hydrated } = useTrackerState();
+  const selectedUser = useCurrentUser(props.baselineStandings).currentUser;
   if (!hydrated) return <div className="dashboard-loading">Loading active league control…</div>;
 
   const matches = getActiveWorkflowMatches(state, props.workbookMatches);
   const workflowBaseline = state.activeWorkflow ? 24 : props.workbookCompletedThroughWeek;
-  const summary = getWorkflowSummary(state, matches, workflowBaseline, state.activeWorkflow?.userLeague ?? props.userLeague);
+  const selectedUserLeague = selectedUser?.league ?? props.userLeague;
+  const summary = getWorkflowSummary(state, matches, workflowBaseline, selectedUserLeague);
   const yearWeek = summary.activeWeek ?? state.activeWorkflow?.yearWeek ?? props.workbookCompletedThroughWeek + 1;
   const leagueYear = state.activeWorkflow?.leagueYear ?? props.leagueYear;
   const split = state.activeWorkflow?.split;
-  const userLeague = state.activeWorkflow?.userLeague ?? props.userLeague;
+  const userLeague = selectedUserLeague;
   const display = getWeekDisplay(leagueYear, yearWeek, split);
   const live = reconstructActiveSplitLiveStandings({
     previousFinalStandings: props.baselineStandings,
@@ -68,6 +71,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
   const workflowStatus = workflowBlocked ? "Blocked" : completed > 0 ? "In Progress" : "Ready";
 
   return <>
+    <CurrentUserSwitcher standings={props.baselineStandings} />
     <section className={`command-deck league-${LEAGUE_VISUALS[userLeague].key}`} aria-labelledby="command-title">
       <LeagueDecorativeArt league={userLeague} className="command-decorative-art" />
       <LeagueWatermark league={userLeague} />
@@ -85,7 +89,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
             {workflowStatus}
           </StatusBadge>
         </div>
-        <p className="command-subline">{userLeague} · {card[0]?.showDay ?? "Show pending"} · {completed} / {card.length || 6} results recorded</p>
+        <p className="command-subline">{selectedUser?.wrestler ?? props.meta.userWrestler} · {userLeague} · {card[0]?.showDay ?? "Show pending"} · {completed} / {card.length || 6} results recorded</p>
       </div>
       <div className="next-action-block">
         <span>Next action</span>
