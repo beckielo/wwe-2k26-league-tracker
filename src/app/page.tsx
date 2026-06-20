@@ -31,6 +31,7 @@ function LeagueCommandCenterDashboard() {
         workbookCompletedThroughWeek={data.meta.appBaselineCompletedThroughWeek}
         baselineStandings={data.standings}
         workbookResults={data.results}
+        workbookHeadToHead={data.headToHead}
         meta={data.meta}
         leagueYear={data.meta.leagueYear}
         userLeague={data.meta.userLeague}

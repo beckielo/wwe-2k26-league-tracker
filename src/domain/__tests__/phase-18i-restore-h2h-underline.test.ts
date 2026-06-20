@@ -13,8 +13,8 @@ describe("Phase 18I restored dashboard show H2H underline", () => {
 
     expect(dashboard).toContain('className={wrestlerNameClassName(h2h.shouldUnderlineLeft)}');
     expect(dashboard).toContain('className={wrestlerNameClassName(h2h.shouldUnderlineRight)}');
-    expect(dashboard).toContain('isLastHeadToHeadWinner ? "h2h-last-winner" : null');
-    expect(css).toContain('.h2h-last-winner .dashboard-show-name-text::after{content:"";position:absolute;right:0;bottom:0;left:0;height:2px');
+    expect(dashboard).toContain('isLastHeadToHeadWinner ? "h2h-last-winner h2hWinnerName" : null');
+    expect(css).toContain('.h2h-last-winner .dashboard-show-name-text::after,.h2hWinnerName .dashboard-show-name-text::after{content:"";position:absolute;right:0;bottom:0;left:0;height:3px');
     expect(css).not.toContain('}.dashboard-show-name-text::after{content:""');
   });
 

@@ -26,8 +26,23 @@ export interface PreviousHeadToHeadInput {
   results: HistoricalMatchResult[];
 }
 
+export function normalizeH2HWrestlerName(name: string) {
+  return name
+    .trim()
+    .replace(/^#\d+\s+/, "")
+    .replace(/\s*\([^)]*\)\s*$/u, "")
+    .replace(/\s*\[[^\]]*\]\s*$/u, "")
+    .trim()
+    .toLocaleLowerCase();
+}
+
+function sameWrestler(left: string | null | undefined, right: string | null | undefined) {
+  if (!left || !right) return false;
+  return normalizeH2HWrestlerName(left) === normalizeH2HWrestlerName(right);
+}
+
 function samePair(match: HistoricalMatchResult, left: string, right: string) {
-  return (match.wrestlerA === left && match.wrestlerB === right) || (match.wrestlerA === right && match.wrestlerB === left);
+  return (sameWrestler(match.wrestlerA, left) && sameWrestler(match.wrestlerB, right)) || (sameWrestler(match.wrestlerA, right) && sameWrestler(match.wrestlerB, left));
 }
 
 function isBeforeCurrent(match: HistoricalMatchResult, input: PreviousHeadToHeadInput) {
@@ -50,7 +65,9 @@ export function derivePreviousH2HWinner(input: PreviousHeadToHeadInput): string 
     .at(-1);
 
   if (!last || last.resultType !== "Winner") return null;
-  return last.winner === input.wrestlerA || last.winner === input.wrestlerB ? last.winner : null;
+  if (sameWrestler(last.winner, input.wrestlerA)) return input.wrestlerA;
+  if (sameWrestler(last.winner, input.wrestlerB)) return input.wrestlerB;
+  return null;
 }
 
 export function getPreviousHeadToHeadWinner(input: PreviousHeadToHeadInput): string | null {
@@ -73,8 +90,8 @@ export function getPreviousHeadToHeadContext(input: PreviousHeadToHeadInput): He
     week: last.week,
     winner,
     resultType: last.resultType,
-    shouldUnderlineLeft: winner === input.wrestlerA,
-    shouldUnderlineRight: winner === input.wrestlerB,
+    shouldUnderlineLeft: sameWrestler(winner, input.wrestlerA),
+    shouldUnderlineRight: sameWrestler(winner, input.wrestlerB),
     dataQualityWarnings: last.resultType === "Winner" && !winner ? [`Ambiguous H2H winner for ${last.matchId}.`] : [],
   };
 }
@@ -93,8 +110,8 @@ export function getLastHeadToHead(left: string, right: string, history: Historic
     week: last.week,
     winner: decisive ? last.winner : null,
     resultType: last.resultType,
-    shouldUnderlineLeft: decisive && last.winner === left,
-    shouldUnderlineRight: decisive && last.winner === right,
+    shouldUnderlineLeft: decisive && sameWrestler(last.winner, left),
+    shouldUnderlineRight: decisive && sameWrestler(last.winner, right),
     dataQualityWarnings: last.resultType === "Winner" && !last.winner ? [`Ambiguous H2H winner for ${last.matchId}.`] : [],
   };
 }

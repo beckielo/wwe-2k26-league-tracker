@@ -63,7 +63,7 @@ describe("Phase 18C current user icon and name colors", () => {
     expect(dashboardSource).toContain("h2h.shouldUnderlineLeft");
     expect(dashboardSource).toContain("h2h.shouldUnderlineRight");
     expect(dashboardSource).toContain("h2h-last-winner");
-    expect(cssSource).toContain('.h2h-last-winner .dashboard-show-name-text::after{content:"";position:absolute;right:0;bottom:0;left:0;height:2px');
+    expect(cssSource).toContain('.h2h-last-winner .dashboard-show-name-text::after,.h2hWinnerName .dashboard-show-name-text::after{content:"";position:absolute;right:0;bottom:0;left:0;height:3px');
   });
 
 
