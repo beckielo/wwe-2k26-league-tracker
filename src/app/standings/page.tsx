@@ -20,7 +20,7 @@ export default function StandingsPage() {
       eyebrow={`Through Week ${data.meta.currentWeek}`}
       title="All Standings"
       description="Records and points are imported from Standings_Current and reconciled against the completed schedule results. Zone labels are source values and remain provisional until clinching is explicitly encoded."
-      aside={<Link href="/live-standings" className="action-button action-primary">Open Live Table <span aria-hidden>→</span></Link>}
+      aside={<Link href="/live-standings" className="action-button action-primary">Open Live Table</Link>}
     />
     <div className="space-y-8">
       {LEAGUE_NAMES.map((league) => {

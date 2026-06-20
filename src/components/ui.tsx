@@ -65,7 +65,7 @@ export function PrimaryActionCard({ eyebrow = "Next action", title, description,
       <p>{description}</p>
       {children}
     </div>
-    {action && <ActionButton href={href} disabled={Boolean(lockedReason)} reason={lockedReason}>{action} <span aria-hidden>→</span></ActionButton>}
+    {action && <ActionButton href={href} disabled={Boolean(lockedReason)} reason={lockedReason}>{action}</ActionButton>}
   </section>;
 }
 

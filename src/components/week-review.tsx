@@ -503,7 +503,7 @@ return (
         <h2 className="mt-1 text-xl font-black uppercase">Mini standings preview</h2>
         <p className="mt-1 text-xs text-slate-400">{split}{splitWeek ? ` · Split Week ${splitWeek}` : ""}{latestLockedWeek ? ` · updated through locked Year Week ${latestLockedWeek}` : ""}</p>
       </div>
-      <Link href="/live-standings" className="rounded-lg border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">Full Live Standings <span aria-hidden>→</span></Link>
+      <Link href="/live-standings" className="rounded-lg border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">Full Live Standings</Link>
     </div>
     <div className="mini-standings-grid mt-5 grid gap-5 lg:grid-cols-2">
       {LEAGUE_NAMES.map((league) => {
