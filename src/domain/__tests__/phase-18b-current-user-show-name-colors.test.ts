@@ -77,6 +77,14 @@ describe("Phase 18C current user icon and name colors", () => {
     expect(cssSource).not.toContain("color:#000");
   });
 
+  it("keeps dashboard show match-preview wrestler text neutral unless a role applies", () => {
+    expect(dashboardSource).toContain("dashboardShowNameColorClassByRole[role]");
+    expect(cssSource).toContain(".dashboard-show-name-content.name-color-normal{color:#fff}");
+    expect(cssSource).toContain(".dashboard-show-name-content .dashboard-show-name-text{color:inherit}");
+    expect(cssSource).toContain(".matchup-vs");
+    expect(cssSource).not.toContain(".dashboard-show-name-text{color:#ef6a6a}");
+  });
+
   it("renders the current-user controller icon in the show box without replacing names or prediction bars", () => {
     expect(dashboardSource).toContain('<span className="dashboard-show-name-text">{children}</span>');
     expect(dashboardSource).toContain('<ControllerIcon className="dashboard-show-current-user-icon" />');
