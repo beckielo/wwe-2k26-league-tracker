@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { reconstructActiveSplitLiveStandings } from "@/domain/tracker-state";
@@ -17,8 +18,8 @@ import { NewRunSetupWizard } from "./new-run-setup-wizard";
 import { EmptyState, StatusBadge } from "./ui";
 import { InteractivePanel, LeagueBrandMark, LeagueDecorativeArt, LeagueWatermark } from "./brand-assets";
 import { LEAGUE_VISUALS, placementLabel, placementZone } from "@/domain/visual-identity";
-import { getPreviousSplitChampionColorRoles } from "@/domain/previous-split-name-colors";
-import { WrestlerNameWithRole } from "./wrestler-name-with-role";
+import { getPreviousSplitChampionColorRoles, getPreviousSplitNameColorRole, type PreviousSplitNameColorRole } from "@/domain/previous-split-name-colors";
+import { ControllerIcon, isCurrentUserWrestler, WrestlerNameWithRole } from "./wrestler-name-with-role";
 import type { LegacyCompletedSplitAudit } from "@/domain/legacy";
 
 interface DashboardControlCenterProps {
@@ -142,9 +143,9 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
               <span className="bout-number">MATCH {String(match.matchNumber).padStart(2, "0")}</span>
               <div className="matchup matchup-context">
                 <span className="form-strip" aria-label={`${match.wrestlerA} recent form`}>{leftForm}</span>
-                <strong className={wrestlerNameClassName(h2h.shouldUnderlineLeft)}><WrestlerNameWithRole wrestler={match.wrestlerA} currentUserWrestler={selectedUser?.wrestler ?? props.meta.userWrestler} championRoles={previousSplitChampionColorRoles}>{formatRankedWrestler(match.wrestlerA, currentRanks.get(match.wrestlerA))}</WrestlerNameWithRole></strong>
+                <strong className={wrestlerNameClassName(h2h.shouldUnderlineLeft)}><DashboardShowWrestlerName wrestler={match.wrestlerA} currentUserWrestler={selectedUser?.wrestler ?? props.meta.userWrestler} championRoles={previousSplitChampionColorRoles}>{formatRankedWrestler(match.wrestlerA, currentRanks.get(match.wrestlerA))}</DashboardShowWrestlerName></strong>
                 <span className="matchup-vs">VS</span>
-                <strong className={wrestlerNameClassName(h2h.shouldUnderlineRight)}><WrestlerNameWithRole wrestler={match.wrestlerB} currentUserWrestler={selectedUser?.wrestler ?? props.meta.userWrestler} championRoles={previousSplitChampionColorRoles}>{formatRankedWrestler(match.wrestlerB, currentRanks.get(match.wrestlerB))}</WrestlerNameWithRole></strong>
+                <strong className={wrestlerNameClassName(h2h.shouldUnderlineRight)}><DashboardShowWrestlerName wrestler={match.wrestlerB} currentUserWrestler={selectedUser?.wrestler ?? props.meta.userWrestler} championRoles={previousSplitChampionColorRoles}>{formatRankedWrestler(match.wrestlerB, currentRanks.get(match.wrestlerB))}</DashboardShowWrestlerName></strong>
                 <span className="form-strip" aria-label={`${match.wrestlerB} recent form`}>{rightForm}</span>
               </div>
               <PredictionStrip prediction={predictMatch(match, live.standings, state.confirmedResults)} />
@@ -163,6 +164,25 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
     <ReplaceWrestlerControl activeRoster={live.composition} matches={matches} leagueYear={leagueYear} split={split ?? props.meta.currentSplit} week={yearWeek} />
     <NewRunSetupWizard meta={props.meta} />
   </>;
+}
+
+const dashboardShowNameColorClassByRole: Record<PreviousSplitNameColorRole, string> = {
+  "double-winner": "name-color-double-winner",
+  "elite-cup": "name-color-elite-cup",
+  "global-champion": "name-color-global-champion",
+  "continental-champion": "name-color-continental-champion",
+  "national-champion": "name-color-national-champion",
+  "regional-champion": "name-color-regional-champion",
+  normal: "name-color-normal",
+};
+
+function DashboardShowWrestlerName({ wrestler, currentUserWrestler, championRoles, children }: { wrestler: string; currentUserWrestler?: string | null; championRoles: ReturnType<typeof getPreviousSplitChampionColorRoles>; children: ReactNode }) {
+  const role = getPreviousSplitNameColorRole({ wrestler, championRoles });
+  const isCurrentUser = isCurrentUserWrestler(wrestler, currentUserWrestler);
+  return <span className={["dashboard-show-name-content", dashboardShowNameColorClassByRole[role]].join(" ")}>
+    <span className="dashboard-show-name-text">{children}</span>
+    {isCurrentUser && <ControllerIcon className="dashboard-show-current-user-icon" />}
+  </span>;
 }
 
 function wrestlerNameClassName(isLastHeadToHeadWinner: boolean) {

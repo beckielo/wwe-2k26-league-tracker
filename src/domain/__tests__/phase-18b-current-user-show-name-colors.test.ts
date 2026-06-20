@@ -50,7 +50,7 @@ describe("Phase 18C current user icon and name colors", () => {
   });
 
   it("wires the shared wrestler-name helper into the requested UI surfaces only in wrestler cells", () => {
-    expect(dashboardSource).toContain("<WrestlerNameWithRole wrestler={match.wrestlerA}");
+    expect(dashboardSource).toContain("<DashboardShowWrestlerName wrestler={match.wrestlerA}");
     expect(dashboardSource).toContain("<WrestlerNameWithRole wrestler={row.wrestler}");
     expect(liveStandingsSource).toContain("<WrestlerNameWithRole wrestler={row.wrestler}");
     expect(weekReviewSource).toContain("<WrestlerNameWithRole wrestler={row.wrestler}");
@@ -64,6 +64,25 @@ describe("Phase 18C current user icon and name colors", () => {
     expect(dashboardSource).toContain("h2h.shouldUnderlineRight");
     expect(dashboardSource).toContain("h2h-last-winner");
     expect(cssSource).toContain(".h2h-last-winner{text-decoration:underline");
+  });
+
+
+  it("scopes match-preview name rendering to the dashboard show box without forcing current user black", () => {
+    expect(dashboardSource).toContain("function DashboardShowWrestlerName");
+    expect(dashboardSource).toContain("dashboard-show-name-content");
+    expect(dashboardSource).toContain("getPreviousSplitNameColorRole({ wrestler, championRoles })");
+    expect(dashboardSource).toContain("isCurrentUserWrestler(wrestler, currentUserWrestler)");
+    expect(cssSource).toContain(".dashboard-show-name-content.name-color-normal{color:#fff}");
+    expect(cssSource).not.toContain("dashboard-show-name-content.name-color-current-user");
+    expect(cssSource).not.toContain("color:#000");
+  });
+
+  it("renders the current-user controller icon in the show box without replacing names or prediction bars", () => {
+    expect(dashboardSource).toContain('<span className="dashboard-show-name-text">{children}</span>');
+    expect(dashboardSource).toContain('<ControllerIcon className="dashboard-show-current-user-icon" />');
+    expect(cssSource).toContain(".dashboard-show-current-user-icon");
+    expect(cssSource).toContain("width:12px");
+    expect(dashboardSource).toContain("prediction-bars");
   });
 
   it("defines readable scoped colors and a cyan controller icon", () => {
