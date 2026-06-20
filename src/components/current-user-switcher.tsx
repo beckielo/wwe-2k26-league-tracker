@@ -67,7 +67,6 @@ export function CurrentUserSwitcher({ standings }: { standings: StandingRow[] })
         }}
       >
         <span id={triggerValueId}>{currentUser.wrestler} — {currentUser.league}</span>
-        <span className="current-user-trigger-icon" aria-hidden>⌄</span>
       </button>
       {isOpen && <div className="current-user-options-panel" role="presentation">
         <ul className="current-user-options" id={listboxId} role="listbox" aria-labelledby={`${listboxId}-label`} aria-activedescendant={selectedOptionId} tabIndex={-1}>

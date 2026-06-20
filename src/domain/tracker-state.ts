@@ -537,10 +537,10 @@ export function calculateStandingsWithConfirmedResults(
     if (!match) continue;
     const rowA = rowByKey.get(`${match.league}:${normalized(match.wrestlerA)}`);
     const rowB = rowByKey.get(`${match.league}:${normalized(match.wrestlerB)}`);
-    if ((!rowA && !rowB) || result.resultType === "No Contest") continue;
+    if (!rowA && !rowB) continue;
     if (rowA) rowA.matches += 1;
     if (rowB) rowB.matches += 1;
-    if (result.resultType === "Draw") {
+    if (result.resultType === "Draw" || result.resultType === "No Contest") {
       if (rowA) rowA.draws += 1;
       if (rowB) rowB.draws += 1;
     } else if (result.winner) {

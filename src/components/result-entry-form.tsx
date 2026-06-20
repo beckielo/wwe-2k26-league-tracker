@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import {
 confirmResult,
 closeManualReview,
@@ -208,29 +208,41 @@ Review before editing. </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {selected &&
           [selected.wrestlerA, selected.wrestlerB].map((name) => (
-            <label
+            <ResultOption
               key={name}
-              className={
-                "cursor-pointer rounded-lg border p-4 font-bold transition " +
-                (effectiveWinner === name
-                  ? "border-red-400 bg-red-400/10"
-                  : "border-white/10 bg-white/[.02] hover:border-white/25")
-              }
+              value={name}
+              checked={effectiveResultType === "Winner" && effectiveWinner === name}
+              onChange={() => {
+                setResultType("Winner");
+                setWinner(name);
+                setDirty(true);
+              }}
             >
-              <input
-                className="sr-only"
-                type="radio"
-                name="winner"
-                value={name}
-                checked={effectiveWinner === name}
-                onChange={() => {
-                  setWinner(name);
-                  setDirty(true);
-                }}
-              />
               {name}
-            </label>
+            </ResultOption>
           ))}
+        <ResultOption
+          value="Draw"
+          checked={effectiveResultType === "Draw"}
+          onChange={() => {
+            setResultType("Draw");
+            setWinner("");
+            setDirty(true);
+          }}
+        >
+          Draw
+        </ResultOption>
+        <ResultOption
+          value="No Contest"
+          checked={effectiveResultType === "No Contest"}
+          onChange={() => {
+            setResultType("No Contest");
+            setWinner("");
+            setDirty(true);
+          }}
+        >
+          No Contest
+        </ResultOption>
       </div>
     </fieldset>
   }
@@ -258,7 +270,7 @@ Review before editing. </div>
 
   {existing && (
     <div className="border border-sky-400/20 bg-sky-400/5 p-4 text-sm text-sky-200">
-      Confirmed from {existing.source} at{" "}
+      Confirmed {existing.resultType === "Winner" ? `${existing.winner} wins` : existing.resultType} from {existing.source} at{" "}
       {new Date(existing.confirmedAt).toLocaleString()}.
     </div>
   )}
@@ -299,5 +311,29 @@ Review before editing. </div>
   )}
 </form>
 
+);
+}
+
+
+function ResultOption({ value, checked, onChange, children }: { value: string; checked: boolean; onChange: () => void; children: ReactNode }) {
+return (
+  <label
+    className={
+      "flex min-h-16 cursor-pointer items-center rounded-lg border p-4 font-bold transition " +
+      (checked
+        ? "border-red-400 bg-red-400/10 text-white"
+        : "border-white/10 bg-white/[.02] text-slate-100 hover:border-white/25")
+    }
+  >
+    <input
+      className="sr-only"
+      type="radio"
+      name="winner"
+      value={value}
+      checked={checked}
+      onChange={onChange}
+    />
+    {children}
+  </label>
 );
 }

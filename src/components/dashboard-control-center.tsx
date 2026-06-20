@@ -98,7 +98,11 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
         <span>Next action</span>
         <strong>{card.length ? `Complete the ${userLeague} card` : "Connect the next authoritative card"}</strong>
         <p>{card.length ? "Record all six outcomes, then review and lock the week." : "No matchup is shown until an accepted schedule supplies it."}</p>
-        <Link href={nextHref} className="action-button action-primary">{nextLabel}<span aria-hidden>→</span></Link>
+        <div className="dashboard-workflow-actions">
+          <Link href={nextHref} className="action-button action-primary">{nextLabel}<span aria-hidden>→</span></Link>
+          <Link href="/simulation" className="rounded-lg border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">Simulation</Link>
+          <Link href="/week-review" className="rounded-lg border border-emerald-400/30 px-4 py-3 text-xs font-black uppercase tracking-wider text-emerald-300">Week Review</Link>
+        </div>
       </div>
     </section>
 
