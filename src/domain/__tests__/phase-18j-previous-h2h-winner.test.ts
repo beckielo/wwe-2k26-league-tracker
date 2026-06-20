@@ -32,6 +32,44 @@ function winner(results: HistoricalMatchResult[]) {
 }
 
 describe("Phase 18J previous direct H2H winner", () => {
+  it("returns Beckielo from authoritative completed history for Beckielo vs Carmelo Hayes", () => {
+    expect(derivePreviousH2HWinner({
+      wrestlerA: "Beckielo",
+      wrestlerB: "Carmelo Hayes",
+      leagueYear: 2,
+      split: "Closing Split",
+      week: 16,
+      matchNumber: 1,
+      currentMatchId: "current",
+      results: [result({ matchId: "prior", week: 9, wrestlerA: "Beckielo", wrestlerB: "Carmelo Hayes", winner: "Beckielo" })],
+    })).toBe("Beckielo");
+  });
+
+  it("returns Beckielo when the previous completed H2H order was reversed", () => {
+    expect(derivePreviousH2HWinner({
+      wrestlerA: "Beckielo",
+      wrestlerB: "Carmelo Hayes",
+      leagueYear: 2,
+      split: "Closing Split",
+      week: 16,
+      matchNumber: 1,
+      currentMatchId: "current",
+      results: [result({ matchId: "prior", week: 9, wrestlerA: "Carmelo Hayes", wrestlerB: "Beckielo", winner: "Beckielo" })],
+    })).toBe("Beckielo");
+  });
+
+  it("normalizes ranked labels and seed metadata before comparing names", () => {
+    expect(derivePreviousH2HWinner({
+      wrestlerA: "#3 Beckielo",
+      wrestlerB: "Carmelo Hayes (Seed 4)",
+      leagueYear: 2,
+      split: "Closing Split",
+      week: 16,
+      currentMatchId: "current",
+      results: [result({ matchId: "prior", week: 9, wrestlerA: "carmelo hayes", wrestlerB: "Beckielo", winner: "beckielo" })],
+    })).toBe("#3 Beckielo");
+  });
+
   it("returns the prior winner for the same pair in the same order", () => {
     expect(winner([result({ winner: "Alpha" })])).toBe("Alpha");
   });

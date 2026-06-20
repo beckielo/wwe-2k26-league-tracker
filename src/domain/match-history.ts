@@ -1,4 +1,4 @@
-import type { Match, MatchResult } from "./types";
+import type { HeadToHeadRecord, Match, MatchResult, SplitName } from "./types";
 import type { ConfirmedResult } from "./tracker-state";
 
 export type HistoricalResultType = "win" | "draw" | "loss";
@@ -54,4 +54,18 @@ export function buildHistoricalResults(matches: Match[], masterResults: MatchRes
     });
   }
   return history.sort((a, b) => a.leagueYear - b.leagueYear || a.week - b.week || (a.matchNumber ?? 0) - (b.matchNumber ?? 0) || a.matchId.localeCompare(b.matchId));
+}
+
+export function buildHistoricalResultsFromHeadToHead(records: HeadToHeadRecord[], leagueYear: number, split: SplitName): HistoricalMatchResult[] {
+  return records.map((record, index) => ({
+    matchId: `workbook-h2h-${leagueYear}-${split}-${record.league}-${record.week}-${index}`,
+    league: record.league,
+    split,
+    leagueYear,
+    week: record.week,
+    wrestlerA: record.wrestlerA,
+    wrestlerB: record.wrestlerB,
+    resultType: "Winner" as const,
+    winner: record.winner || null,
+  }));
 }
