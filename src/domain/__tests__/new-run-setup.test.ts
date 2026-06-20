@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HIDDEN_MALE_WRESTLER_POOL, validateWrestlerPool } from "@/data/wrestlerPool";
+import { HIDDEN_MALE_WRESTLER_POOL, getMaleWrestlerPool, getMaleWrestlerPoolCount, validateWrestlerPool, type WrestlerPoolEntry } from "@/data/wrestlerPool";
 import { activateFreshRunSetup, addCawToDraft, createEmptyNewRunSetupDraft, generateAutomaticRosterDraft, validateFreshRunState, validateNewRunSetupDraft } from "../new-run-setup";
 import { acceptedScheduleMatches } from "../schedule-setup";
 import { createEmptyTrackerState } from "../tracker-state";
@@ -100,25 +100,57 @@ describe("Phase 14B fresh run activation", () => {
   });
 
   it("valid automatic roster activates through fresh run activation", () => {
-    const generated = generateAutomaticRosterDraft({ ...createEmptyNewRunSetupDraft(), caws: ["Beckielo"], rosterMode: "automatic" }, { random: () => 0.42 });
+    const generated = generateAutomaticRosterDraft({ ...createEmptyNewRunSetupDraft(), caws: ["Custom Hero"], rosterMode: "automatic" }, { random: () => 0.42 });
     expect(generated.errors).toEqual([]);
     const result = activateFreshRunSetup(createEmptyTrackerState(), generated.draft, "2026-01-01T00:00:00.000Z");
     expect(result.ok).toBe(true);
     expect(result.state.activeWorkflow).toMatchObject({ leagueYear: 1, split: "Opening Split", yearWeek: 1 });
-    expect(result.state.currentUserWrestler).toBe("Beckielo");
+    expect(result.state.currentUserWrestler).toBe("Custom Hero");
   });
 });
 
 
 describe("Phase 15A hidden wrestler pool automatic roster generation", () => {
-  it("hidden pool has unique valid male names", () => {
+  it("hidden pool validates successfully with unique male names and ids", () => {
     expect(validateWrestlerPool()).toEqual([]);
     expect(HIDDEN_MALE_WRESTLER_POOL.length).toBeGreaterThanOrEqual(48);
+    const nameKeys = HIDDEN_MALE_WRESTLER_POOL.map((entry) => entry.name.toLocaleLowerCase());
+    const idKeys = HIDDEN_MALE_WRESTLER_POOL.map((entry) => entry.id.toLocaleLowerCase());
+    expect(new Set(nameKeys).size).toBe(HIDDEN_MALE_WRESTLER_POOL.length);
+    expect(new Set(idKeys).size).toBe(HIDDEN_MALE_WRESTLER_POOL.length);
+  });
+
+  it("hidden pool helpers return only male entries and count the pool", () => {
+    const mixedPool = [
+      ...HIDDEN_MALE_WRESTLER_POOL.slice(0, 2),
+      { id: "test-non-male", name: "Test Non Male", gender: "female", source: "project" },
+    ] as WrestlerPoolEntry[];
+    expect(getMaleWrestlerPool(mixedPool)).toHaveLength(2);
+    expect(getMaleWrestlerPool(mixedPool).every((entry) => entry.gender === "male")).toBe(true);
+    expect(getMaleWrestlerPoolCount()).toBe(HIDDEN_MALE_WRESTLER_POOL.length);
+  });
+
+  it("wrestler pool validation catches duplicate names, duplicate ids, trimming, gender, and source errors", () => {
+    const invalidPool = [
+      HIDDEN_MALE_WRESTLER_POOL[0],
+      { ...HIDDEN_MALE_WRESTLER_POOL[1], id: HIDDEN_MALE_WRESTLER_POOL[0].id },
+      { ...HIDDEN_MALE_WRESTLER_POOL[2], name: HIDDEN_MALE_WRESTLER_POOL[0].name.toUpperCase() },
+      { id: " needs-trim ", name: " Needs Trim ", gender: "male", source: "project" },
+      { id: "wrong-gender", name: "Wrong Gender", gender: "female", source: "project" },
+      { id: "wrong-source", name: "Wrong Source", gender: "male", source: "custom" },
+    ] as WrestlerPoolEntry[];
+    const errors = validateWrestlerPool(invalidPool).join(" ");
+    expect(errors).toContain("duplicate hidden wrestler pool id");
+    expect(errors).toContain("duplicate hidden wrestler pool name");
+    expect(errors).toContain("hidden wrestler pool id must be trimmed");
+    expect(errors).toContain("hidden wrestler pool name must be trimmed");
+    expect(errors).toContain("hidden wrestler pool must be male-only");
+    expect(errors).toContain("hidden wrestler pool has an invalid source");
   });
 
   it("requires enough hidden pool names", () => {
     const draft = { ...createEmptyNewRunSetupDraft(), rosterMode: "automatic" as const };
-    const result = generateAutomaticRosterDraft(draft, { pool: HIDDEN_MALE_WRESTLER_POOL.slice(0, 47), random: () => 0.1 });
+    const result = generateAutomaticRosterDraft(draft, { pool: getMaleWrestlerPool(HIDDEN_MALE_WRESTLER_POOL).slice(0, 47), random: () => 0.1 });
     expect(result.errors).toContain("Not enough wrestlers in the hidden pool for automatic roster generation.");
   });
 
@@ -141,8 +173,15 @@ describe("Phase 15A hidden wrestler pool automatic roster generation", () => {
     const duplicateCaw = generateAutomaticRosterDraft({ ...createEmptyNewRunSetupDraft(), caws: ["Custom Alpha", " custom alpha "], rosterMode: "automatic" });
     expect(duplicateCaw.errors.join(" ")).toContain("Duplicate CAWs");
 
-    const poolConflict = generateAutomaticRosterDraft({ ...createEmptyNewRunSetupDraft(), caws: [HIDDEN_MALE_WRESTLER_POOL[0].name.toLowerCase()], rosterMode: "automatic" });
+    const poolConflict = generateAutomaticRosterDraft({ ...createEmptyNewRunSetupDraft(), caws: [getMaleWrestlerPool()[0].name.toLowerCase()], rosterMode: "automatic" });
     expect(poolConflict.errors.join(" ")).toContain("CAWs must not duplicate hidden pool wrestlers");
+  });
+
+  it("automatic generation accepts an injected male-only helper-shaped pool", () => {
+    const helperPool = getMaleWrestlerPool(HIDDEN_MALE_WRESTLER_POOL).slice(0, 48);
+    const result = generateAutomaticRosterDraft({ ...createEmptyNewRunSetupDraft(), rosterMode: "automatic" }, { pool: helperPool, random: () => 0.2 });
+    expect(result.errors).toEqual([]);
+    expect(LEAGUE_NAMES.flatMap((league) => result.draft.manualRoster[league])).toHaveLength(48);
   });
 
   it("regenerate produces another valid roster and does not mutate active state before activation", () => {

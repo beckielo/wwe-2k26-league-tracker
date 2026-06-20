@@ -189,4 +189,13 @@ function Preview({ draft, validation, ruleVersion, onActivate }: { draft: NewRun
   <button className="action-button action-primary" disabled={!validation.valid || !validation.readyForActivation} onClick={onActivate}>Activate Fresh Run</button>
 </WizardStep>; }
 
-function AutomaticRosterPreview({ draft, validation, onRegenerate }: { draft: NewRunSetupDraft; validation: ReturnType<typeof validateNewRunSetupDraft>; onRegenerate: () => void }) { return <div className="automatic-roster-preview"><RosterValidationSummary validation={validation} /><div className="new-run-actions"><button className="action-button action-secondary regenerate-roster-button" onClick={onRegenerate}>Regenerate Random Roster</button></div><RosterSeedPreview draft={draft} variant="automatic" /><ValidationPanel validation={validation} /></div>; }
+function HiddenPoolStatus({ validation }: { validation: ReturnType<typeof validateNewRunSetupDraft> }) {
+  const summary = validation.summary;
+  return <div className="new-run-preview" aria-label="Hidden wrestler pool status">
+    <p><strong>Hidden Pool:</strong> {summary.hiddenPoolCount} available male wrestlers</p>
+    <p>{summary.hiddenPoolReady ? "Pool ready for random auto-roster generation." : "Not enough wrestlers in the hidden pool for automatic roster generation."}</p>
+    <p><strong>Needed from pool:</strong> {summary.neededPoolCount}</p>
+  </div>;
+}
+
+function AutomaticRosterPreview({ draft, validation, onRegenerate }: { draft: NewRunSetupDraft; validation: ReturnType<typeof validateNewRunSetupDraft>; onRegenerate: () => void }) { return <div className="automatic-roster-preview"><HiddenPoolStatus validation={validation} /><RosterValidationSummary validation={validation} /><div className="new-run-actions"><button className="action-button action-secondary regenerate-roster-button" onClick={onRegenerate}>Regenerate Random Roster</button></div><RosterSeedPreview draft={draft} variant="automatic" /><ValidationPanel validation={validation} /></div>; }

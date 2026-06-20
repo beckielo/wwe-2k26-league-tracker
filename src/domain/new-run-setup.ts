@@ -1,4 +1,4 @@
-import { HIDDEN_MALE_WRESTLER_POOL, validateWrestlerPool, type WrestlerPoolEntry } from "@/data/wrestlerPool";
+import { HIDDEN_MALE_WRESTLER_POOL, getMaleWrestlerPool, getMaleWrestlerPoolCount, validateWrestlerPool, type WrestlerPoolEntry } from "@/data/wrestlerPool";
 import { generateSchedule, validateSchedule, createAcceptedScheduleSnapshot } from "./schedule-setup";
 import type { TrackerState } from "./tracker-state";
 import { LEAGUE_NAMES, type LeagueName, type StandingRow } from "./types";
@@ -35,6 +35,9 @@ export interface AutomaticRosterValidationSummary {
   duplicates: number;
   cawsIncluded: number;
   cawsEntered: number;
+  hiddenPoolCount: number;
+  neededPoolCount: number;
+  hiddenPoolReady: boolean;
 }
 
 export const AUTOMATIC_ROSTER_SIZE = 48;
@@ -98,8 +101,8 @@ export function flattenManualRoster(manualRoster: Record<LeagueName, string[]>):
 }
 
 
-function cawPoolConflicts(caws: string[], pool: WrestlerPoolEntry[] = HIDDEN_MALE_WRESTLER_POOL): string[] {
-  const poolKeys = new Set(pool.map((entry) => normalizeSetupName(entry.name).toLocaleLowerCase()).filter(Boolean));
+function cawPoolConflicts(caws: string[], pool: WrestlerPoolEntry[] = getMaleWrestlerPool()): string[] {
+  const poolKeys = new Set(getMaleWrestlerPool(pool).map((entry) => normalizeSetupName(entry.name).toLocaleLowerCase()).filter(Boolean));
   return caws.map(normalizeSetupName).filter((caw) => caw && poolKeys.has(caw.toLocaleLowerCase()));
 }
 
@@ -116,7 +119,7 @@ export function generateAutomaticRosterDraft(
   draft: NewRunSetupDraft,
   options: { pool?: WrestlerPoolEntry[]; random?: () => number } = {},
 ): { draft: NewRunSetupDraft; errors: string[] } {
-  const pool = options.pool ?? HIDDEN_MALE_WRESTLER_POOL;
+  const pool = getMaleWrestlerPool(options.pool ?? HIDDEN_MALE_WRESTLER_POOL);
   const poolErrors = validateWrestlerPool(pool);
   const normalizedCaws = draft.caws.map(normalizeSetupName).filter(Boolean);
   const cawDuplicates = duplicateSetupNames(normalizedCaws);
@@ -126,7 +129,7 @@ export function generateAutomaticRosterDraft(
   if (conflicts.length) errors.push(`CAWs must not duplicate hidden pool wrestlers: ${[...new Set(conflicts)].join(", ")}.`);
   if (normalizedCaws.length > AUTOMATIC_ROSTER_SIZE) errors.push(`Automatic roster generation supports at most ${AUTOMATIC_ROSTER_SIZE} CAWs.`);
   const neededPoolNames = AUTOMATIC_ROSTER_SIZE - normalizedCaws.length;
-  const uniquePoolNames = [...new Map(pool.map((entry) => [normalizeSetupName(entry.name).toLocaleLowerCase(), normalizeSetupName(entry.name)] as const).filter(([key]) => Boolean(key))).values()];
+  const uniquePoolNames = [...new Map(getMaleWrestlerPool(pool).map((entry) => [normalizeSetupName(entry.name).toLocaleLowerCase(), normalizeSetupName(entry.name)] as const).filter(([key]) => Boolean(key))).values()];
   if (uniquePoolNames.length < neededPoolNames) errors.push("Not enough wrestlers in the hidden pool for automatic roster generation.");
   if (errors.length) return { draft: { ...draft, rosterMode: "automatic" }, errors: [...new Set(errors)] };
 
@@ -144,6 +147,8 @@ export function createRosterValidationSummary(draft: NewRunSetupDraft): Automati
   const duplicateKeys = lowerNames.filter((name, index) => lowerNames.indexOf(name) !== index);
   const cawKeys = new Set(draft.caws.map((caw) => normalizeSetupName(caw).toLocaleLowerCase()).filter(Boolean));
   const activeKeys = new Set(lowerNames);
+  const neededPoolCount = Math.max(0, AUTOMATIC_ROSTER_SIZE - cawKeys.size);
+  const hiddenPoolCount = getMaleWrestlerPoolCount();
   return {
     rosterCount: names.length,
     requiredRosterCount: AUTOMATIC_ROSTER_SIZE,
@@ -155,6 +160,9 @@ export function createRosterValidationSummary(draft: NewRunSetupDraft): Automati
     duplicates: new Set(duplicateKeys).size,
     cawsIncluded: [...cawKeys].filter((key) => activeKeys.has(key)).length,
     cawsEntered: cawKeys.size,
+    hiddenPoolCount,
+    neededPoolCount,
+    hiddenPoolReady: hiddenPoolCount >= neededPoolCount,
   };
 }
 
@@ -170,7 +178,7 @@ export function validateNewRunSetupDraft(draft: NewRunSetupDraft): NewRunValidat
     const conflicts = cawPoolConflicts(draft.caws);
     if (conflicts.length) errors.push(`CAWs must not duplicate hidden pool wrestlers: ${[...new Set(conflicts)].join(", ")}.`);
     const neededPoolNames = AUTOMATIC_ROSTER_SIZE - draft.caws.map(normalizeSetupName).filter(Boolean).length;
-    const uniquePoolNames = new Set(HIDDEN_MALE_WRESTLER_POOL.map((entry) => normalizeSetupName(entry.name).toLocaleLowerCase()).filter(Boolean));
+    const uniquePoolNames = new Set(getMaleWrestlerPool().map((entry) => normalizeSetupName(entry.name).toLocaleLowerCase()).filter(Boolean));
     if (neededPoolNames < 0 || uniquePoolNames.size < neededPoolNames) errors.push("Not enough wrestlers in the hidden pool for automatic roster generation.");
   }
 
