@@ -1,5 +1,6 @@
 import { LEAGUE_NAMES, type LeagueName, type Match, type SplitName } from "./types";
 import type { ActiveWorkflow, TrackerState } from "./tracker-state";
+import { applyRosterReplacementsToMatches } from "./roster-replacement";
 
 export const SCHEDULE_GENERATOR_VERSION = "1.0.0";
 export const SCHEDULE_IMPORTER_VERSION = "1.0.0";
@@ -247,5 +248,6 @@ export function acceptedScheduleMatches(snapshot: AcceptedScheduleSnapshot): Mat
 }
 
 export function getActiveWorkflowMatches(state: TrackerState, workbookMatches: Match[]): Match[] {
-  return state.activeWorkflow && state.acceptedSchedule ? acceptedScheduleMatches(state.acceptedSchedule) : workbookMatches;
+  const matches = state.activeWorkflow && state.acceptedSchedule ? acceptedScheduleMatches(state.acceptedSchedule) : workbookMatches;
+  return applyRosterReplacementsToMatches(matches, state.rosterReplacements ?? [], new Set(state.confirmedResults.map((result) => result.matchId)));
 }

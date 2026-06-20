@@ -12,7 +12,7 @@ describe("Phase 12 current user switcher UI wiring", () => {
 
   it("places the switcher above the dashboard command deck", () => {
     const dashboard = readFileSync("src/components/dashboard-control-center.tsx", "utf8");
-    expect(dashboard.indexOf("<CurrentUserSwitcher standings={props.baselineStandings} />")).toBeGreaterThan(-1);
-    expect(dashboard.indexOf("<CurrentUserSwitcher standings={props.baselineStandings} />")).toBeLessThan(dashboard.indexOf("<section className={`command-deck"));
+    expect(dashboard.indexOf("<CurrentUserSwitcher standings={live.composition} />")).toBeGreaterThan(-1);
+    expect(dashboard.indexOf("<CurrentUserSwitcher standings={live.composition} />")).toBeLessThan(dashboard.indexOf("<section className={`command-deck"));
   });
 });

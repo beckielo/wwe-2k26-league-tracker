@@ -3,6 +3,7 @@ import type { LeagueName, Match, MatchResult, SplitName, StandingRow } from "./t
 import type { FinalsNight, LeagueFinalsResult } from "./league-finals";
 import type { AcceptedScheduleSnapshot } from "./schedule-setup";
 import type { PostFinalsAssignment } from "./post-finals-transition";
+import { applyRosterReplacementsToMatches, applyRosterReplacementsToStandings, type RosterReplacementLogEntry } from "./roster-replacement";
 
 export type ConfirmedResultType = "Winner" | "Draw" | "No Contest";
 export type ConfirmedResultSource = "Manual" | "Simulation";
@@ -53,6 +54,7 @@ export interface TrackerState {
   activeWorkflow?: ActiveWorkflow;
   manualReviews?: ManualReview[];
   currentUserWrestler?: string;
+  rosterReplacements?: RosterReplacementLogEntry[];
 }
 
 export interface ActiveWorkflow {
@@ -352,6 +354,7 @@ export interface ActiveSplitLiveStandingsInput {
   localResults: ConfirmedResult[];
   split: SplitName;
   completedThroughWeek: number;
+  rosterReplacements?: RosterReplacementLogEntry[];
 }
 
 export interface ActiveSplitLiveStandings {
@@ -364,7 +367,7 @@ export function reconstructActiveSplitLiveStandings(input: ActiveSplitLiveStandi
   const startWeek = splitStartWeek(input.split);
   const latestLocalWeek = Math.max(input.completedThroughWeek, ...input.localResults.map((result) => result.week));
   const activeMatches = input.scheduledMatches.filter((match) => match.leagueYear === 2 && match.split === input.split && match.week >= startWeek && match.week <= latestLocalWeek);
-  const allSplitMatches = input.scheduledMatches.filter((match) => match.leagueYear === 2 && match.split === input.split);
+  const allSplitMatches = applyRosterReplacementsToMatches(input.scheduledMatches.filter((match) => match.leagueYear === 2 && match.split === input.split), input.rosterReplacements ?? [], new Set(input.localResults.map((result) => result.matchId)));
   const diagnostics: string[] = [];
   if (allSplitMatches.length === 0 && input.masterResults.length === 0 && input.localResults.length === 0) {
     return { composition: input.previousFinalStandings, standings: input.previousFinalStandings, diagnostics: [] };
@@ -376,7 +379,7 @@ export function reconstructActiveSplitLiveStandings(input: ActiveSplitLiveStandi
     diagnostics.push("Missing post-finals transition source.");
     composition = resetRowsForSplit(input.previousFinalStandings, input.split);
   }
-  composition = composition.map((row) => ({ ...row, matches: 0, wins: 0, draws: 0, losses: 0, points: 0 }));
+  composition = applyRosterReplacementsToStandings(composition, input.rosterReplacements ?? []).map((row) => ({ ...row, matches: 0, wins: 0, draws: 0, losses: 0, points: 0 }));
   diagnostics.push(...validateRoster(composition));
 
   const leagueByRoster = new Map(composition.map((row) => [normalized(row.wrestler), row.league]));
@@ -496,6 +499,7 @@ export function calculateLiveStandingsFromCurrentMaster(
     localResults: confirmedResults,
     split,
     completedThroughWeek: currentMasterCompletedThroughWeek,
+    rosterReplacements: [],
   }).standings;
 }
 
@@ -528,20 +532,21 @@ export function calculateStandingsWithConfirmedResults(
     if (!match) continue;
     const rowA = rowByKey.get(`${match.league}:${normalized(match.wrestlerA)}`);
     const rowB = rowByKey.get(`${match.league}:${normalized(match.wrestlerB)}`);
-    if (!rowA || !rowB || result.resultType === "No Contest") continue;
-    rowA.matches += 1;
-    rowB.matches += 1;
+    if ((!rowA && !rowB) || result.resultType === "No Contest") continue;
+    if (rowA) rowA.matches += 1;
+    if (rowB) rowB.matches += 1;
     if (result.resultType === "Draw") {
-      rowA.draws += 1;
-      rowB.draws += 1;
+      if (rowA) rowA.draws += 1;
+      if (rowB) rowB.draws += 1;
     } else if (result.winner) {
-      const winner = normalized(result.winner) === normalized(match.wrestlerA) ? rowA : rowB;
-      const loser = normalized(result.winner) === normalized(match.wrestlerA) ? rowB : rowA;
-      winner.wins += 1;
-      loser.losses += 1;
+      const winnerIsA = normalized(result.winner) === normalized(match.wrestlerA);
+      const winner = winnerIsA ? rowA : rowB;
+      const loser = winnerIsA ? rowB : rowA;
+      if (winner) winner.wins += 1;
+      if (loser) loser.losses += 1;
     }
-    rowA.points = calculatePoints(rowA.wins, rowA.draws);
-    rowB.points = calculatePoints(rowB.wins, rowB.draws);
+    if (rowA) rowA.points = calculatePoints(rowA.wins, rowA.draws);
+    if (rowB) rowB.points = calculatePoints(rowB.wins, rowB.draws);
   }
 
   const leagueOrder = new Map<string, number>();
