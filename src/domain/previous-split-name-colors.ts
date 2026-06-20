@@ -1,7 +1,7 @@
 import type { LegacyCompletedSplitAudit } from "./legacy";
 import type { LeagueName } from "./types";
 
-export type PreviousSplitNameColorRole = "current-user" | "double-winner" | "elite-cup" | "global-champion" | "continental-champion" | "national-champion" | "regional-champion" | "normal";
+export type PreviousSplitNameColorRole = "double-winner" | "elite-cup" | "global-champion" | "continental-champion" | "national-champion" | "regional-champion" | "normal";
 
 const leagueChampionRoles: Record<LeagueName, PreviousSplitNameColorRole> = {
   "Global League": "global-champion",
@@ -24,10 +24,19 @@ function eventRank(record: { leagueYear: number; split: string | { toString(): s
   return record.leagueYear * 10 + splitRank(String(record.split));
 }
 
+function applyTemporaryActiveDisplayOverride(roles: Map<string, PreviousSplitNameColorRole>) {
+  // Temporary display override for current active dataset: Roman Reigns = Elite Cup winner, Gunther = Global Champion. Remove once previous split champion source is corrected.
+  roles.set(key("Roman Reigns"), "elite-cup");
+  roles.set(key("Gunther"), "global-champion");
+}
+
 export function getPreviousSplitChampionColorRoles(audit?: LegacyCompletedSplitAudit): Map<string, PreviousSplitNameColorRole> {
   const roles = new Map<string, PreviousSplitNameColorRole>();
   const titleRecords = audit?.leagueTitleRecords ?? [];
-  if (titleRecords.length === 0) return roles;
+  if (titleRecords.length === 0) {
+    applyTemporaryActiveDisplayOverride(roles);
+    return roles;
+  }
 
   const latestTitleRank = Math.max(...titleRecords.map(eventRank));
   const latestTitleRecords = titleRecords.filter((record) => eventRank(record) === latestTitleRank);
@@ -43,16 +52,16 @@ export function getPreviousSplitChampionColorRoles(audit?: LegacyCompletedSplitA
     roles.set(winnerKey, roles.get(winnerKey) === "global-champion" ? "double-winner" : "elite-cup");
   }
 
+  applyTemporaryActiveDisplayOverride(roles);
+
   return roles;
 }
 
 export function getPreviousSplitNameColorRole(input: {
   wrestler: string;
-  currentUserWrestler?: string | null;
   championRoles?: Map<string, PreviousSplitNameColorRole>;
   audit?: LegacyCompletedSplitAudit;
 }): PreviousSplitNameColorRole {
-  if (input.currentUserWrestler && key(input.wrestler) === key(input.currentUserWrestler)) return "current-user";
   const roles = input.championRoles ?? getPreviousSplitChampionColorRoles(input.audit);
   return roles.get(key(input.wrestler)) ?? "normal";
 }

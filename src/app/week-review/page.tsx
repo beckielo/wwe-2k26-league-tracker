@@ -1,11 +1,12 @@
 import { PageHeader } from "@/components/ui";
 import { WeekReview } from "@/components/week-review";
-import { loadTrackerData } from "@/data/workbook";
+import { loadLegacyTableData, loadTrackerData } from "@/data/workbook";
 
 export const dynamic = "force-dynamic";
 
 export default function WeekReviewPage() {
 const data = loadTrackerData();
+const legacy = loadLegacyTableData();
 
 return (
 <> <PageHeader
@@ -27,6 +28,8 @@ return (
     originalWorkbookCurrentWeek={data.meta.currentWeek}
     latestAppWritebackWeek={data.meta.latestAppWritebackWeek}
     sourceFile={data.sourceFile}
+    userWrestler={data.meta.userWrestler}
+    completedSplitAudit={legacy.summary.audit}
   />
 </>
 

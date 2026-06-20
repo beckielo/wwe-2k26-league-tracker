@@ -17,7 +17,8 @@ import { NewRunSetupWizard } from "./new-run-setup-wizard";
 import { EmptyState, StatusBadge } from "./ui";
 import { InteractivePanel, LeagueBrandMark, LeagueDecorativeArt, LeagueWatermark } from "./brand-assets";
 import { LEAGUE_VISUALS, placementLabel, placementZone } from "@/domain/visual-identity";
-import { getPreviousSplitChampionColorRoles, getPreviousSplitNameColorRole, type PreviousSplitNameColorRole } from "@/domain/previous-split-name-colors";
+import { getPreviousSplitChampionColorRoles } from "@/domain/previous-split-name-colors";
+import { WrestlerNameWithRole } from "./wrestler-name-with-role";
 import type { LegacyCompletedSplitAudit } from "@/domain/legacy";
 
 interface DashboardControlCenterProps {
@@ -141,9 +142,9 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
               <span className="bout-number">MATCH {String(match.matchNumber).padStart(2, "0")}</span>
               <div className="matchup matchup-context">
                 <span className="form-strip" aria-label={`${match.wrestlerA} recent form`}>{leftForm}</span>
-                <strong className={wrestlerNameClassName(getPreviousSplitNameColorRole({ wrestler: match.wrestlerA, currentUserWrestler: selectedUser?.wrestler ?? props.meta.userWrestler, championRoles: previousSplitChampionColorRoles }), h2h.shouldUnderlineLeft)}>{formatRankedWrestler(match.wrestlerA, currentRanks.get(match.wrestlerA))}</strong>
+                <strong className={wrestlerNameClassName(h2h.shouldUnderlineLeft)}><WrestlerNameWithRole wrestler={match.wrestlerA} currentUserWrestler={selectedUser?.wrestler ?? props.meta.userWrestler} championRoles={previousSplitChampionColorRoles}>{formatRankedWrestler(match.wrestlerA, currentRanks.get(match.wrestlerA))}</WrestlerNameWithRole></strong>
                 <span className="matchup-vs">VS</span>
-                <strong className={wrestlerNameClassName(getPreviousSplitNameColorRole({ wrestler: match.wrestlerB, currentUserWrestler: selectedUser?.wrestler ?? props.meta.userWrestler, championRoles: previousSplitChampionColorRoles }), h2h.shouldUnderlineRight)}>{formatRankedWrestler(match.wrestlerB, currentRanks.get(match.wrestlerB))}</strong>
+                <strong className={wrestlerNameClassName(h2h.shouldUnderlineRight)}><WrestlerNameWithRole wrestler={match.wrestlerB} currentUserWrestler={selectedUser?.wrestler ?? props.meta.userWrestler} championRoles={previousSplitChampionColorRoles}>{formatRankedWrestler(match.wrestlerB, currentRanks.get(match.wrestlerB))}</WrestlerNameWithRole></strong>
                 <span className="form-strip" aria-label={`${match.wrestlerB} recent form`}>{rightForm}</span>
               </div>
               <PredictionStrip prediction={predictMatch(match, live.standings, state.confirmedResults)} />
@@ -155,7 +156,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
         </div>}
       </section>
 
-      <UserLeagueLiveTable league={userLeague} rows={userLeagueRows} />
+      <UserLeagueLiveTable league={userLeague} rows={userLeagueRows} currentUserWrestler={selectedUser?.wrestler ?? props.meta.userWrestler} championRoles={previousSplitChampionColorRoles} />
     </div>
     <SocialFeed comments={socialFeed} />
     <p className="dashboard-diagnostics-note">Source Warnings remain available in review workflows · Non-blocking · details contained.</p>
@@ -164,20 +165,10 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
   </>;
 }
 
-const nameColorClassByRole: Record<PreviousSplitNameColorRole, string> = {
-  "current-user": "name-color-current-user",
-  "double-winner": "name-color-double-winner",
-  "elite-cup": "name-color-elite-cup",
-  "global-champion": "name-color-global-champion",
-  "continental-champion": "name-color-continental-champion",
-  "national-champion": "name-color-national-champion",
-  "regional-champion": "name-color-regional-champion",
-  normal: "name-color-normal",
-};
-
-function wrestlerNameClassName(role: PreviousSplitNameColorRole, isLastHeadToHeadWinner: boolean) {
-  return ["dashboard-show-wrestler-name", nameColorClassByRole[role], isLastHeadToHeadWinner ? "h2h-last-winner" : null].filter(Boolean).join(" ");
+function wrestlerNameClassName(isLastHeadToHeadWinner: boolean) {
+  return ["dashboard-show-wrestler-name", isLastHeadToHeadWinner ? "h2h-last-winner" : null].filter(Boolean).join(" ");
 }
+
 
 function formatRankedWrestler(wrestler: string, rank?: number) {
   return rank ? `#${rank} ${wrestler}` : wrestler;
@@ -192,7 +183,7 @@ function PredictionStrip({ prediction }: { prediction: ReturnType<typeof predict
   </div>;
 }
 
-function UserLeagueLiveTable({ league, rows }: { league: LeagueName; rows: StandingRow[] }) {
+function UserLeagueLiveTable({ league, rows, currentUserWrestler, championRoles }: { league: LeagueName; rows: StandingRow[]; currentUserWrestler?: string | null; championRoles: ReturnType<typeof getPreviousSplitChampionColorRoles> }) {
   return <section className={`dashboard-live-table dashboard-equal-panel league-${LEAGUE_VISUALS[league].key}`} aria-labelledby="dashboard-live-table-title">
     <header>
       <div className="dashboard-live-table-title"><LeagueBrandMark league={league} usage="compact" /><span><p className="broadcast-kicker">Current user table</p><h2 id="dashboard-live-table-title">{league}</h2></span></div>
@@ -201,7 +192,7 @@ function UserLeagueLiveTable({ league, rows }: { league: LeagueName; rows: Stand
     <div className="dashboard-live-table-wrap dashboard-live-table-wrap-compact"><table className="dashboard-live-table-compact">
       <thead><tr><th>#</th><th>Wrestler</th><th>M</th><th>W</th><th>D</th><th>L</th><th>Pts</th><th>Status</th></tr></thead>
       <tbody>{rows.map((row) => <tr key={row.wrestler} className={`placement-${placementZone(row.rank, league)}`}>
-        <td>{row.rank}</td><td><strong>{row.wrestler}</strong></td><td>{row.matches}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td><td><strong>{row.points}</strong></td><td><span className="zone-pill">{placementLabel(league, row.rank)}</span></td>
+        <td>{row.rank}</td><td><strong><WrestlerNameWithRole wrestler={row.wrestler} currentUserWrestler={currentUserWrestler} championRoles={championRoles} /></strong></td><td>{row.matches}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td><td><strong>{row.points}</strong></td><td><span className="zone-pill">{placementLabel(league, row.rank)}</span></td>
       </tr>)}</tbody>
     </table></div>
   </section>;

@@ -4,6 +4,9 @@ import { getPreviousSplitChampionColorRoles, getPreviousSplitNameColorRole } fro
 import type { LegacyCompletedSplitAudit } from "../legacy";
 
 const dashboardSource = readFileSync("src/components/dashboard-control-center.tsx", "utf8");
+const liveStandingsSource = readFileSync("src/components/live-standings.tsx", "utf8");
+const weekReviewSource = readFileSync("src/components/week-review.tsx", "utf8");
+const helperSource = readFileSync("src/components/wrestler-name-with-role.tsx", "utf8");
 const cssSource = readFileSync("src/app/globals.css", "utf8");
 
 function audit(globalChampion = "Gunther", eliteCupWinner = "Roman Reigns"): LegacyCompletedSplitAudit {
@@ -24,36 +27,52 @@ function audit(globalChampion = "Gunther", eliteCupWinner = "Roman Reigns"): Leg
   };
 }
 
-describe("Phase 18B current user show name colors", () => {
-  it("resolves previous split champion and Elite Cup color roles with current user override", () => {
+describe("Phase 18C current user icon and name colors", () => {
+  it("resolves previous split champion and Elite Cup color roles without a current user color override", () => {
     const roles = getPreviousSplitChampionColorRoles(audit());
 
     expect(getPreviousSplitNameColorRole({ wrestler: "Gunther", championRoles: roles })).toBe("global-champion");
     expect(getPreviousSplitNameColorRole({ wrestler: "Roman Reigns", championRoles: roles })).toBe("elite-cup");
     expect(getPreviousSplitNameColorRole({ wrestler: "Randy Orton", championRoles: roles })).toBe("normal");
-    expect(getPreviousSplitNameColorRole({ wrestler: "Gunther", currentUserWrestler: "Gunther", championRoles: roles })).toBe("current-user");
+    expect(helperSource).toContain("isCurrentUserWrestler");
+    expect(helperSource).toContain("current-user-controller-icon");
+    expect(helperSource).not.toContain("name-color-current-user");
   });
 
-  it("resolves a Global Champion and Elite Cup double winner to purple role", () => {
-    const roles = getPreviousSplitChampionColorRoles(audit("Gunther", "Gunther"));
-    expect(getPreviousSplitNameColorRole({ wrestler: "Gunther", championRoles: roles })).toBe("double-winner");
+  it("keeps the general double-winner rule while applying the temporary Roman/Gunther active display override", () => {
+    const drewRoles = getPreviousSplitChampionColorRoles(audit("Drew McIntyre", "Drew McIntyre"));
+    expect(getPreviousSplitNameColorRole({ wrestler: "Drew McIntyre", championRoles: drewRoles })).toBe("double-winner");
+
+    const guntherRoles = getPreviousSplitChampionColorRoles(audit("Gunther", "Gunther"));
+    expect(getPreviousSplitNameColorRole({ wrestler: "Roman Reigns", championRoles: guntherRoles })).toBe("elite-cup");
+    expect(getPreviousSplitNameColorRole({ wrestler: "Gunther", championRoles: guntherRoles })).toBe("global-champion");
+    expect(getPreviousSplitNameColorRole({ wrestler: "Gunther", championRoles: guntherRoles })).not.toBe("double-winner");
   });
 
-  it("wires scoped dashboard name classes and action links without changing routes", () => {
-    expect(dashboardSource).toContain("dashboard-show-wrestler-name");
-    expect(dashboardSource).toContain("name-color-current-user");
-    expect(dashboardSource).toContain("getPreviousSplitNameColorRole");
-    expect(dashboardSource).toContain('const nextHref = card.length ? "/results" : "/schedule-setup";');
-    expect(dashboardSource).toContain('href="/simulation"');
-    expect(dashboardSource).toContain('href="/week-review"');
-    expect(dashboardSource).toContain("dashboard-workflow-actions-spaced");
+  it("wires the shared wrestler-name helper into the requested UI surfaces only in wrestler cells", () => {
+    expect(dashboardSource).toContain("<WrestlerNameWithRole wrestler={match.wrestlerA}");
+    expect(dashboardSource).toContain("<WrestlerNameWithRole wrestler={row.wrestler}");
+    expect(liveStandingsSource).toContain("<WrestlerNameWithRole wrestler={row.wrestler}");
+    expect(weekReviewSource).toContain("<WrestlerNameWithRole wrestler={row.wrestler}");
+    expect(dashboardSource).toContain("<td>{row.rank}</td>");
+    expect(liveStandingsSource).toContain('<td><span className="rank-badge">{row.rank}</span></td>');
+    expect(weekReviewSource).toContain('<td className="mini-standings-rank">{row.rank}</td>');
   });
 
-  it("defines readable scoped colors for current user, normal, champions, cup, and double winner", () => {
-    expect(cssSource).toContain(".dashboard-show-wrestler-name.name-color-current-user{color:#05070a}");
-    expect(cssSource).toContain(".dashboard-show-wrestler-name.name-color-normal{color:#fff}");
-    expect(cssSource).toContain(".dashboard-show-wrestler-name.name-color-global-champion{color:#f3c969}");
-    expect(cssSource).toContain(".dashboard-show-wrestler-name.name-color-elite-cup{color:#ef6a6a}");
-    expect(cssSource).toContain(".dashboard-show-wrestler-name.name-color-double-winner{color:#b987f5}");
+  it("keeps H2H underline separate from the current user icon", () => {
+    expect(dashboardSource).toContain("h2h.shouldUnderlineLeft");
+    expect(dashboardSource).toContain("h2h.shouldUnderlineRight");
+    expect(dashboardSource).toContain("h2h-last-winner");
+    expect(cssSource).toContain(".h2h-last-winner{text-decoration:underline");
+  });
+
+  it("defines readable scoped colors and a cyan controller icon", () => {
+    expect(cssSource).toContain(".wrestler-name-with-role.name-color-normal{color:#fff}");
+    expect(cssSource).toContain(".wrestler-name-with-role.name-color-global-champion{color:#f3c969}");
+    expect(cssSource).toContain(".wrestler-name-with-role.name-color-elite-cup{color:#ef6a6a}");
+    expect(cssSource).toContain(".wrestler-name-with-role.name-color-double-winner{color:#b987f5}");
+    expect(cssSource).toContain(".current-user-controller-icon");
+    expect(cssSource).toContain("color:#67e8f9");
+    expect(cssSource).not.toContain("name-color-current-user");
   });
 });
