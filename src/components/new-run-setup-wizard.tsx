@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { activateFreshRunSetup, addCawToDraft, createEmptyNewRunSetupDraft, NEW_RUN_START_BASIS, normalizeSetupName, validateNewRunSetupDraft, type NewRunSetupDraft } from "@/domain/new-run-setup";
+import { activateFreshRunSetup, addCawToDraft, createEmptyNewRunSetupDraft, generateAutomaticRosterDraft, NEW_RUN_START_BASIS, normalizeSetupName, validateNewRunSetupDraft, type NewRunSetupDraft } from "@/domain/new-run-setup";
 import { LEAGUE_NAMES, type LeagueName, type TrackerMeta } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
 
@@ -55,8 +55,19 @@ export function NewRunSetupWizard({ meta }: { meta: TrackerMeta }) {
   }
 
   function setRosterMode(mode: "manual" | "automatic") {
+    if (mode === "automatic") {
+      regenerateAutomaticRoster();
+      setStep("automatic");
+      return;
+    }
     persist({ ...draft, rosterMode: mode });
-    setStep(mode === "manual" ? "manual" : "automatic");
+    setStep("manual");
+  }
+
+  function regenerateAutomaticRoster() {
+    const result = generateAutomaticRosterDraft({ ...draft, rosterMode: "automatic" });
+    persist(result.draft);
+    setErrors(result.errors);
   }
 
 
@@ -117,7 +128,7 @@ export function NewRunSetupWizard({ meta }: { meta: TrackerMeta }) {
         <div className="new-run-actions"><button className="action-button action-primary" onClick={addCaw}>Add CAW</button><button className="action-button action-secondary" onClick={() => setStep("roster-mode")}>No more CAWs</button></div><CawList caws={draft.caws} />
       </WizardStep>}
 
-      {step === "roster-mode" && <WizardStep title="How do you want to assign the roster?" description="Manual validates 48 unique active wrestlers. Automatic is visible but cannot activate until generation is implemented.">
+      {step === "roster-mode" && <WizardStep title="How do you want to assign the roster?" description="Manual validates 48 unique active wrestlers. Automatic randomly fills 48 active wrestlers from CAWs plus the hidden internal pool.">
         <div className="new-run-actions"><button className="action-button action-primary" onClick={() => setRosterMode("manual")}>Manual</button><button className="action-button action-secondary" onClick={() => setRosterMode("automatic")}>Automatic</button></div>
       </WizardStep>}
 
@@ -127,7 +138,7 @@ export function NewRunSetupWizard({ meta }: { meta: TrackerMeta }) {
         <button className="action-button action-primary" onClick={() => setStep("preview")}>Preview setup</button>
       </WizardStep>}
 
-      {step === "automatic" && <WizardStep title="Automatic roster generation" description="Automatic roster generation will be implemented in a later phase."><ValidationPanel validation={validation} /><button className="action-button action-secondary" onClick={() => setStep("preview")}>Preview placeholder</button></WizardStep>}
+      {step === "automatic" && <WizardStep title="Automatic roster generation" description="Randomly generated from entered CAWs plus the hidden internal male wrestler pool. This does not change the active run until final activation."><AutomaticRosterPreview draft={draft} validation={validation} onRegenerate={regenerateAutomaticRoster} /><button className="action-button action-primary" disabled={!validation.valid} onClick={() => setStep("preview")}>Preview setup</button></WizardStep>}
 
       {step === "preview" && <Preview draft={draft} validation={validation} ruleVersion={meta.currentStatus || "Current rule version"} onActivate={requestActivation} />}
 
@@ -141,14 +152,16 @@ export function NewRunSetupWizard({ meta }: { meta: TrackerMeta }) {
 function WizardStep({ title, description, children }: { title: string; description: string; children: React.ReactNode }) { return <div className="new-run-step"><h4>{title}</h4><p>{description}</p>{children}</div>; }
 function CawList({ caws }: { caws: string[] }) { return <div className="new-run-caws"><strong>CAWs added:</strong> {caws.length ? caws.join(", ") : "None"}</div>; }
 function ValidationMessages({ title, messages, tone }: { title: string; messages: string[]; tone: "error" | "warning" }) { return <div className={`new-run-validation ${tone}`} role="status"><strong>{title}</strong><ul>{messages.map((message) => <li key={message}>{message}</li>)}</ul></div>; }
-function ValidationPanel({ validation }: { validation: ReturnType<typeof validateNewRunSetupDraft> }) { return <><ValidationMessages title={validation.valid ? "Validation passed" : "Validation errors"} messages={validation.errors.length ? validation.errors : ["Manual setup has 48 unique filled slots."]} tone={validation.valid ? "warning" : "error"} />{validation.warnings.length > 0 && <ValidationMessages title="Phase 14A warnings" messages={validation.warnings} tone="warning" />}</>; }
+function ValidationPanel({ validation }: { validation: ReturnType<typeof validateNewRunSetupDraft> }) { return <><ValidationMessages title={validation.valid ? "Validation passed" : "Validation errors"} messages={validation.errors.length ? validation.errors : ["Setup has 48 unique filled slots."]} tone={validation.valid ? "warning" : "error"} />{validation.warnings.length > 0 && <ValidationMessages title="Setup warnings" messages={validation.warnings} tone="warning" />}</>; }
 
 function ManualRosterEditor({ draft, updateManualSlot }: { draft: NewRunSetupDraft; updateManualSlot: (league: LeagueName, index: number, value: string) => void }) { return <div className="manual-roster-grid">{LEAGUE_NAMES.map((league) => <fieldset key={league}><legend>{league}</legend>{draft.manualRoster[league].map((name, index) => <label key={`${league}-${index}`}>Seed {index + 1}<input value={name} onChange={(event) => updateManualSlot(league, index, normalizeSetupName(event.target.value))} placeholder={`Seed ${index + 1}`} /></label>)}</fieldset>)}</div>; }
 
 function Preview({ draft, validation, ruleVersion, onActivate }: { draft: NewRunSetupDraft; validation: ReturnType<typeof validateNewRunSetupDraft>; ruleVersion: string; onActivate: () => void }) { return <WizardStep title="Setup preview" description="Review the exact roster seeds before replacing the active run.">
   <div className="new-run-preview"><p><strong>Backup choice:</strong> {draft.backupChoice === "created" ? "Created" : draft.backupChoice === "skipped" ? "Skipped" : draft.backupChoice === "not-available" ? "Not available" : "Not chosen"}</p><p><strong>Start:</strong> League Year 1, Opening Split, Week 1</p><p><strong>Rule Version:</strong> {ruleVersion}</p><p><strong>CAWs added:</strong> {draft.caws.length ? draft.caws.join(", ") : "None"}</p><p><strong>Roster mode:</strong> {draft.rosterMode ?? "Not selected"}</p></div>
-  {draft.rosterMode === "manual" && <div className="new-run-preview-rosters">{LEAGUE_NAMES.map((league) => <div key={league}><h5>{league}</h5><ol>{draft.manualRoster[league].map((name, index) => <li key={`${league}-preview-${index}`}>Seed {index + 1}: {normalizeSetupName(name) || "Missing"}</li>)}</ol></div>)}</div>}
+  {(draft.rosterMode === "manual" || draft.rosterMode === "automatic") && <div className="new-run-preview-rosters">{LEAGUE_NAMES.map((league) => <div key={league}><h5>{league}</h5><ol>{draft.manualRoster[league].map((name, index) => <li key={`${league}-preview-${index}`}>Seed {index + 1}: {normalizeSetupName(name) || "Missing"}{draft.caws.some((caw) => normalizeSetupName(caw).toLocaleLowerCase() === normalizeSetupName(name).toLocaleLowerCase()) ? " (CAW)" : ""}</li>)}</ol></div>)}</div>}
   <ValidationPanel validation={validation} />
-  {draft.rosterMode === "automatic" && <p className="new-run-automatic-note">Automatic roster generation will be implemented in a later phase.</p>}
+  {draft.rosterMode === "automatic" && <p className="new-run-automatic-note">Total active roster count: {LEAGUE_NAMES.reduce((count, league) => count + draft.manualRoster[league].filter((name) => normalizeSetupName(name)).length, 0)}. Validation status: {validation.valid ? "valid" : "blocked"}.</p>}
   <button className="action-button action-primary" disabled={!validation.valid || !validation.readyForActivation} onClick={onActivate}>Activate Fresh Run</button>
 </WizardStep>; }
+
+function AutomaticRosterPreview({ draft, validation, onRegenerate }: { draft: NewRunSetupDraft; validation: ReturnType<typeof validateNewRunSetupDraft>; onRegenerate: () => void }) { return <div><div className="new-run-preview"><p><strong>Total active roster count:</strong> {LEAGUE_NAMES.reduce((count, league) => count + draft.manualRoster[league].filter((name) => normalizeSetupName(name)).length, 0)}</p><p><strong>Validation status:</strong> {validation.valid ? "Valid" : "Blocked"}</p></div><div className="new-run-actions"><button className="action-button action-secondary" onClick={onRegenerate}>Regenerate Random Roster</button></div><div className="new-run-preview-rosters">{LEAGUE_NAMES.map((league) => <div key={league}><h5>{league}</h5><ol>{draft.manualRoster[league].map((name, index) => <li key={`${league}-auto-${index}`}>Seed {index + 1}: {normalizeSetupName(name) || "Missing"}{draft.caws.some((caw) => normalizeSetupName(caw).toLocaleLowerCase() === normalizeSetupName(name).toLocaleLowerCase()) ? " (CAW)" : ""}</li>)}</ol></div>)}</div><ValidationPanel validation={validation} /></div>; }

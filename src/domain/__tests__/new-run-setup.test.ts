@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { activateFreshRunSetup, addCawToDraft, createEmptyNewRunSetupDraft, validateFreshRunState, validateNewRunSetupDraft } from "../new-run-setup";
+import { HIDDEN_MALE_WRESTLER_POOL, validateWrestlerPool } from "@/data/wrestlerPool";
+import { activateFreshRunSetup, addCawToDraft, createEmptyNewRunSetupDraft, generateAutomaticRosterDraft, validateFreshRunState, validateNewRunSetupDraft } from "../new-run-setup";
 import { acceptedScheduleMatches } from "../schedule-setup";
 import { createEmptyTrackerState } from "../tracker-state";
 import { LEAGUE_NAMES } from "../types";
@@ -34,7 +35,7 @@ describe("Phase 14A new run setup validation", () => {
     draft.rosterMode = "manual";
     const validation = validateNewRunSetupDraft(draft);
     expect(validation.valid).toBe(false);
-    expect(validation.errors).toContain("Manual active roster must contain exactly 48 filled wrestlers; found 0.");
+    expect(validation.errors).toContain("Active roster must contain exactly 48 filled wrestlers; found 0.");
   });
 
   it("rejects duplicate active wrestlers case-insensitively", () => {
@@ -98,11 +99,58 @@ describe("Phase 14B fresh run activation", () => {
     expect(result.errors.join(" ")).toContain("Duplicate active wrestlers");
   });
 
-  it("automatic mode cannot activate while generator is unavailable", () => {
-    const draft = createEmptyNewRunSetupDraft();
-    draft.rosterMode = "automatic";
-    const result = activateFreshRunSetup(createEmptyTrackerState(), draft);
-    expect(result.ok).toBe(false);
-    expect(result.errors.join(" ")).toContain("Automatic roster generation");
+  it("valid automatic roster activates through fresh run activation", () => {
+    const generated = generateAutomaticRosterDraft({ ...createEmptyNewRunSetupDraft(), caws: ["Beckielo"], rosterMode: "automatic" }, { random: () => 0.42 });
+    expect(generated.errors).toEqual([]);
+    const result = activateFreshRunSetup(createEmptyTrackerState(), generated.draft, "2026-01-01T00:00:00.000Z");
+    expect(result.ok).toBe(true);
+    expect(result.state.activeWorkflow).toMatchObject({ leagueYear: 1, split: "Opening Split", yearWeek: 1 });
+    expect(result.state.currentUserWrestler).toBe("Beckielo");
+  });
+});
+
+
+describe("Phase 15A hidden wrestler pool automatic roster generation", () => {
+  it("hidden pool has unique valid male names", () => {
+    expect(validateWrestlerPool()).toEqual([]);
+    expect(HIDDEN_MALE_WRESTLER_POOL.length).toBeGreaterThanOrEqual(48);
+  });
+
+  it("requires enough hidden pool names", () => {
+    const draft = { ...createEmptyNewRunSetupDraft(), rosterMode: "automatic" as const };
+    const result = generateAutomaticRosterDraft(draft, { pool: HIDDEN_MALE_WRESTLER_POOL.slice(0, 47), random: () => 0.1 });
+    expect(result.errors).toContain("Not enough wrestlers in the hidden pool for automatic roster generation.");
+  });
+
+  it("creates exactly 48 active wrestlers across 4 leagues with seeds 1-12", () => {
+    const result = generateAutomaticRosterDraft({ ...createEmptyNewRunSetupDraft(), caws: ["Custom Alpha", "Custom Beta"], rosterMode: "automatic" }, { random: () => 0.25 });
+    expect(result.errors).toEqual([]);
+    const names = LEAGUE_NAMES.flatMap((league) => result.draft.manualRoster[league]);
+    expect(names).toHaveLength(48);
+    expect(new Set(names.map((name) => name.toLowerCase())).size).toBe(48);
+    for (const league of LEAGUE_NAMES) {
+      expect(result.draft.manualRoster[league]).toHaveLength(12);
+      expect(result.draft.manualRoster[league].map((_, index) => index + 1)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    }
+  });
+
+  it("includes CAWs and rejects duplicate CAW/pool names", () => {
+    const included = generateAutomaticRosterDraft({ ...createEmptyNewRunSetupDraft(), caws: ["Custom Alpha"], rosterMode: "automatic" }, { random: () => 0.3 });
+    expect(LEAGUE_NAMES.flatMap((league) => included.draft.manualRoster[league])).toContain("Custom Alpha");
+
+    const duplicateCaw = generateAutomaticRosterDraft({ ...createEmptyNewRunSetupDraft(), caws: ["Custom Alpha", " custom alpha "], rosterMode: "automatic" });
+    expect(duplicateCaw.errors.join(" ")).toContain("Duplicate CAWs");
+
+    const poolConflict = generateAutomaticRosterDraft({ ...createEmptyNewRunSetupDraft(), caws: [HIDDEN_MALE_WRESTLER_POOL[0].name.toLowerCase()], rosterMode: "automatic" });
+    expect(poolConflict.errors.join(" ")).toContain("CAWs must not duplicate hidden pool wrestlers");
+  });
+
+  it("regenerate produces another valid roster and does not mutate active state before activation", () => {
+    const oldState = { ...createEmptyTrackerState(), confirmedResults: [{ league: "Global League" as const, week: 1, matchId: "old", wrestlerA: "A", wrestlerB: "B", resultType: "Winner" as const, winner: "A", source: "Manual" as const, confirmedAt: "now" }] };
+    const first = generateAutomaticRosterDraft({ ...createEmptyNewRunSetupDraft(), rosterMode: "automatic" }, { random: () => 0.1 });
+    const second = generateAutomaticRosterDraft(first.draft, { random: () => 0.9 });
+    expect(validateNewRunSetupDraft(first.draft).valid).toBe(true);
+    expect(validateNewRunSetupDraft(second.draft).valid).toBe(true);
+    expect(oldState.confirmedResults).toHaveLength(1);
   });
 });
