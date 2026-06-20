@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { resolveCurrentUser } from "../current-user";
 import { deriveLeagueFinalsReview, type LeagueFinalsResult } from "../league-finals";
-import { derivePostFinalsTransition } from "../post-finals-transition";
+import { buildNextSplitStandings, derivePostFinalsTransition } from "../post-finals-transition";
+import { generateSchedule, validateSchedule } from "../schedule-setup";
 import { LEAGUE_NAMES, type StandingRow } from "../types";
 
 const standings: StandingRow[] = LEAGUE_NAMES.flatMap((league) =>
@@ -127,6 +129,38 @@ describe("Post-Finals movement and composition", () => {
     expect(LEAGUE_NAMES.map((league) => transition.leagueComposition[league].length)).toEqual([12, 12, 12, 12]);
     expect(new Set(transition.assignments.map((row) => row.wrestler)).size).toBe(48);
     expect(transition.compositionErrors).toEqual([]);
+  });
+
+  it("builds zeroed next-split standings without carrying old completed results forward", () => {
+    const nextStandings = buildNextSplitStandings(derive().assignments);
+    expect(nextStandings).toHaveLength(48);
+    for (const league of LEAGUE_NAMES) expect(nextStandings.filter((row) => row.league === league)).toHaveLength(12);
+    expect(new Set(nextStandings.map((row) => row.wrestler)).size).toBe(48);
+    expect(nextStandings.every((row) => row.matches === 0 && row.wins === 0 && row.draws === 0 && row.losses === 0 && row.points === 0)).toBe(true);
+  });
+
+  it("keeps the Current User valid and follows their post-finals league", () => {
+    const nextStandings = buildNextSplitStandings(derive().assignments);
+    expect(resolveCurrentUser(nextStandings, "Continental 1")).toMatchObject({
+      wrestler: "Continental 1",
+      league: "Global League",
+    });
+  });
+
+  it("generates a valid 4x12 Closing Split schedule that references only active post-finals wrestlers", () => {
+    const nextStandings = buildNextSplitStandings(derive().assignments);
+    const seeds = Object.fromEntries(LEAGUE_NAMES.map((league) => [
+      league,
+      nextStandings.filter((row) => row.league === league).map((row) => ({ seed: row.seed, wrestler: row.wrestler })),
+    ])) as Parameters<typeof generateSchedule>[0]["seeds"];
+    const rosters = Object.fromEntries(LEAGUE_NAMES.map((league) => [league, seeds[league].map((seed) => seed.wrestler)])) as Record<(typeof LEAGUE_NAMES)[number], string[]>;
+    const schedule = generateSchedule({ leagueYear: 2, split: "Closing Split", yearWeekStart: 25, seeds, generatedAt: "2026-06-14T00:00:00.000Z" });
+    const validation = validateSchedule(schedule, { rosters });
+    const active = new Set(nextStandings.map((row) => row.wrestler));
+
+    expect(validation).toMatchObject({ valid: true, totalMatches: 528 });
+    expect(schedule.every((match) => active.has(match.wrestlerA) && active.has(match.wrestlerB))).toBe(true);
+    expect(new Set(schedule.map((match) => match.id)).size).toBe(528);
   });
 
   it("blocks duplicate and missing wrestler placement", () => {

@@ -16,7 +16,12 @@ it("locks during normal active weeks and unlocks after the Hinrunde", () => {
 });
 
 it("unlocks post-finals before the next segment starts", () => {
-  expect(isRosterReplacementWindow({ ...createEmptyTrackerState(), completedFinalsNights: [{ night: "Night One", completedAt: "now" }, { night: "Night Two", completedAt: "now" }] })).toMatchObject({ unlocked: true, windowType: "Post-finals" });
+  expect(isRosterReplacementWindow({ ...createEmptyTrackerState(), completedFinalsNights: [{ night: "Night One", completedAt: "now" }, { night: "Night Two", completedAt: "now" }] }).unlocked).toBe(false);
+  expect(isRosterReplacementWindow({
+    ...createEmptyTrackerState(),
+    completedFinalsNights: [{ night: "Night One", completedAt: "now" }, { night: "Night Two", completedAt: "now" }],
+    leagueFinalsResults: [{ matchId: "finals-1", resultType: "Winner", winner: "Global 1", confirmedAt: "now" }],
+  })).toMatchObject({ unlocked: true, windowType: "Post-finals" });
 });
 
 it("rejects empty and duplicate active wrestler names", () => {
