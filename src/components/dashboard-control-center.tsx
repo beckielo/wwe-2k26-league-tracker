@@ -12,6 +12,7 @@ import { getWeekDisplay } from "@/domain/week-display";
 import type { LeagueName, Match, MatchResult, StandingRow, TrackerMeta, ValidationIssue } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { CurrentUserSwitcher, useCurrentUser } from "./current-user-switcher";
+import { ReplaceWrestlerControl } from "./replace-wrestler-control";
 import { EmptyState, StatusBadge } from "./ui";
 import { InteractivePanel, LeagueBrandMark, LeagueDecorativeArt, LeagueWatermark } from "./brand-assets";
 import { LEAGUE_VISUALS, placementLabel, placementZone } from "@/domain/visual-identity";
@@ -34,11 +35,18 @@ interface DashboardControlCenterProps {
 
 export function DashboardControlCenter(props: DashboardControlCenterProps) {
   const { state, hydrated } = useTrackerState();
-  const selectedUser = useCurrentUser(props.baselineStandings).currentUser;
-  if (!hydrated) return <div className="dashboard-loading">Loading active league control…</div>;
-
   const matches = getActiveWorkflowMatches(state, props.workbookMatches);
   const workflowBaseline = state.activeWorkflow ? 24 : props.workbookCompletedThroughWeek;
+  const live = reconstructActiveSplitLiveStandings({
+    previousFinalStandings: props.baselineStandings,
+    scheduledMatches: matches,
+    masterResults: props.workbookResults,
+    localResults: state.confirmedResults,
+    split: state.activeWorkflow?.split ?? props.meta.currentSplit,
+    completedThroughWeek: props.workbookCompletedThroughWeek,
+    rosterReplacements: state.rosterReplacements ?? [],
+  });
+  const selectedUser = useCurrentUser(live.composition).currentUser;
   const selectedUserLeague = selectedUser?.league ?? props.userLeague;
   const summary = getWorkflowSummary(state, matches, workflowBaseline, selectedUserLeague);
   const yearWeek = summary.activeWeek ?? state.activeWorkflow?.yearWeek ?? props.workbookCompletedThroughWeek + 1;
@@ -46,14 +54,6 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
   const split = state.activeWorkflow?.split;
   const userLeague = selectedUserLeague;
   const display = getWeekDisplay(leagueYear, yearWeek, split);
-  const live = reconstructActiveSplitLiveStandings({
-    previousFinalStandings: props.baselineStandings,
-    scheduledMatches: matches,
-    masterResults: props.workbookResults,
-    localResults: state.confirmedResults,
-    split: split ?? props.meta.currentSplit,
-    completedThroughWeek: props.workbookCompletedThroughWeek,
-  });
   const userLeagueRows = live.standings.filter((row) => row.league === userLeague).sort((a, b) => a.rank - b.rank);
   const currentRanks = new Map(userLeagueRows.map((row) => [row.wrestler, row.rank]));
   const allKnownMatches = [...props.workbookMatches.filter((match) => !matches.some((active) => active.id === match.id)), ...matches];
@@ -70,8 +70,11 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
   const workflowBlocked = blocking.length > 0 || card.length === 0;
   const workflowStatus = workflowBlocked ? "Blocked" : completed > 0 ? "In Progress" : "Ready";
 
+  if (!hydrated) return <div className="dashboard-loading">Loading active league control…</div>;
+
   return <>
-    <CurrentUserSwitcher standings={props.baselineStandings} />
+    <CurrentUserSwitcher standings={live.composition} />
+    <ReplaceWrestlerControl activeRoster={live.composition} matches={matches} leagueYear={leagueYear} split={split ?? props.meta.currentSplit} week={yearWeek} />
     <section className={`command-deck league-${LEAGUE_VISUALS[userLeague].key}`} aria-labelledby="command-title">
       <LeagueDecorativeArt league={userLeague} className="command-decorative-art" />
       <LeagueWatermark league={userLeague} />
