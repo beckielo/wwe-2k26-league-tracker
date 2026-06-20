@@ -1,7 +1,7 @@
 "use client";
 
 import { SimulationWorkbench } from "./simulation-workbench";
-import { Panel, Stat } from "./ui";
+import { Stat } from "./ui";
 import { WorkflowSummaryBanner } from "./workflow-summary-banner";
 import { buildSimulationCandidates } from "@/domain/simulation";
 import { getWorkflowSummary } from "@/domain/week-progression";
@@ -144,37 +144,6 @@ return (
       </div>
     ))}
   </div>
-
-  <Panel className="mb-8">
-    <div className="grid gap-4 p-5 text-sm leading-6 text-slate-300 md:grid-cols-3">
-      <div>
-        <p className="font-black uppercase text-white">Active week only</p>
-        <p className="text-slate-500">
-          Candidates are limited to open {display.primary} fixtures in the
-          active authoritative schedule.
-        </p>
-      </div>
-
-      <div>
-        <p className="font-black uppercase text-white">
-          Confirmed matches excluded
-        </p>
-        <p className="text-slate-500">
-          Browser-confirmed results are removed from the candidate list
-          before generation.
-        </p>
-      </div>
-
-      <div>
-        <p className="font-black uppercase text-white">
-          User league protected
-        </p>
-        <p className="text-slate-500">
-          {workflowUserLeague} is never eligible for simulation.
-        </p>
-      </div>
-    </div>
-  </Panel>
 
   {simulation.candidates.length === 0 ? (
     <div className="border border-white/10 bg-[#111722] p-10 text-center">

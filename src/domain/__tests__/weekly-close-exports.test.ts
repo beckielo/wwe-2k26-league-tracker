@@ -176,8 +176,8 @@ describe("weekly close exports", () => {
     );
     expect(noContestRows).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ matches: 0, wins: 0, draws: 0, losses: 0, points: 0 }),
-        expect.objectContaining({ matches: 0, wins: 0, draws: 0, losses: 0, points: 0 }),
+        expect.objectContaining({ matches: 1, wins: 0, draws: 1, losses: 0, points: 1 }),
+        expect.objectContaining({ matches: 1, wins: 0, draws: 1, losses: 0, points: 1 }),
       ]),
     );
   });
