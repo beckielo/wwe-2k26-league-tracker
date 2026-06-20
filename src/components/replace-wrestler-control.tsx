@@ -47,14 +47,13 @@ export function ReplaceWrestlerControl({ activeRoster, matches, leagueYear, spli
   }
 
   return <section className="management-card" aria-labelledby="replace-wrestler-title">
-    <div>
-      <p className="broadcast-kicker">Roster Management</p>
+    <div className="management-card-copy">
       <h2 id="replace-wrestler-title">Replace Wrestler</h2>
-      <p>{status.unlocked ? status.reason : "Roster replacement unlocks after the first round or after League Finals."}</p>
+      <p>Manual roster replacement. Unlocks after the first round or after League Finals.</p>
+      {!status.unlocked && <p className="management-card-status" role="status">Locked until the next replacement window.</p>}
     </div>
-    <button className="action-button action-secondary" disabled={!status.unlocked} onClick={() => setOpen(true)}>Manual Draft</button>
-    {!status.unlocked && <p className="text-xs text-amber-200" role="status">{status.reason}</p>}
-    {message && <p className="text-xs text-emerald-200" role="status">{message}</p>}
+    <button className="action-button action-secondary manual-draft-button" disabled={!status.unlocked} onClick={() => setOpen(true)}>MANUAL DRAFT</button>
+    {message && <p className="management-card-message" role="status">{message}</p>}
     {open && status.unlocked && <div className="mt-4 grid gap-3 rounded border border-white/10 bg-black/20 p-4">
       <label className="grid gap-1 text-sm font-bold">Select League
         <select className="border border-white/10 bg-black/40 p-2" value={league} onChange={(event) => { setLeague(event.target.value as LeagueName); setOldWrestler(""); }}>
