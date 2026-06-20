@@ -1,5 +1,6 @@
 import { calculatePoints } from "./scoring";
 import type { LeagueName, Match, MatchResult, SplitName, StandingRow } from "./types";
+import type { NewRunSetupDraft } from "./new-run-setup";
 import type { FinalsNight, LeagueFinalsResult } from "./league-finals";
 import type { AcceptedScheduleSnapshot } from "./schedule-setup";
 import type { PostFinalsAssignment } from "./post-finals-transition";
@@ -55,6 +56,7 @@ export interface TrackerState {
   manualReviews?: ManualReview[];
   currentUserWrestler?: string;
   rosterReplacements?: RosterReplacementLogEntry[];
+  newRunSetupDraft?: NewRunSetupDraft;
 }
 
 export interface ActiveWorkflow {
@@ -355,6 +357,7 @@ export interface ActiveSplitLiveStandingsInput {
   split: SplitName;
   completedThroughWeek: number;
   rosterReplacements?: RosterReplacementLogEntry[];
+  newRunSetupDraft?: NewRunSetupDraft;
 }
 
 export interface ActiveSplitLiveStandings {

@@ -13,6 +13,7 @@ import type { LeagueName, Match, MatchResult, StandingRow, TrackerMeta, Validati
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { CurrentUserSwitcher, useCurrentUser } from "./current-user-switcher";
 import { ReplaceWrestlerControl } from "./replace-wrestler-control";
+import { NewRunSetupWizard } from "./new-run-setup-wizard";
 import { EmptyState, StatusBadge } from "./ui";
 import { InteractivePanel, LeagueBrandMark, LeagueDecorativeArt, LeagueWatermark } from "./brand-assets";
 import { LEAGUE_VISUALS, placementLabel, placementZone } from "@/domain/visual-identity";
@@ -151,6 +152,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
     <SocialFeed comments={socialFeed} />
     <p className="dashboard-diagnostics-note">Source Warnings remain available in review workflows · Non-blocking · details contained.</p>
     <ReplaceWrestlerControl activeRoster={live.composition} matches={matches} leagueYear={leagueYear} split={split ?? props.meta.currentSplit} week={yearWeek} />
+    <NewRunSetupWizard meta={props.meta} />
   </>;
 }
 
