@@ -491,3 +491,12 @@ button:disabled,.action-button.is-disabled { cursor:not-allowed!important; filte
 @media (max-width:620px){.manual-roster-grid,.new-run-preview-rosters,.new-run-validation-summary{grid-template-columns:1fr}.new-run-wizard-header{align-items:stretch;flex-direction:column}}
 
 .dashboard-workflow-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.dashboard-workflow-actions-spaced{gap:18px 20px}
+.dashboard-show-wrestler-name.name-color-current-user{color:#05070a}
+.dashboard-show-wrestler-name.name-color-normal{color:#fff}
+.dashboard-show-wrestler-name.name-color-regional-champion{color:#6ee7a8}
+.dashboard-show-wrestler-name.name-color-national-champion{color:#c88a45}
+.dashboard-show-wrestler-name.name-color-continental-champion{color:#d5dde8}
+.dashboard-show-wrestler-name.name-color-global-champion{color:#f3c969}
+.dashboard-show-wrestler-name.name-color-elite-cup{color:#ef6a6a}
+.dashboard-show-wrestler-name.name-color-double-winner{color:#b987f5}

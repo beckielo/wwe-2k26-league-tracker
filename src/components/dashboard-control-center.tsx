@@ -17,6 +17,8 @@ import { NewRunSetupWizard } from "./new-run-setup-wizard";
 import { EmptyState, StatusBadge } from "./ui";
 import { InteractivePanel, LeagueBrandMark, LeagueDecorativeArt, LeagueWatermark } from "./brand-assets";
 import { LEAGUE_VISUALS, placementLabel, placementZone } from "@/domain/visual-identity";
+import { getPreviousSplitChampionColorRoles, getPreviousSplitNameColorRole, type PreviousSplitNameColorRole } from "@/domain/previous-split-name-colors";
+import type { LegacyCompletedSplitAudit } from "@/domain/legacy";
 
 interface DashboardControlCenterProps {
   workbookMatches: Match[];
@@ -31,6 +33,7 @@ interface DashboardControlCenterProps {
     leader: string | null;
     leagueWinners: number;
     eliteCupWinners: number;
+    completedSplitAudit?: LegacyCompletedSplitAudit;
   };
 }
 
@@ -57,6 +60,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
   const display = getWeekDisplay(leagueYear, yearWeek, split);
   const userLeagueRows = live.standings.filter((row) => row.league === userLeague).sort((a, b) => a.rank - b.rank);
   const currentRanks = new Map(userLeagueRows.map((row) => [row.wrestler, row.rank]));
+  const previousSplitChampionColorRoles = getPreviousSplitChampionColorRoles(props.legacySummary.completedSplitAudit);
   const allKnownMatches = [...props.workbookMatches.filter((match) => !matches.some((active) => active.id === match.id)), ...matches];
   const matchHistory = buildHistoricalResults(allKnownMatches, props.workbookResults, state.confirmedResults);
   const card = matches
@@ -98,7 +102,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
         <span>Next action</span>
         <strong>{card.length ? `Complete the ${userLeague} card` : "Connect the next authoritative card"}</strong>
         <p>{card.length ? "Record all six outcomes, then review and lock the week." : "No matchup is shown until an accepted schedule supplies it."}</p>
-        <div className="dashboard-workflow-actions">
+        <div className="dashboard-workflow-actions dashboard-workflow-actions-spaced">
           <Link href={nextHref} className="action-button action-primary">{nextLabel}<span aria-hidden>→</span></Link>
           <Link href="/simulation" className="rounded-lg border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300">Simulation</Link>
           <Link href="/week-review" className="rounded-lg border border-emerald-400/30 px-4 py-3 text-xs font-black uppercase tracking-wider text-emerald-300">Week Review</Link>
@@ -137,9 +141,9 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
               <span className="bout-number">MATCH {String(match.matchNumber).padStart(2, "0")}</span>
               <div className="matchup matchup-context">
                 <span className="form-strip" aria-label={`${match.wrestlerA} recent form`}>{leftForm}</span>
-                <strong className={h2h.shouldUnderlineLeft ? "h2h-last-winner" : undefined}>{formatRankedWrestler(match.wrestlerA, currentRanks.get(match.wrestlerA))}</strong>
+                <strong className={wrestlerNameClassName(getPreviousSplitNameColorRole({ wrestler: match.wrestlerA, currentUserWrestler: selectedUser?.wrestler ?? props.meta.userWrestler, championRoles: previousSplitChampionColorRoles }), h2h.shouldUnderlineLeft)}>{formatRankedWrestler(match.wrestlerA, currentRanks.get(match.wrestlerA))}</strong>
                 <span className="matchup-vs">VS</span>
-                <strong className={h2h.shouldUnderlineRight ? "h2h-last-winner" : undefined}>{formatRankedWrestler(match.wrestlerB, currentRanks.get(match.wrestlerB))}</strong>
+                <strong className={wrestlerNameClassName(getPreviousSplitNameColorRole({ wrestler: match.wrestlerB, currentUserWrestler: selectedUser?.wrestler ?? props.meta.userWrestler, championRoles: previousSplitChampionColorRoles }), h2h.shouldUnderlineRight)}>{formatRankedWrestler(match.wrestlerB, currentRanks.get(match.wrestlerB))}</strong>
                 <span className="form-strip" aria-label={`${match.wrestlerB} recent form`}>{rightForm}</span>
               </div>
               <PredictionStrip prediction={predictMatch(match, live.standings, state.confirmedResults)} />
@@ -158,6 +162,21 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
     <ReplaceWrestlerControl activeRoster={live.composition} matches={matches} leagueYear={leagueYear} split={split ?? props.meta.currentSplit} week={yearWeek} />
     <NewRunSetupWizard meta={props.meta} />
   </>;
+}
+
+const nameColorClassByRole: Record<PreviousSplitNameColorRole, string> = {
+  "current-user": "name-color-current-user",
+  "double-winner": "name-color-double-winner",
+  "elite-cup": "name-color-elite-cup",
+  "global-champion": "name-color-global-champion",
+  "continental-champion": "name-color-continental-champion",
+  "national-champion": "name-color-national-champion",
+  "regional-champion": "name-color-regional-champion",
+  normal: "name-color-normal",
+};
+
+function wrestlerNameClassName(role: PreviousSplitNameColorRole, isLastHeadToHeadWinner: boolean) {
+  return ["dashboard-show-wrestler-name", nameColorClassByRole[role], isLastHeadToHeadWinner ? "h2h-last-winner" : null].filter(Boolean).join(" ");
 }
 
 function formatRankedWrestler(wrestler: string, rank?: number) {
