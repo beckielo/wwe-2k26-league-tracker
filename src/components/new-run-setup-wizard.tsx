@@ -73,7 +73,7 @@ export function NewRunSetupWizard({ meta }: { meta: TrackerMeta }) {
     <button className="action-button action-primary" onClick={() => setStep("warning")}>Create New Run</button>
 
     {step !== "closed" && <div className="new-run-wizard" role="dialog" aria-modal="false" aria-labelledby="new-run-wizard-title">
-      <header className="new-run-wizard-header"><div><p className="broadcast-kicker">Non-destructive setup wizard</p><h3 id="new-run-wizard-title">Create New Run Draft</h3></div><button className="action-button action-secondary" onClick={close}>Close</button></header>
+      <header className="new-run-wizard-header"><div><p className="broadcast-kicker">Non-destructive setup wizard</p><h3 id="new-run-wizard-title">Create New Run Draft</h3></div></header>
       {errors.length > 0 && <ValidationMessages title="Setup notice" messages={errors} tone="error" />}
 
       {step === "warning" && <WizardStep title="Active run overwrite warning" description="The current active run will be overwritten when this setup is activated in a later phase. Do you want to create a backup first?">
