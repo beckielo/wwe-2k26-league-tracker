@@ -93,6 +93,13 @@ describe("Phase 18C current user icon and name colors", () => {
     expect(dashboardSource).toContain("prediction-bars");
   });
 
+  it("applies compact premium typography only to dashboard show match-row wrestler names", () => {
+    expect(dashboardSource).toContain('className={wrestlerNameClassName(h2h.shouldUnderlineLeft)}');
+    expect(dashboardSource).toContain('className={wrestlerNameClassName(h2h.shouldUnderlineRight)}');
+    expect(cssSource).toContain(".dashboard-show-wrestler-name{font-size:16px;line-height:1.05;font-weight:950;letter-spacing:-.015em}");
+    expect(cssSource).not.toContain(".dashboard-live-table .dashboard-show-wrestler-name");
+  });
+
   it("defines readable scoped colors and a cyan controller icon", () => {
     expect(cssSource).toContain(".wrestler-name-with-role.name-color-normal{color:#fff}");
     expect(cssSource).toContain(".wrestler-name-with-role.name-color-global-champion{color:#f3c969}");
