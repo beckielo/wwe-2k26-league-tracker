@@ -15,6 +15,9 @@ import { LEAGUE_NAMES, type LeagueName, type Match, type MatchResult, type Match
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { placementLabel, placementZone } from "@/domain/visual-identity";
+import { getPreviousSplitChampionColorRoles, type PreviousSplitNameColorRole } from "@/domain/previous-split-name-colors";
+import type { LegacyCompletedSplitAudit } from "@/domain/legacy";
+import { WrestlerNameWithRole } from "./wrestler-name-with-role";
 
 interface WeekReviewProps {
 allMatches: Match[];
@@ -29,6 +32,8 @@ workbookCurrentWeek: number;
 originalWorkbookCurrentWeek: number;
 latestAppWritebackWeek: number | null;
 sourceFile: string;
+userWrestler: string;
+completedSplitAudit?: LegacyCompletedSplitAudit;
 }
 
 export function WeekReview({
@@ -44,6 +49,8 @@ workbookCurrentWeek,
 originalWorkbookCurrentWeek,
 latestAppWritebackWeek,
 sourceFile,
+userWrestler,
+completedSplitAudit,
 }: WeekReviewProps) {
 const { state, replaceState, exportState, importState, resetState, hydrated } =
 useTrackerState();
@@ -449,7 +456,7 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
     userLeague={workflowUserLeague}
     workbookCompletedThroughWeek={workbookCurrentWeek}
     source={sourceFile}
-    promptPreview={<MiniLiveStandingsPreview standings={updatedStandings} split={activeSplit} splitWeek={activeSplitWeek} latestLockedWeek={latestLockedWeek} />}
+    promptPreview={<MiniLiveStandingsPreview standings={updatedStandings} split={activeSplit} splitWeek={activeSplitWeek} latestLockedWeek={latestLockedWeek} currentUserWrestler={userWrestler} championRoles={getPreviousSplitChampionColorRoles(completedSplitAudit)} />}
   />
 
   <div className="flex flex-col gap-2 text-xs text-slate-500 sm:flex-row sm:justify-between">
@@ -478,11 +485,15 @@ standings,
 split,
 splitWeek,
 latestLockedWeek,
+currentUserWrestler,
+championRoles,
 }: {
 standings: StandingRow[];
 split: SplitName;
 splitWeek: number | null;
 latestLockedWeek: number | null;
+currentUserWrestler?: string | null;
+championRoles: Map<string, PreviousSplitNameColorRole>;
 }) {
 return (
   <section className="mt-5 border border-white/10 bg-[#0b111c]/80 p-4" aria-label="Mini live standings preview">
@@ -507,7 +518,7 @@ return (
               <thead><tr><th>#</th><th>Wrestler</th><th>Pts</th><th>Status</th></tr></thead>
               <tbody>{rows.map((row) => <tr key={row.wrestler} className={`placement-${placementZone(row.rank, league)}`}>
                 <td className="mini-standings-rank">{row.rank}</td>
-                <td className="mini-standings-wrestler"><strong title={row.wrestler}>{row.wrestler}</strong></td>
+                <td className="mini-standings-wrestler"><strong title={row.wrestler}><WrestlerNameWithRole wrestler={row.wrestler} currentUserWrestler={currentUserWrestler} championRoles={championRoles} /></strong></td>
                 <td className="mini-standings-points"><strong>{row.points}</strong></td>
                 <td className="mini-standings-status"><span className="mini-standings-zone-pill zone-pill">{placementLabel(league, row.rank)}</span></td>
               </tr>)}</tbody>

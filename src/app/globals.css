@@ -492,11 +492,13 @@ button:disabled,.action-button.is-disabled { cursor:not-allowed!important; filte
 
 .dashboard-workflow-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
 .dashboard-workflow-actions-spaced{gap:18px 20px}
-.dashboard-show-wrestler-name.name-color-current-user{color:#05070a}
-.dashboard-show-wrestler-name.name-color-normal{color:#fff}
-.dashboard-show-wrestler-name.name-color-regional-champion{color:#6ee7a8}
-.dashboard-show-wrestler-name.name-color-national-champion{color:#c88a45}
-.dashboard-show-wrestler-name.name-color-continental-champion{color:#d5dde8}
-.dashboard-show-wrestler-name.name-color-global-champion{color:#f3c969}
-.dashboard-show-wrestler-name.name-color-elite-cup{color:#ef6a6a}
-.dashboard-show-wrestler-name.name-color-double-winner{color:#b987f5}
+.wrestler-name-with-role{display:inline-flex;align-items:center;gap:5px;min-width:0;max-width:100%;vertical-align:baseline}
+.wrestler-name-with-role .wrestler-name-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wrestler-name-with-role.name-color-normal{color:#fff}
+.wrestler-name-with-role.name-color-regional-champion{color:#6ee7a8}
+.wrestler-name-with-role.name-color-national-champion{color:#c88a45}
+.wrestler-name-with-role.name-color-continental-champion{color:#d5dde8}
+.wrestler-name-with-role.name-color-global-champion{color:#f3c969}
+.wrestler-name-with-role.name-color-elite-cup{color:#ef6a6a}
+.wrestler-name-with-role.name-color-double-winner{color:#b987f5}
+.current-user-controller-icon{flex:0 0 auto;width:14px;height:14px;color:#67e8f9;fill:#67e8f91f;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 6px #22d3ee66)}

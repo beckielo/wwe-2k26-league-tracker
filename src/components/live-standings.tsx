@@ -9,6 +9,9 @@ import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { reconstructActiveSplitLiveStandings, validateActiveSplitStandings } from "@/domain/tracker-state";
 import { LEAGUE_NAMES, type LeagueName, type Match, type MatchResult, type StandingRow, type TrackerMeta } from "@/domain/types";
 import { LEAGUE_VISUALS, placementLabel, placementZone } from "@/domain/visual-identity";
+import { getPreviousSplitChampionColorRoles, type PreviousSplitNameColorRole } from "@/domain/previous-split-name-colors";
+import type { LegacyCompletedSplitAudit } from "@/domain/legacy";
+import { WrestlerNameWithRole } from "./wrestler-name-with-role";
 
 interface LiveStandingsProps {
   baseline: StandingRow[];
@@ -16,6 +19,7 @@ interface LiveStandingsProps {
   workbookResults: MatchResult[];
   meta: TrackerMeta;
   sourceFile: string;
+  completedSplitAudit?: LegacyCompletedSplitAudit;
 }
 
 const legend = [
@@ -34,7 +38,7 @@ const legend = [
 // Phase 10.8.6 supersedes calculateLiveStandingsFromCurrentMaster for rendering:
 // reconstructActiveSplitLiveStandings keeps roster reconstruction and locked-result application together.
 
-function LeagueTable({ league, rows, userLeague }: { league: LeagueName; rows: StandingRow[]; userLeague: LeagueName }) {
+function LeagueTable({ league, rows, userLeague, currentUserWrestler, championRoles }: { league: LeagueName; rows: StandingRow[]; userLeague: LeagueName; currentUserWrestler?: string | null; championRoles: Map<string, PreviousSplitNameColorRole> }) {
   const visual = LEAGUE_VISUALS[league];
   const isUserLeague = league === userLeague;
   return <section className={`live-league-panel full-live-standings league-${visual.key}${isUserLeague ? " is-user-league" : ""}`} aria-label={`${league} live standings`}>
@@ -55,7 +59,7 @@ function LeagueTable({ league, rows, userLeague }: { league: LeagueName; rows: S
           const zone = placementZone(row.rank, league);
           return <tr key={row.wrestler} className={`full-live-standings-row placement-${zone}`}>
             <td><span className="rank-badge">{row.rank}</span></td>
-            <td><span className="live-wrestler-meta"><strong>{row.wrestler}</strong><small>Seed {row.seed}</small></span></td>
+            <td><span className="live-wrestler-meta"><strong><WrestlerNameWithRole wrestler={row.wrestler} currentUserWrestler={currentUserWrestler} championRoles={championRoles} /></strong><small>Seed {row.seed}</small></span></td>
             <td>{row.matches}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td>
             <td className="points-cell">{row.points}</td>
             <td><span className="zone-pill">{placementLabel(league, row.rank)}</span></td>
@@ -66,10 +70,11 @@ function LeagueTable({ league, rows, userLeague }: { league: LeagueName; rows: S
   </section>;
 }
 
-export function LiveStandings({ baseline, workbookMatches, workbookResults, meta, sourceFile }: LiveStandingsProps) {
+export function LiveStandings({ baseline, workbookMatches, workbookResults, meta, sourceFile, completedSplitAudit }: LiveStandingsProps) {
   const { state, hydrated } = useTrackerState();
   const matches = useMemo(() => getActiveWorkflowMatches(state, workbookMatches), [state, workbookMatches]);
   const selectedUser = useCurrentUser(baseline).currentUser;
+  const previousSplitChampionColorRoles = useMemo(() => getPreviousSplitChampionColorRoles(completedSplitAudit), [completedSplitAudit]);
   const userLeague = selectedUser?.league ?? meta.userLeague;
   const split = state.activeWorkflow?.split ?? meta.currentSplit;
   const splitWeek = state.activeWorkflow?.splitWeek ?? (meta.currentSplit === "Closing Split" ? Math.max(1, meta.currentWeek - 24) : meta.currentWeek);
@@ -123,6 +128,8 @@ export function LiveStandings({ baseline, workbookMatches, workbookResults, meta
         league={league}
         userLeague={userLeague}
         rows={standings.filter((row) => row.league === league).sort((a, b) => a.rank - b.rank)}
+        currentUserWrestler={selectedUser?.wrestler ?? meta.userWrestler}
+        championRoles={previousSplitChampionColorRoles}
       />)}
     </div>
   </>;
