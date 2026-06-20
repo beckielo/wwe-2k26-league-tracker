@@ -5,9 +5,10 @@ describe("Phase 12 current user switcher UI wiring", () => {
   it("renders a controlled Current User selector with league context", () => {
     const component = readFileSync("src/components/current-user-switcher.tsx", "utf8");
     expect(component).toContain("aria-label=\"Current User\"");
-    expect(component).toContain("<select");
+    expect(component).toContain(`aria-haspopup="listbox"`);
+    expect(component).toContain("current-user-options-panel");
     expect(component).toContain("Current League:");
-    expect(component).toContain("option.wrestler} — {option.league}");
+    expect(component).toContain("{option.wrestler} — {option.league}");
   });
 
   it("places the switcher above the dashboard command deck", () => {
