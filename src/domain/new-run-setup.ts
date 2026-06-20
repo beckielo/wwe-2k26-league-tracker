@@ -1,4 +1,6 @@
-import { LEAGUE_NAMES, type LeagueName } from "./types";
+import { generateSchedule, validateSchedule, createAcceptedScheduleSnapshot } from "./schedule-setup";
+import type { TrackerState } from "./tracker-state";
+import { LEAGUE_NAMES, type LeagueName, type StandingRow } from "./types";
 
 export type NewRunBackupChoice = "created" | "skipped" | "not-available" | null;
 export type NewRunRosterMode = "manual" | "automatic" | null;
@@ -117,5 +119,103 @@ export function validateNewRunSetupDraft(draft: NewRunSetupDraft): NewRunValidat
     warnings.push("Entered CAWs can be placed manually like normal wrestlers; unplaced CAWs will not be active in this draft.");
   }
 
-  return { valid: errors.length === 0, readyForActivation: false, errors: [...new Set(errors)], warnings: [...new Set(warnings)] };
+  return { valid: errors.length === 0, readyForActivation: errors.length === 0, errors: [...new Set(errors)], warnings: [...new Set(warnings)] };
+}
+
+
+export interface FreshRunActivationResult {
+  ok: boolean;
+  state: TrackerState;
+  errors: string[];
+}
+
+function manualSeeds(draft: NewRunSetupDraft) {
+  return LEAGUE_NAMES.reduce((seeds, league) => {
+    seeds[league] = draft.manualRoster[league].map((name, index) => ({ seed: index + 1, wrestler: normalizeSetupName(name) }));
+    return seeds;
+  }, {} as Record<LeagueName, { seed: number; wrestler: string }[]>);
+}
+
+function zeroStandingsFromDraft(draft: NewRunSetupDraft): StandingRow[] {
+  return LEAGUE_NAMES.flatMap((league) => draft.manualRoster[league].map((name, index) => ({
+    league,
+    rank: index + 1,
+    wrestler: normalizeSetupName(name),
+    seed: index + 1,
+    matches: 0,
+    wins: 0,
+    draws: 0,
+    losses: 0,
+    points: 0,
+    status: "fresh run seed",
+  })));
+}
+
+function chooseCurrentUser(standings: StandingRow[], caws: string[]): string {
+  const byName = new Map(standings.map((row) => [normalizeSetupName(row.wrestler).toLocaleLowerCase(), row.wrestler]));
+  return byName.get("beckielo")
+    ?? caws.map((caw) => byName.get(normalizeSetupName(caw).toLocaleLowerCase())).find((name): name is string => Boolean(name))
+    ?? standings[0]?.wrestler
+    ?? "";
+}
+
+export function validateFreshRunState(state: TrackerState, standings: StandingRow[]): string[] {
+  const errors: string[] = [];
+  const accepted = state.acceptedSchedule;
+  const rosterNames = standings.map((row) => row.wrestler);
+  const rosterKeys = new Set(rosterNames.map((name) => normalizeSetupName(name).toLocaleLowerCase()));
+  if (standings.length !== 48) errors.push(`Active roster count is ${standings.length}; expected 48.`);
+  if (rosterKeys.size !== standings.length) errors.push("Active roster contains duplicate wrestler names.");
+  for (const league of LEAGUE_NAMES) if (standings.filter((row) => row.league === league).length !== 12) errors.push(`${league} must have exactly 12 wrestlers.`);
+  if (!state.currentUserWrestler || !rosterKeys.has(normalizeSetupName(state.currentUserWrestler).toLocaleLowerCase())) errors.push("Current User must exist in the active roster.");
+  if (state.confirmedResults.length) errors.push("Fresh run must not retain active completed results.");
+  if (state.completedWeeks.length) errors.push("Fresh run must not retain completed week locks.");
+  if (!accepted?.validation.valid) errors.push("Fresh run schedule must be a valid accepted schedule.");
+  if (accepted) {
+    for (const match of accepted.matches) {
+      if (!rosterKeys.has(normalizeSetupName(match.wrestlerA).toLocaleLowerCase()) || !rosterKeys.has(normalizeSetupName(match.wrestlerB).toLocaleLowerCase())) errors.push(`${match.id}: schedule references a wrestler outside the active roster.`);
+    }
+  }
+  for (const row of standings) if (row.matches || row.wins || row.draws || row.losses || row.points) errors.push(`${row.wrestler}: fresh run standings must start at 0.`);
+  return [...new Set(errors)];
+}
+
+export function activateFreshRunSetup(state: TrackerState, draft: NewRunSetupDraft, activatedAt = new Date().toISOString()): FreshRunActivationResult {
+  const validation = validateNewRunSetupDraft(draft);
+  if (!validation.valid || !validation.readyForActivation) return { ok: false, state, errors: [...validation.errors, ...validation.warnings] };
+  if (draft.rosterMode === "automatic") return { ok: false, state, errors: ["Automatic roster generation will be implemented in a later phase."] };
+
+  const seeds = manualSeeds(draft);
+  const rosters = LEAGUE_NAMES.reduce((acc, league) => ({ ...acc, [league]: seeds[league].map((seed) => seed.wrestler) }), {} as Record<LeagueName, string[]>);
+  const preview = generateSchedule({ leagueYear: NEW_RUN_START_BASIS.leagueYear, split: NEW_RUN_START_BASIS.split, yearWeekStart: NEW_RUN_START_BASIS.week, seeds, generatedAt: activatedAt });
+  const scheduleValidation = validateSchedule(preview, { rosters });
+  if (!scheduleValidation.valid) return { ok: false, state, errors: scheduleValidation.errors };
+  const acceptedSchedule = createAcceptedScheduleSnapshot({ preview, validation: scheduleValidation, acceptedAt: activatedAt, leagueYear: NEW_RUN_START_BASIS.leagueYear, split: NEW_RUN_START_BASIS.split });
+  const standings = zeroStandingsFromDraft(draft);
+  const currentUserWrestler = chooseCurrentUser(standings, draft.caws);
+  const nextState: TrackerState = {
+    ...state,
+    confirmedResults: [],
+    completedWeeks: [],
+    leagueFinalsResults: [],
+    completedFinalsNights: [],
+    acceptedSchedule,
+    activeWorkflow: {
+      leagueYear: NEW_RUN_START_BASIS.leagueYear,
+      split: NEW_RUN_START_BASIS.split,
+      yearWeek: NEW_RUN_START_BASIS.week,
+      splitWeek: 1,
+      scheduleSource: "accepted generated snapshot",
+      acceptedScheduleAt: acceptedSchedule.acceptedAt,
+      activatedAt,
+      userLeague: standings.find((row) => row.wrestler === currentUserWrestler)?.league ?? "Global League",
+    },
+    manualReviews: [],
+    currentUserWrestler,
+    rosterReplacements: [],
+    newRunSetupDraft: undefined,
+  };
+  const finalErrors = validateFreshRunState(nextState, standings);
+  if (finalErrors.length) return { ok: false, state, errors: finalErrors };
+  return { ok: true, state: nextState, errors: [] };
 }

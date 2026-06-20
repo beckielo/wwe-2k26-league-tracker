@@ -37,7 +37,7 @@ interface DashboardControlCenterProps {
 export function DashboardControlCenter(props: DashboardControlCenterProps) {
   const { state, hydrated } = useTrackerState();
   const matches = getActiveWorkflowMatches(state, props.workbookMatches);
-  const workflowBaseline = state.activeWorkflow ? 24 : props.workbookCompletedThroughWeek;
+  const workflowBaseline = state.activeWorkflow ? (state.activeWorkflow.split === "Closing Split" ? 24 : 0) : props.workbookCompletedThroughWeek;
   const live = reconstructActiveSplitLiveStandings({
     previousFinalStandings: props.baselineStandings,
     scheduledMatches: matches,

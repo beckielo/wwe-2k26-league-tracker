@@ -42,7 +42,7 @@ Loading local tracker state… </div>
 }
 
 const workflowMatches = getActiveWorkflowMatches(state, props.matches);
-const workflowBaseline = state.activeWorkflow ? 24 : props.workbookCurrentWeek;
+const workflowBaseline = state.activeWorkflow ? (state.activeWorkflow.split === "Closing Split" ? 24 : 0) : props.workbookCurrentWeek;
 const workflowUserLeague = selectedUser?.league ?? props.userLeague;
 const summary = getWorkflowSummary(
 state,

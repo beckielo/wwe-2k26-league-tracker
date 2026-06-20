@@ -1,18 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { addCawToDraft, createEmptyNewRunSetupDraft, NEW_RUN_START_BASIS, normalizeSetupName, validateNewRunSetupDraft, type NewRunSetupDraft } from "@/domain/new-run-setup";
+import { activateFreshRunSetup, addCawToDraft, createEmptyNewRunSetupDraft, NEW_RUN_START_BASIS, normalizeSetupName, validateNewRunSetupDraft, type NewRunSetupDraft } from "@/domain/new-run-setup";
 import { LEAGUE_NAMES, type LeagueName, type TrackerMeta } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
 
-type Step = "closed" | "warning" | "basis" | "caw-choice" | "caw-entry" | "roster-mode" | "manual" | "automatic" | "preview";
+type Step = "closed" | "warning" | "basis" | "caw-choice" | "caw-entry" | "roster-mode" | "manual" | "automatic" | "preview" | "confirm";
 
 export function NewRunSetupWizard({ meta }: { meta: TrackerMeta }) {
-  const { state, updateState, exportState } = useTrackerState();
+  const { state, replaceState, updateState, exportState } = useTrackerState();
   const [step, setStep] = useState<Step>("closed");
   const [draft, setDraft] = useState<NewRunSetupDraft>(() => state.newRunSetupDraft ?? createEmptyNewRunSetupDraft());
   const [cawName, setCawName] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
+  const [success, setSuccess] = useState<string | null>(null);
   const validation = useMemo(() => validateNewRunSetupDraft(draft), [draft]);
 
   function persist(next: NewRunSetupDraft) {
@@ -58,6 +59,27 @@ export function NewRunSetupWizard({ meta }: { meta: TrackerMeta }) {
     setStep(mode === "manual" ? "manual" : "automatic");
   }
 
+
+  function requestActivation() {
+    if (!validation.valid || !validation.readyForActivation) return;
+    setErrors([]);
+    setStep("confirm");
+  }
+
+  function activate() {
+    const result = activateFreshRunSetup(state, draft);
+    if (!result.ok) {
+      setErrors(result.errors);
+      setStep("preview");
+      return;
+    }
+    replaceState(result.state);
+    setDraft(createEmptyNewRunSetupDraft());
+    setSuccess("Fresh run activated: League Year 1, Opening Split, Week 1.");
+    setStep("closed");
+    setErrors([]);
+  }
+
   function updateManualSlot(league: LeagueName, index: number, value: string) {
     const manualRoster = { ...draft.manualRoster, [league]: [...draft.manualRoster[league]] };
     manualRoster[league][index] = value;
@@ -68,19 +90,20 @@ export function NewRunSetupWizard({ meta }: { meta: TrackerMeta }) {
     <div className="management-card-copy">
       <p className="broadcast-kicker">Run management</p>
       <h2 id="new-run-title">Create New Run</h2>
-      <p>Prepare a fresh League Year 1 setup with CAWs, roster assignment, validation, and a safe preview. Phase 14A does not overwrite active standings, schedule, results, or workbook state.</p>
+      <p>Prepare and activate a fresh League Year 1 setup with CAWs, roster assignment, validation, preview, and explicit final confirmation before replacing the active run.</p>
     </div>
     <button className="action-button action-primary" onClick={() => setStep("warning")}>Create New Run</button>
+    {success && <div className="new-run-validation warning" role="status"><strong>{success}</strong></div>}
 
     {step !== "closed" && <div className="new-run-wizard" role="dialog" aria-modal="false" aria-labelledby="new-run-wizard-title">
-      <header className="new-run-wizard-header"><div><p className="broadcast-kicker">Non-destructive setup wizard</p><h3 id="new-run-wizard-title">Create New Run Draft</h3></div></header>
+      <header className="new-run-wizard-header"><div><p className="broadcast-kicker">Fresh run setup wizard</p><h3 id="new-run-wizard-title">Create New Run Draft</h3></div></header>
       {errors.length > 0 && <ValidationMessages title="Setup notice" messages={errors} tone="error" />}
 
-      {step === "warning" && <WizardStep title="Active run overwrite warning" description="The current active run will be overwritten when this setup is activated in a later phase. Do you want to create a backup first?">
+      {step === "warning" && <WizardStep title="Active run overwrite warning" description="The current active run will be overwritten only after final confirmation. Do you want to create a backup first?">
         <div className="new-run-actions"><button className="action-button action-primary" onClick={createBackupAndContinue}>Yes, create backup and continue</button><button className="action-button action-secondary" onClick={() => recordBackup("skipped")}>No, continue without backup</button><button className="action-button action-secondary" onClick={close}>Cancel</button></div>
       </WizardStep>}
 
-      {step === "basis" && <WizardStep title="Fresh Run Start" description="Informational only. The active run is not reset in Phase 14A.">
+      {step === "basis" && <WizardStep title="Fresh Run Start" description="The new active run will start from this basis after final confirmation.">
         <ul className="new-run-summary-list"><li>League Year {NEW_RUN_START_BASIS.leagueYear}</li><li>{NEW_RUN_START_BASIS.split}</li><li>Week {NEW_RUN_START_BASIS.week}</li><li>Rule Version: {meta.currentStatus || "Current rule version"}</li></ul>
         <button className="action-button action-primary" onClick={() => setStep("caw-choice")}>Continue to CAW setup</button>
       </WizardStep>}
@@ -94,7 +117,7 @@ export function NewRunSetupWizard({ meta }: { meta: TrackerMeta }) {
         <div className="new-run-actions"><button className="action-button action-primary" onClick={addCaw}>Add CAW</button><button className="action-button action-secondary" onClick={() => setStep("roster-mode")}>No more CAWs</button></div><CawList caws={draft.caws} />
       </WizardStep>}
 
-      {step === "roster-mode" && <WizardStep title="How do you want to assign the roster?" description="Manual validates 48 unique active wrestlers. Automatic is visible only as a non-activating placeholder in Phase 14A.">
+      {step === "roster-mode" && <WizardStep title="How do you want to assign the roster?" description="Manual validates 48 unique active wrestlers. Automatic is visible but cannot activate until generation is implemented.">
         <div className="new-run-actions"><button className="action-button action-primary" onClick={() => setRosterMode("manual")}>Manual</button><button className="action-button action-secondary" onClick={() => setRosterMode("automatic")}>Automatic</button></div>
       </WizardStep>}
 
@@ -104,9 +127,13 @@ export function NewRunSetupWizard({ meta }: { meta: TrackerMeta }) {
         <button className="action-button action-primary" onClick={() => setStep("preview")}>Preview setup</button>
       </WizardStep>}
 
-      {step === "automatic" && <WizardStep title="Automatic roster generation" description="Automatic roster generation will be implemented in the next activation phase. It is not ready for activation in Phase 14A."><ValidationPanel validation={validation} /><button className="action-button action-secondary" onClick={() => setStep("preview")}>Preview placeholder</button></WizardStep>}
+      {step === "automatic" && <WizardStep title="Automatic roster generation" description="Automatic roster generation will be implemented in a later phase."><ValidationPanel validation={validation} /><button className="action-button action-secondary" onClick={() => setStep("preview")}>Preview placeholder</button></WizardStep>}
 
-      {step === "preview" && <Preview draft={draft} validation={validation} ruleVersion={meta.currentStatus || "Current rule version"} />}
+      {step === "preview" && <Preview draft={draft} validation={validation} ruleVersion={meta.currentStatus || "Current rule version"} onActivate={requestActivation} />}
+
+      {step === "confirm" && <WizardStep title="Final confirmation" description={"This will replace the current active run. The new run will start at League Year 1, Opening Split, Week 1. This cannot be undone inside the app unless you restored from a backup. Continue?"}>
+        <div className="new-run-actions"><button className="action-button action-primary" onClick={activate}>Activate Fresh Run</button><button className="action-button action-secondary" onClick={() => setStep("preview")}>Cancel</button></div>
+      </WizardStep>}
     </div>}
   </section>;
 }
@@ -118,9 +145,10 @@ function ValidationPanel({ validation }: { validation: ReturnType<typeof validat
 
 function ManualRosterEditor({ draft, updateManualSlot }: { draft: NewRunSetupDraft; updateManualSlot: (league: LeagueName, index: number, value: string) => void }) { return <div className="manual-roster-grid">{LEAGUE_NAMES.map((league) => <fieldset key={league}><legend>{league}</legend>{draft.manualRoster[league].map((name, index) => <label key={`${league}-${index}`}>Seed {index + 1}<input value={name} onChange={(event) => updateManualSlot(league, index, normalizeSetupName(event.target.value))} placeholder={`Seed ${index + 1}`} /></label>)}</fieldset>)}</div>; }
 
-function Preview({ draft, validation, ruleVersion }: { draft: NewRunSetupDraft; validation: ReturnType<typeof validateNewRunSetupDraft>; ruleVersion: string }) { return <WizardStep title="Setup preview" description="Preview only. Activation is disabled and the active run remains unchanged in Phase 14A.">
+function Preview({ draft, validation, ruleVersion, onActivate }: { draft: NewRunSetupDraft; validation: ReturnType<typeof validateNewRunSetupDraft>; ruleVersion: string; onActivate: () => void }) { return <WizardStep title="Setup preview" description="Review the exact roster seeds before replacing the active run.">
   <div className="new-run-preview"><p><strong>Backup choice:</strong> {draft.backupChoice === "created" ? "Created" : draft.backupChoice === "skipped" ? "Skipped" : draft.backupChoice === "not-available" ? "Not available" : "Not chosen"}</p><p><strong>Start:</strong> League Year 1, Opening Split, Week 1</p><p><strong>Rule Version:</strong> {ruleVersion}</p><p><strong>CAWs added:</strong> {draft.caws.length ? draft.caws.join(", ") : "None"}</p><p><strong>Roster mode:</strong> {draft.rosterMode ?? "Not selected"}</p></div>
   {draft.rosterMode === "manual" && <div className="new-run-preview-rosters">{LEAGUE_NAMES.map((league) => <div key={league}><h5>{league}</h5><ol>{draft.manualRoster[league].map((name, index) => <li key={`${league}-preview-${index}`}>Seed {index + 1}: {normalizeSetupName(name) || "Missing"}</li>)}</ol></div>)}</div>}
   <ValidationPanel validation={validation} />
-  <button className="action-button action-secondary" disabled>Activation coming in Phase 14B</button>
+  {draft.rosterMode === "automatic" && <p className="new-run-automatic-note">Automatic roster generation will be implemented in a later phase.</p>}
+  <button className="action-button action-primary" disabled={!validation.valid || !validation.readyForActivation} onClick={onActivate}>Activate Fresh Run</button>
 </WizardStep>; }

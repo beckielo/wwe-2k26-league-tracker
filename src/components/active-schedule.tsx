@@ -21,9 +21,9 @@ export function ActiveSchedule({ workbookMatches, workbookCurrentWeek }: { workb
   if (!hydrated) return <p className="text-slate-500">Loading active schedule…</p>;
   const active = Boolean(state.activeWorkflow);
   const matches = getActiveWorkflowMatches(state, workbookMatches);
-  const workflowBaseline = active ? 24 : workbookCurrentWeek;
+  const workflowBaseline = active ? (state.activeWorkflow?.split === "Closing Split" ? 24 : 0) : workbookCurrentWeek;
   const week = detectActiveWeek(state, matches, workflowBaseline).activeWeek ?? state.activeWorkflow?.yearWeek ?? workbookCurrentWeek + 1;
-  const display = getWeekDisplay(2, week, state.activeWorkflow?.split);
+  const display = getWeekDisplay(state.activeWorkflow?.leagueYear ?? 2, week, state.activeWorkflow?.split);
   const weekMatches = matches.filter((match) => match.week === week);
   return <>
     <div className="mb-6 border border-white/10 bg-white/5 p-4 text-sm text-slate-300">

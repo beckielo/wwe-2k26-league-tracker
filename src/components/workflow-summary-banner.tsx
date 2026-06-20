@@ -26,11 +26,11 @@ export function WorkflowSummaryBanner({
   }
 
   const workflowMatches = getActiveWorkflowMatches(state, matches);
-  const workflowBaseline = state.activeWorkflow ? 24 : workbookCurrentWeek;
+  const workflowBaseline = state.activeWorkflow ? (state.activeWorkflow.split === "Closing Split" ? 24 : 0) : workbookCurrentWeek;
   const workflowUserLeague = state.activeWorkflow?.userLeague ?? userLeague;
   const summary = getWorkflowSummary(state, workflowMatches, workflowBaseline, workflowUserLeague);
   const progress = summary.progress;
-  const display = summary.activeWeek === null ? null : getWeekDisplay(2, summary.activeWeek, state.activeWorkflow?.split);
+  const display = summary.activeWeek === null ? null : getWeekDisplay(state.activeWorkflow?.leagueYear ?? 2, summary.activeWeek, state.activeWorkflow?.split);
 
   return (
     <section className="overflow-hidden border border-red-400/25 bg-gradient-to-r from-red-500/15 via-[#111722] to-[#111722]">
@@ -54,7 +54,7 @@ export function WorkflowSummaryBanner({
           {!compact && (
             <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-bold uppercase tracking-wider">
               <Badge label="User league" value={summary.userLeague} />
-              <Badge label="Latest local lock" value={summary.latestLockedWeek === null ? "None" : getWeekDisplay(2, summary.latestLockedWeek).primary} />
+              <Badge label="Latest local lock" value={summary.latestLockedWeek === null ? "None" : getWeekDisplay(state.activeWorkflow?.leagueYear ?? 2, summary.latestLockedWeek, state.activeWorkflow?.split).primary} />
               <Badge label="Confirmed" value={progress?.confirmed ?? "—"} />
               <Badge label="Manual" value={progress?.manual ?? "—"} />
               <Badge label="Simulation" value={progress?.simulation ?? "—"} />
