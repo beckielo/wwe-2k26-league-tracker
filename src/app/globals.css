@@ -487,5 +487,18 @@ button:disabled,.action-button.is-disabled { cursor:not-allowed!important; filte
 .manual-roster-grid legend,.new-run-preview-rosters h5 { color:#fff; font-weight:900; text-transform:uppercase; font-size:12px; letter-spacing:.08em; }
 .manual-roster-grid label { display:grid; gap:5px; color:#aeb7c4; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
 .new-run-preview-rosters ol { margin:0; padding-left:20px; color:#dce5f0; font-size:12px; line-height:1.65; }
+.automatic-roster-preview { display:grid; gap:14px; }
+.automatic-roster-grid .new-run-roster-card { background:linear-gradient(180deg,#111827 0%,#070b12 100%); border-color:#d4af3733; box-shadow:inset 0 1px #ffffff12,0 10px 24px #00000033; }
+.new-run-seed-list { display:grid; gap:7px; }
+.new-run-seed-row { display:grid; grid-template-columns:72px minmax(0,1fr); align-items:center; gap:9px; border:1px solid #ffffff0f; border-radius:10px; background:#02050a99; padding:8px 9px; }
+.new-run-seed-label { color:#d4af37; font-size:11px; font-weight:900; text-transform:uppercase; letter-spacing:.04em; }
+.new-run-seed-name { display:flex; align-items:center; justify-content:space-between; gap:8px; min-width:0; color:#f7fbff; font-size:13px; font-weight:800; }
+.new-run-seed-name em { flex:0 0 auto; border:1px solid #d4af3755; border-radius:999px; padding:2px 7px; color:#ffe9a8; background:#d4af3714; font-size:10px; font-style:normal; letter-spacing:.08em; text-transform:uppercase; }
+.new-run-validation-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+.new-run-validation-summary div { border:1px solid #ffffff12; border-radius:12px; background:#ffffff08; padding:10px 12px; }
+.new-run-validation-summary span { display:block; color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+.new-run-validation-summary strong { display:block; margin-top:4px; color:#fff; font-size:15px; }
+.regenerate-roster-button { border-color:#d4af3755; background:linear-gradient(135deg,#33280c,#151a24); color:#ffe9a8; }
 @media (max-width:960px){.manual-roster-grid,.new-run-preview-rosters{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:620px){.manual-roster-grid,.new-run-preview-rosters{grid-template-columns:1fr}.new-run-wizard-header{align-items:stretch;flex-direction:column}}
+@media (max-width:760px){.new-run-validation-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:620px){.manual-roster-grid,.new-run-preview-rosters,.new-run-validation-summary{grid-template-columns:1fr}.new-run-wizard-header{align-items:stretch;flex-direction:column}}

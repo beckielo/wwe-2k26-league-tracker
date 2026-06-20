@@ -54,10 +54,33 @@ describe("NewRunSetupWizard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Automatic" }));
     fireEvent.click(screen.getByRole("button", { name: "Preview setup" }));
     expect(screen.getByText("Skipped")).toBeTruthy();
-    expect(screen.getByText(/Total active roster count: 48/)).toBeTruthy();
-    expect(screen.getByText(/Validation status: valid/)).toBeTruthy();
+    expect(screen.getByText("Roster Count")).toBeTruthy();
+    expect(screen.getByText("48 / 48")).toBeTruthy();
+    expect(screen.getByText("Duplicates")).toBeTruthy();
+    expect(screen.getAllByText("0").length).toBeGreaterThan(0);
+    for (const league of ["Global League", "Continental League", "National League", "Regional League"]) expect(screen.getByRole("heading", { name: league })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Activate Fresh Run" })).toHaveProperty("disabled", false);
     await waitFor(() => expect(window.localStorage.getItem("wwe-2k26-tracker-state-v1")).toContain('"confirmedResults":[]'));
+  });
+
+
+  it("renders CAW badges and regenerates while keeping CAWs included", async () => {
+    renderWizard();
+    fireEvent.click(await screen.findByRole("button", { name: "Create New Run" }));
+    fireEvent.click(screen.getByRole("button", { name: "No, continue without backup" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue to CAW setup" }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes" }));
+    fireEvent.change(screen.getByPlaceholderText("Type CAW name"), { target: { value: "Beckielo" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add CAW" }));
+    fireEvent.click(screen.getByRole("button", { name: "No" }));
+    fireEvent.click(screen.getByRole("button", { name: "Automatic" }));
+    expect(screen.getByRole("button", { name: "Regenerate Random Roster" })).toBeTruthy();
+    expect(screen.getByText("CAWs included")).toBeTruthy();
+    expect(screen.getByText("1 / 1")).toBeTruthy();
+    expect(screen.getByText("CAW")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Regenerate Random Roster" }));
+    expect(screen.getByText("1 / 1")).toBeTruthy();
+    expect(screen.getByText("Beckielo")).toBeTruthy();
   });
 
   it("shows CAW duplicate validation", async () => {

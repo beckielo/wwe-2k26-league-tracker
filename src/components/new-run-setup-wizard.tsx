@@ -156,12 +156,37 @@ function ValidationPanel({ validation }: { validation: ReturnType<typeof validat
 
 function ManualRosterEditor({ draft, updateManualSlot }: { draft: NewRunSetupDraft; updateManualSlot: (league: LeagueName, index: number, value: string) => void }) { return <div className="manual-roster-grid">{LEAGUE_NAMES.map((league) => <fieldset key={league}><legend>{league}</legend>{draft.manualRoster[league].map((name, index) => <label key={`${league}-${index}`}>Seed {index + 1}<input value={name} onChange={(event) => updateManualSlot(league, index, normalizeSetupName(event.target.value))} placeholder={`Seed ${index + 1}`} /></label>)}</fieldset>)}</div>; }
 
+function isCaw(draft: NewRunSetupDraft, name: string) {
+  const normalized = normalizeSetupName(name).toLocaleLowerCase();
+  return draft.caws.some((caw) => normalizeSetupName(caw).toLocaleLowerCase() === normalized);
+}
+
+function RosterSeedPreview({ draft, variant = "standard" }: { draft: NewRunSetupDraft; variant?: "standard" | "automatic" }) {
+  return <div className={`new-run-preview-rosters ${variant === "automatic" ? "automatic-roster-grid" : ""}`}>{LEAGUE_NAMES.map((league) => <section className="new-run-roster-card" key={league} aria-label={`${league} automatic roster preview`}>
+    <h5>{league}</h5>
+    <div className="new-run-seed-list">{Array.from({ length: 12 }, (_, index) => {
+      const name = normalizeSetupName(draft.manualRoster[league]?.[index] ?? "");
+      return <div className="new-run-seed-row" key={`${league}-seed-${index + 1}`}><span className="new-run-seed-label">Seed {index + 1}</span><span className="new-run-seed-name">{name || "Missing"}{name && isCaw(draft, name) ? <em>CAW</em> : null}</span></div>;
+    })}</div>
+  </section>)}</div>;
+}
+
+function RosterValidationSummary({ validation }: { validation: ReturnType<typeof validateNewRunSetupDraft> }) {
+  const summary = validation.summary;
+  return <div className="new-run-validation-summary" aria-label="Automatic roster validation summary">
+    <div><span>Roster Count</span><strong>{summary.rosterCount} / {summary.requiredRosterCount}</strong></div>
+    {LEAGUE_NAMES.map((league) => <div key={league}><span>{league}</span><strong>{summary.leagueCounts[league]} / {summary.requiredLeagueCount}</strong></div>)}
+    <div><span>Duplicates</span><strong>{summary.duplicates}</strong></div>
+    <div><span>CAWs included</span><strong>{summary.cawsIncluded}{summary.cawsEntered ? ` / ${summary.cawsEntered}` : ""}</strong></div>
+  </div>;
+}
+
 function Preview({ draft, validation, ruleVersion, onActivate }: { draft: NewRunSetupDraft; validation: ReturnType<typeof validateNewRunSetupDraft>; ruleVersion: string; onActivate: () => void }) { return <WizardStep title="Setup preview" description="Review the exact roster seeds before replacing the active run.">
   <div className="new-run-preview"><p><strong>Backup choice:</strong> {draft.backupChoice === "created" ? "Created" : draft.backupChoice === "skipped" ? "Skipped" : draft.backupChoice === "not-available" ? "Not available" : "Not chosen"}</p><p><strong>Start:</strong> League Year 1, Opening Split, Week 1</p><p><strong>Rule Version:</strong> {ruleVersion}</p><p><strong>CAWs added:</strong> {draft.caws.length ? draft.caws.join(", ") : "None"}</p><p><strong>Roster mode:</strong> {draft.rosterMode ?? "Not selected"}</p></div>
-  {(draft.rosterMode === "manual" || draft.rosterMode === "automatic") && <div className="new-run-preview-rosters">{LEAGUE_NAMES.map((league) => <div key={league}><h5>{league}</h5><ol>{draft.manualRoster[league].map((name, index) => <li key={`${league}-preview-${index}`}>Seed {index + 1}: {normalizeSetupName(name) || "Missing"}{draft.caws.some((caw) => normalizeSetupName(caw).toLocaleLowerCase() === normalizeSetupName(name).toLocaleLowerCase()) ? " (CAW)" : ""}</li>)}</ol></div>)}</div>}
+  {(draft.rosterMode === "manual" || draft.rosterMode === "automatic") && <RosterSeedPreview draft={draft} variant={draft.rosterMode === "automatic" ? "automatic" : "standard"} />}
+  {draft.rosterMode === "automatic" && <RosterValidationSummary validation={validation} />}
   <ValidationPanel validation={validation} />
-  {draft.rosterMode === "automatic" && <p className="new-run-automatic-note">Total active roster count: {LEAGUE_NAMES.reduce((count, league) => count + draft.manualRoster[league].filter((name) => normalizeSetupName(name)).length, 0)}. Validation status: {validation.valid ? "valid" : "blocked"}.</p>}
   <button className="action-button action-primary" disabled={!validation.valid || !validation.readyForActivation} onClick={onActivate}>Activate Fresh Run</button>
 </WizardStep>; }
 
-function AutomaticRosterPreview({ draft, validation, onRegenerate }: { draft: NewRunSetupDraft; validation: ReturnType<typeof validateNewRunSetupDraft>; onRegenerate: () => void }) { return <div><div className="new-run-preview"><p><strong>Total active roster count:</strong> {LEAGUE_NAMES.reduce((count, league) => count + draft.manualRoster[league].filter((name) => normalizeSetupName(name)).length, 0)}</p><p><strong>Validation status:</strong> {validation.valid ? "Valid" : "Blocked"}</p></div><div className="new-run-actions"><button className="action-button action-secondary" onClick={onRegenerate}>Regenerate Random Roster</button></div><div className="new-run-preview-rosters">{LEAGUE_NAMES.map((league) => <div key={league}><h5>{league}</h5><ol>{draft.manualRoster[league].map((name, index) => <li key={`${league}-auto-${index}`}>Seed {index + 1}: {normalizeSetupName(name) || "Missing"}{draft.caws.some((caw) => normalizeSetupName(caw).toLocaleLowerCase() === normalizeSetupName(name).toLocaleLowerCase()) ? " (CAW)" : ""}</li>)}</ol></div>)}</div><ValidationPanel validation={validation} /></div>; }
+function AutomaticRosterPreview({ draft, validation, onRegenerate }: { draft: NewRunSetupDraft; validation: ReturnType<typeof validateNewRunSetupDraft>; onRegenerate: () => void }) { return <div className="automatic-roster-preview"><RosterValidationSummary validation={validation} /><div className="new-run-actions"><button className="action-button action-secondary regenerate-roster-button" onClick={onRegenerate}>Regenerate Random Roster</button></div><RosterSeedPreview draft={draft} variant="automatic" /><ValidationPanel validation={validation} /></div>; }
