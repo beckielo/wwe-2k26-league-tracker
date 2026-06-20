@@ -63,7 +63,7 @@ describe("Phase 18C current user icon and name colors", () => {
     expect(dashboardSource).toContain("h2h.shouldUnderlineLeft");
     expect(dashboardSource).toContain("h2h.shouldUnderlineRight");
     expect(dashboardSource).toContain("h2h-last-winner");
-    expect(cssSource).toContain(".h2h-last-winner{text-decoration:underline");
+    expect(cssSource).toContain(".h2h-last-winner .dashboard-show-name-text{text-decoration:underline");
   });
 
 
@@ -89,14 +89,14 @@ describe("Phase 18C current user icon and name colors", () => {
     expect(dashboardSource).toContain('<span className="dashboard-show-name-text">{children}</span>');
     expect(dashboardSource).toContain('<ControllerIcon className="dashboard-show-current-user-icon" />');
     expect(cssSource).toContain(".dashboard-show-current-user-icon");
-    expect(cssSource).toContain("width:12px");
+    expect(cssSource).toContain("width:15px");
     expect(dashboardSource).toContain("prediction-bars");
   });
 
   it("applies compact premium typography only to dashboard show match-row wrestler names", () => {
     expect(dashboardSource).toContain('className={wrestlerNameClassName(h2h.shouldUnderlineLeft)}');
     expect(dashboardSource).toContain('className={wrestlerNameClassName(h2h.shouldUnderlineRight)}');
-    expect(cssSource).toContain(".dashboard-show-wrestler-name{font-size:16px;line-height:1.08;font-weight:950;letter-spacing:.015em;text-transform:uppercase}");
+    expect(cssSource).toContain(".dashboard-show-wrestler-name{font-size:16px;line-height:1.08;font-family:var(--font-geist-sans),Arial,sans-serif;font-style:normal;font-weight:900;letter-spacing:.01em;text-transform:uppercase}");
     expect(cssSource).not.toContain(".dashboard-live-table .dashboard-show-wrestler-name");
   });
 

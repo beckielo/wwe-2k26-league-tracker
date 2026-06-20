@@ -13,9 +13,9 @@ describe("Phase 18G dashboard match typography and action arrow cleanup", () => 
 
     expect(dashboard).toContain('<span className="dashboard-show-name-text">{children}</span>');
     expect(dashboard).toContain('<ControllerIcon className="dashboard-show-current-user-icon" />');
-    expect(css).toContain(".dashboard-show-wrestler-name{font-size:16px;line-height:1.08;font-weight:950;letter-spacing:.015em;text-transform:uppercase}");
-    expect(css).toContain(".dashboard-show-name-content .dashboard-show-name-text{color:inherit;font-family:var(--font-geist-sans),Arial,sans-serif;font-size:16px;font-weight:950;line-height:1.08;letter-spacing:.015em;text-transform:uppercase}");
-    expect(css).toContain(".h2h-last-winner{text-decoration:underline");
+    expect(css).toContain(".dashboard-show-wrestler-name{font-size:16px;line-height:1.08;font-family:var(--font-geist-sans),Arial,sans-serif;font-style:normal;font-weight:900;letter-spacing:.01em;text-transform:uppercase}");
+    expect(css).toContain(".dashboard-show-name-content .dashboard-show-name-text{color:inherit;font-family:var(--font-geist-sans),Arial,sans-serif;font-size:16px;font-style:normal;font-weight:900;line-height:1.08;letter-spacing:.01em;text-transform:uppercase}");
+    expect(css).toContain(".h2h-last-winner .dashboard-show-name-text{text-decoration:underline");
     expect(css).toContain(".dashboard-show-current-user-icon");
   });
 
