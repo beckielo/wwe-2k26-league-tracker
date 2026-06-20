@@ -39,6 +39,7 @@ describe("NewRunSetupWizard", () => {
   it("Cancel closes the warning without creating a draft", async () => {
     renderWizard();
     fireEvent.click(await screen.findByRole("button", { name: "Create New Run" }));
+    expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByText("Active run overwrite warning")).toBeNull();
     expect(window.localStorage.getItem("wwe-2k26-tracker-state-v1")).toBeNull();
