@@ -8,8 +8,9 @@ import {
 getActiveUserLeagueMatches,
 getWorkflowSummary,
 } from "@/domain/week-progression";
-import type { LeagueName, Match } from "@/domain/types";
+import type { LeagueName, Match, StandingRow } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
+import { useCurrentUser } from "./current-user-switcher";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { getWeekDisplay } from "@/domain/week-display";
 
@@ -18,6 +19,7 @@ matches: Match[];
 workbookCurrentWeek: number;
 userLeague: LeagueName;
 userWrestler: string;
+standings: StandingRow[];
 }
 
 export function ResultEntryWorkflow({
@@ -25,8 +27,10 @@ matches,
 workbookCurrentWeek,
 userLeague,
 userWrestler,
+standings,
 }: ResultEntryWorkflowProps) {
 const { state, hydrated } = useTrackerState();
+const selectedUser = useCurrentUser(standings).currentUser;
 
 if (!hydrated) {
 return ( <div className="border border-white/10 p-6 text-sm text-slate-500">
@@ -36,7 +40,8 @@ Loading local tracker state… </div>
 
 const workflowMatches = getActiveWorkflowMatches(state, matches);
 const workflowBaseline = state.activeWorkflow ? 24 : workbookCurrentWeek;
-const workflowUserLeague = state.activeWorkflow?.userLeague ?? userLeague;
+const workflowUserLeague = selectedUser?.league ?? userLeague;
+const workflowUserWrestler = selectedUser?.wrestler ?? userWrestler;
 const summary = getWorkflowSummary(
 state,
 workflowMatches,
@@ -50,7 +55,7 @@ if (week === null) {
 return ( <WorkflowSummaryBanner
      matches={matches}
      workbookCurrentWeek={workbookCurrentWeek}
-     userLeague={userLeague}
+     userLeague={workflowUserLeague}
    />
 );
 }
@@ -97,7 +102,7 @@ return (
     <Stat
       label="Controlled league"
       value={workflowUserLeague.replace(" League", "")}
-      detail={userWrestler}
+      detail={workflowUserWrestler}
     />
   </div>
 

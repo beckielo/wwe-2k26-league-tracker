@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { LeagueIcon } from "./league-icon";
 import { LeagueBrandMark, LeagueDecorativeArt } from "./brand-assets";
 import { useTrackerState } from "@/state/tracker-state-provider";
+import { useCurrentUser } from "./current-user-switcher";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { reconstructActiveSplitLiveStandings, validateActiveSplitStandings } from "@/domain/tracker-state";
 import { LEAGUE_NAMES, type LeagueName, type Match, type MatchResult, type StandingRow, type TrackerMeta } from "@/domain/types";
@@ -68,7 +69,8 @@ function LeagueTable({ league, rows, userLeague }: { league: LeagueName; rows: S
 export function LiveStandings({ baseline, workbookMatches, workbookResults, meta, sourceFile }: LiveStandingsProps) {
   const { state, hydrated } = useTrackerState();
   const matches = useMemo(() => getActiveWorkflowMatches(state, workbookMatches), [state, workbookMatches]);
-  const userLeague = state.activeWorkflow?.userLeague ?? meta.userLeague;
+  const selectedUser = useCurrentUser(baseline).currentUser;
+  const userLeague = selectedUser?.league ?? meta.userLeague;
   const split = state.activeWorkflow?.split ?? meta.currentSplit;
   const splitWeek = state.activeWorkflow?.splitWeek ?? (meta.currentSplit === "Closing Split" ? Math.max(1, meta.currentWeek - 24) : meta.currentWeek);
   const live = useMemo(

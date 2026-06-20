@@ -52,6 +52,7 @@ export interface TrackerState {
   acceptedSchedule?: AcceptedScheduleSnapshot;
   activeWorkflow?: ActiveWorkflow;
   manualReviews?: ManualReview[];
+  currentUserWrestler?: string;
 }
 
 export interface ActiveWorkflow {

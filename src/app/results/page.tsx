@@ -19,6 +19,7 @@ return (
     workbookCurrentWeek={data.meta.appBaselineCompletedThroughWeek}
     userLeague={data.meta.userLeague}
     userWrestler={data.meta.userWrestler}
+    standings={data.standings}
   />
 </>
 
