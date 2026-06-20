@@ -74,7 +74,6 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
 
   return <>
     <CurrentUserSwitcher standings={live.composition} />
-    <ReplaceWrestlerControl activeRoster={live.composition} matches={matches} leagueYear={leagueYear} split={split ?? props.meta.currentSplit} week={yearWeek} />
     <section className={`command-deck league-${LEAGUE_VISUALS[userLeague].key}`} aria-labelledby="command-title">
       <LeagueDecorativeArt league={userLeague} className="command-decorative-art" />
       <LeagueWatermark league={userLeague} />
@@ -151,6 +150,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
     </div>
     <SocialFeed comments={socialFeed} />
     <p className="dashboard-diagnostics-note">Source Warnings remain available in review workflows · Non-blocking · details contained.</p>
+    <ReplaceWrestlerControl activeRoster={live.composition} matches={matches} leagueYear={leagueYear} split={split ?? props.meta.currentSplit} week={yearWeek} />
   </>;
 }
 
