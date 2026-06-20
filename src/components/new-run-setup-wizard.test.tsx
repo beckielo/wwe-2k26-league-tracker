@@ -70,7 +70,7 @@ describe("NewRunSetupWizard", () => {
     fireEvent.click(screen.getByRole("button", { name: "No, continue without backup" }));
     fireEvent.click(screen.getByRole("button", { name: "Continue to CAW setup" }));
     fireEvent.click(screen.getByRole("button", { name: "Yes" }));
-    fireEvent.change(screen.getByPlaceholderText("Type CAW name"), { target: { value: "Beckielo" } });
+    fireEvent.change(screen.getByPlaceholderText("Type CAW name"), { target: { value: "Custom Hero" } });
     fireEvent.click(screen.getByRole("button", { name: "Add CAW" }));
     fireEvent.click(screen.getByRole("button", { name: "No" }));
     fireEvent.click(screen.getByRole("button", { name: "Automatic" }));
@@ -80,7 +80,7 @@ describe("NewRunSetupWizard", () => {
     expect(screen.getByText("CAW")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Regenerate Random Roster" }));
     expect(screen.getByText("1 / 1")).toBeTruthy();
-    expect(screen.getByText("Beckielo")).toBeTruthy();
+    expect(screen.getByText("Custom Hero")).toBeTruthy();
   });
 
   it("shows CAW duplicate validation", async () => {
