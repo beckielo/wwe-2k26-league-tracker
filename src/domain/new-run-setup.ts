@@ -24,6 +24,17 @@ export interface NewRunValidationResult {
   readyForActivation: boolean;
   errors: string[];
   warnings: string[];
+  summary: AutomaticRosterValidationSummary;
+}
+
+export interface AutomaticRosterValidationSummary {
+  rosterCount: number;
+  requiredRosterCount: number;
+  leagueCounts: Record<LeagueName, number>;
+  requiredLeagueCount: number;
+  duplicates: number;
+  cawsIncluded: number;
+  cawsEntered: number;
 }
 
 export const AUTOMATIC_ROSTER_SIZE = 48;
@@ -127,10 +138,30 @@ export function generateAutomaticRosterDraft(
   }, {} as Record<LeagueName, string[]>);
   return { draft: { ...draft, rosterMode: "automatic", caws: normalizedCaws, manualRoster }, errors: [] };
 }
+export function createRosterValidationSummary(draft: NewRunSetupDraft): AutomaticRosterValidationSummary {
+  const names = LEAGUE_NAMES.flatMap((league) => (draft.manualRoster[league] ?? []).map(normalizeSetupName).filter(Boolean));
+  const lowerNames = names.map((name) => name.toLocaleLowerCase());
+  const duplicateKeys = lowerNames.filter((name, index) => lowerNames.indexOf(name) !== index);
+  const cawKeys = new Set(draft.caws.map((caw) => normalizeSetupName(caw).toLocaleLowerCase()).filter(Boolean));
+  const activeKeys = new Set(lowerNames);
+  return {
+    rosterCount: names.length,
+    requiredRosterCount: AUTOMATIC_ROSTER_SIZE,
+    leagueCounts: LEAGUE_NAMES.reduce((counts, league) => {
+      counts[league] = (draft.manualRoster[league] ?? []).map(normalizeSetupName).filter(Boolean).length;
+      return counts;
+    }, {} as Record<LeagueName, number>),
+    requiredLeagueCount: LEAGUE_ROSTER_SIZE,
+    duplicates: new Set(duplicateKeys).size,
+    cawsIncluded: [...cawKeys].filter((key) => activeKeys.has(key)).length,
+    cawsEntered: cawKeys.size,
+  };
+}
 
 export function validateNewRunSetupDraft(draft: NewRunSetupDraft): NewRunValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
+  const summary = createRosterValidationSummary(draft);
   const cawDuplicates = duplicateSetupNames(draft.caws);
   if (cawDuplicates.length) errors.push(`Duplicate CAWs are not allowed: ${cawDuplicates.join(", ")}.`);
 
@@ -145,7 +176,7 @@ export function validateNewRunSetupDraft(draft: NewRunSetupDraft): NewRunValidat
 
   if (draft.rosterMode !== "manual" && draft.rosterMode !== "automatic") {
     errors.push("Choose Manual or Automatic roster assignment before preview can be valid.");
-    return { valid: false, readyForActivation: false, errors, warnings };
+    return { valid: false, readyForActivation: false, errors, warnings, summary };
   }
 
   if (LEAGUE_NAMES.length !== 4) errors.push(`Roster setup expected exactly 4 leagues; found ${LEAGUE_NAMES.length}.`);
@@ -165,11 +196,14 @@ export function validateNewRunSetupDraft(draft: NewRunSetupDraft): NewRunValidat
 
   const cawKeys = new Set(draft.caws.map((caw) => normalizeSetupName(caw).toLocaleLowerCase()).filter(Boolean));
   const cawManualConflicts = filledNames.filter((name) => cawKeys.has(name.toLocaleLowerCase()));
-  if (new Set(cawManualConflicts.map((name) => name.toLocaleLowerCase())).size !== draft.caws.length) {
-    warnings.push("Entered CAWs can be placed manually like normal wrestlers; unplaced CAWs will not be active in this draft.");
+  const includedCawCount = new Set(cawManualConflicts.map((name) => name.toLocaleLowerCase())).size;
+  if (includedCawCount !== cawKeys.size) {
+    const message = "Entered CAWs can be placed manually like normal wrestlers; unplaced CAWs will not be active in this draft.";
+    if (draft.rosterMode === "automatic") errors.push("Automatic roster must include every entered CAW.");
+    else warnings.push(message);
   }
 
-  return { valid: errors.length === 0, readyForActivation: errors.length === 0, errors: [...new Set(errors)], warnings: [...new Set(warnings)] };
+  return { valid: errors.length === 0, readyForActivation: errors.length === 0, errors: [...new Set(errors)], warnings: [...new Set(warnings)], summary };
 }
 
 
