@@ -520,6 +520,52 @@ describe("League Finals result resolution", () => {
     expect(sanitizeLeagueFinalsResults([regeneratedMatch], [oldResult])).toEqual([]);
   });
 
+
+  it("repairs stale canonical payload metadata without requiring re-entry when the winner is still valid", () => {
+    const review = derive();
+    const match = review.relegationMatches[0];
+    const stale: LeagueFinalsResult = {
+      matchId: match.id,
+      matchIdentity: "league-finals:old:metadata:National 99:Regional 99",
+      resultType: "Winner",
+      winner: match.wrestlerB,
+      confirmedAt: "2026-06-22T00:00:00.000Z",
+    };
+
+    const normalized = normalizeLeagueFinalsResults([...review.nightOne, ...review.nightTwo], [stale]);
+
+    expect(normalized.results[0]).toMatchObject({ matchId: match.id, winner: match.wrestlerB });
+    expect(normalized.results[0].matchIdentity).not.toBe(stale.matchIdentity);
+    expect(normalized.repairedPayloads).toEqual([match.id]);
+    expect(normalized.staleMetadataIgnoredKeys).toEqual([match.id]);
+    expect(validateLeagueFinalsResult(normalized.results[0], [...review.nightOne, ...review.nightTwo], normalized.results)).toEqual([]);
+    expect(sanitizeLeagueFinalsResults([...review.nightOne, ...review.nightTwo], [stale])).toEqual(normalized.results);
+  });
+
+  it("validates Elite Cup Final winners after semifinal winners resolve despite stale placeholder metadata", () => {
+    const review = derive();
+    const matches = [...review.nightOne, ...review.nightTwo];
+    const semifinalOneWinner = review.nightTwo.find((match) => match.matchNumber === 4)!.wrestlerA;
+    const semifinalTwoWinner = review.nightTwo.find((match) => match.matchNumber === 5)!.wrestlerA;
+    const results: LeagueFinalsResult[] = [
+      { matchId: "league-finals:night-two:match-4", resultType: "Winner", winner: semifinalOneWinner, confirmedAt: "2026-06-22T00:00:00.000Z" },
+      { matchId: "league-finals:night-two:match-5", resultType: "Winner", winner: semifinalTwoWinner, confirmedAt: "2026-06-22T00:00:00.000Z" },
+      {
+        matchId: "league-finals:night-two:match-6",
+        matchIdentity: "league-finals:night-two:elite-cup-final:winner-sf1:winner-sf2",
+        resultType: "Winner",
+        winner: semifinalTwoWinner,
+        confirmedAt: "2026-06-22T00:00:00.000Z",
+      },
+    ];
+
+    const normalized = normalizeLeagueFinalsResults(matches, results);
+    const finalResult = normalized.results.find((result) => result.matchId === "league-finals:night-two:match-6")!;
+
+    expect(validateLeagueFinalsResult(finalResult, matches, normalized.results)).toEqual([]);
+    expect(normalized.staleMetadataIgnoredKeys).toContain("league-finals:night-two:match-6");
+  });
+
   it("does not perform Phase 9B behavior when both cards can complete", () => {
     const review = derive();
     expect(review.sourceWarnings.join(" ")).toContain("does not create Week 25");

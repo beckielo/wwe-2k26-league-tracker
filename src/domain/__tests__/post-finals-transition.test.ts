@@ -137,6 +137,47 @@ describe("Post-Finals completion gate", () => {
     expect(derive({ results }).invalidResults).toEqual([]);
   });
 
+
+  it("treats canonical slot ID as primary identity and ignores stale payload metadata", () => {
+    const results = completedResults().map((result, index) => ({
+      ...result,
+      matchIdentity: `stale-payload:${index}:old-participant-snapshot`,
+    }));
+
+    const transition = derive({ results });
+
+    expect(transition.finalsComplete).toBe(true);
+    expect(transition.invalidResults.join(" ")).not.toContain("saved result belongs to a different League Finals matchup");
+    expect(transition.diagnostics.repairedPayloadCount).toBe(12);
+    expect(transition.diagnostics.staleMetadataIgnoredCount).toBe(12);
+    expect(transition.diagnostics.invalidWinnerOutcomeCount).toBe(0);
+  });
+
+  it("invalidates only the canonical result whose winner cannot apply to the current slot", () => {
+    const results = completedResults();
+    results[0] = {
+      ...results[0],
+      matchIdentity: "stale-payload:old-matchup",
+      winner: "Not In This Match",
+    };
+
+    const transition = derive({ results });
+
+    expect(transition.finalsComplete).toBe(false);
+    expect(transition.invalidResults).toEqual(["league-finals:night-one:match-1: winner must be one of the derived participants."]);
+    expect(transition.missingResults).toEqual([]);
+    expect(transition.diagnostics.invalidWinnerOutcomeCount).toBe(1);
+  });
+
+  it("reports all twelve saved canonical IDs and unlocks when completion flags are set", () => {
+    const transition = derive({ results: completedResults() });
+
+    expect(transition.diagnostics.savedCanonicalIdsFound).toHaveLength(12);
+    expect(transition.finalsComplete).toBe(true);
+    expect(transition.unlocked).toBe(true);
+    expect(transition.invalidResults).toEqual([]);
+  });
+
   it("rejects duplicate finals results", () => {
     const results = completedResults();
     expect(derive({ results: [...results, results[0]] }).invalidResults.join(" ")).toContain("duplicate");

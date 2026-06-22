@@ -40,7 +40,7 @@ export function PostFinalsTransitionView(props: Props) {
   const allFinalsMatches = useMemo(() => [...finals.nightOne, ...finals.nightTwo], [finals.nightOne, finals.nightTwo]);
   const normalizedResults = useMemo(() => normalizeLeagueFinalsResults(allFinalsMatches, state.leagueFinalsResults ?? []), [allFinalsMatches, state.leagueFinalsResults]);
   useEffect(() => {
-    if (!hydrated || normalizedResults.migratedLegacyResultKeys.length === 0) return;
+    if (!hydrated || normalizedResults.repairedPayloads.length === 0) return;
     const current = state.leagueFinalsResults ?? [];
     const changed = normalizedResults.results.length !== current.length
       || normalizedResults.results.some((result, index) => JSON.stringify(result) !== JSON.stringify(current[index]));
@@ -69,6 +69,7 @@ export function PostFinalsTransitionView(props: Props) {
       <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
         <p>Night One: <strong>{transition.nightCompletion["Night One"] ? "Complete" : "Incomplete"}</strong></p>
         <p>Night Two: <strong>{transition.nightCompletion["Night Two"] ? "Complete" : "Incomplete"}</strong></p>
+        <p>League Finals complete: <strong>{transition.finalsComplete ? "Yes" : "No"}</strong></p>
       </div>
       {transition.missingResults.length > 0 && <div className="mt-4"><strong>Missing League Finals results</strong><ul className="list-disc pl-5 text-sm">{transition.missingResults.map((item) => <li key={item}>{item}</li>)}</ul></div>}
       {transition.invalidResults.length > 0 && <div className="mt-4"><strong>Invalid / ambiguous results</strong><ul className="list-disc pl-5 text-sm">{transition.invalidResults.map((item) => <li key={item}>{item}</li>)}</ul></div>}
@@ -77,6 +78,10 @@ export function PostFinalsTransitionView(props: Props) {
         <dl className="mt-2 grid gap-1 sm:grid-cols-2">
           <div><dt>Saved result keys</dt><dd>{transition.diagnostics.savedLeagueFinalsResultKeys.join(", ") || "none"}</dd></div>
           <div><dt>Canonical match IDs</dt><dd>{transition.diagnostics.canonicalAuthoritativeFinalsMatchIds.join(", ") || "none"}</dd></div>
+          <div><dt>Saved canonical IDs found</dt><dd>{transition.diagnostics.savedCanonicalIdsFound.join(", ") || "none"}</dd></div>
+          <div><dt>Repaired payloads</dt><dd>{transition.diagnostics.repairedPayloadCount}</dd></div>
+          <div><dt>Stale metadata ignored</dt><dd>{transition.diagnostics.staleMetadataIgnoredCount}</dd></div>
+          <div><dt>Invalid winner/outcome</dt><dd>{transition.diagnostics.invalidWinnerOutcomeCount}</dd></div>
           <div><dt>Migrated legacy result keys</dt><dd>{transition.diagnostics.migratedLegacyResultKeysCount}</dd></div>
           <div><dt>Unmatched saved results</dt><dd>{transition.diagnostics.unmatchedSavedResultsCount}</dd></div>
           <div><dt>Missing authoritative finals</dt><dd>{transition.diagnostics.missingAuthoritativeFinalsCount}</dd></div>

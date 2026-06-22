@@ -350,9 +350,6 @@ export function validateLeagueFinalsResult(
   const match = matches.find((candidate) => candidate.id === result.matchId);
   if (!match || !match.authoritative) return [`${result.matchId}: League Finals match is not authoritative or confirmed.`];
   const participants = resolveFinalsParticipants(match, existingResults);
-  if (result.matchIdentity && match.kind !== "Elite Cup Final" && result.matchIdentity !== buildLeagueFinalsResultIdentity(match, existingResults)) {
-    return [`${result.matchId}: saved result belongs to a different League Finals matchup.`];
-  }
   if (participants.some((participant) => !participant)) return [`${result.matchId}: participants are not yet resolved.`];
   if (result.resultType === "Winner" && !participants.includes(result.winner)) {
     return [`${result.matchId}: winner must be one of the derived participants.`];
@@ -372,6 +369,9 @@ export interface LeagueFinalsResultsNormalization {
   unmatchedSavedResultKeys: string[];
   duplicateCanonicalResultIds: string[];
   canonicalMatchIds: string[];
+  savedCanonicalResultIds: string[];
+  repairedPayloads: string[];
+  staleMetadataIgnoredKeys: string[];
 }
 
 export function normalizeLeagueFinalsResults(
@@ -390,6 +390,9 @@ export function normalizeLeagueFinalsResults(
   const migratedLegacyResultKeys: string[] = [];
   const unmatchedSavedResultKeys: string[] = [];
   const duplicateCanonicalResultIds: string[] = [];
+  const savedCanonicalResultIds: string[] = [];
+  const repairedPayloads: string[] = [];
+  const staleMetadataIgnoredKeys: string[] = [];
 
   for (const result of results) {
     const direct = canonical.get(result.matchId);
@@ -399,12 +402,20 @@ export function normalizeLeagueFinalsResults(
       unmatchedSavedResultKeys.push(result.matchId);
       continue;
     }
+    if (direct) savedCanonicalResultIds.push(result.matchId);
     if (legacy) migratedLegacyResultKeys.push(result.matchId);
     if (normalized.has(match.id)) duplicateCanonicalResultIds.push(match.id);
+
+    const currentIdentity = buildLeagueFinalsResultIdentity(match, results);
+    const hadStaleMetadata = Boolean(result.matchIdentity && result.matchIdentity !== currentIdentity);
+    if (hadStaleMetadata) staleMetadataIgnoredKeys.push(result.matchId);
+    if (legacy || hadStaleMetadata || result.matchId !== match.id || result.matchIdentity !== currentIdentity) {
+      repairedPayloads.push(result.matchId);
+    }
     normalized.set(match.id, {
       ...result,
       matchId: match.id,
-      matchIdentity: result.matchIdentity ?? buildLeagueFinalsResultIdentity(match, results),
+      matchIdentity: currentIdentity,
     });
   }
 
@@ -414,6 +425,9 @@ export function normalizeLeagueFinalsResults(
     unmatchedSavedResultKeys,
     duplicateCanonicalResultIds: [...new Set(duplicateCanonicalResultIds)],
     canonicalMatchIds,
+    savedCanonicalResultIds,
+    repairedPayloads,
+    staleMetadataIgnoredKeys,
   };
 }
 

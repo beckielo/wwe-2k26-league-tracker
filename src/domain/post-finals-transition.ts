@@ -83,6 +83,10 @@ export interface PostFinalsTransition {
     missingAuthoritativeFinalsCount: number;
     missingCanonicalIds: string[];
     extraUnmatchedSavedIds: string[];
+    savedCanonicalIdsFound: string[];
+    repairedPayloadCount: number;
+    invalidWinnerOutcomeCount: number;
+    staleMetadataIgnoredCount: number;
   };
 }
 
@@ -354,6 +358,10 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
         .filter((match) => !reconciledResults.some((result) => result.matchId === match.id))
         .map((match) => match.id),
       extraUnmatchedSavedIds: resultNormalization.unmatchedSavedResultKeys,
+      savedCanonicalIdsFound: resultNormalization.savedCanonicalResultIds,
+      repairedPayloadCount: resultNormalization.repairedPayloads.length,
+      invalidWinnerOutcomeCount: invalidResults.length,
+      staleMetadataIgnoredCount: resultNormalization.staleMetadataIgnoredKeys.length,
     },
   };
 }
