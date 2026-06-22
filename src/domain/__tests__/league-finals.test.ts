@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   deriveLeagueFinalsReview,
   relegationHigherLeagueWrestler,
+  sanitizeLeagueFinalsResults,
   validateFinalsNightCompletion,
+  validateLeagueFinalsResult,
   type LeagueFinalsResult,
 } from "../league-finals";
 import type { ConsequentialTieReview } from "../split-completion";
@@ -61,6 +63,33 @@ describe("League Finals readiness", () => {
 });
 
 describe("League Finals outcomes and cards", () => {
+
+  it("derives every league champion from the supplied final rank #1 standings", () => {
+    const current = standings.map((row) => row.rank === 1 ? { ...row, wrestler: `Current ${row.league}` } : row);
+    expect(deriveLeagueFinalsReview({
+      completedThroughWeek: 22,
+      standings: current,
+      consequentialTies: [],
+      hasLeagueFinalsTemplate: true,
+    }).champions).toEqual(LEAGUE_NAMES.map((league) => ({ league, wrestler: `Current ${league}` })));
+  });
+
+  it("uses current National League #1 instead of a stale previous champion", () => {
+    const current = standings.map((row) => row.league === "National League" && row.rank === 1 ? { ...row, wrestler: "Current National Champion" } : row);
+    const review = deriveLeagueFinalsReview({ completedThroughWeek: 22, standings: current, consequentialTies: [], hasLeagueFinalsTemplate: true });
+    expect(review.champions.find((champion) => champion.league === "National League")?.wrestler).toBe("Current National Champion");
+  });
+
+  it("prefers tiebreaker-reviewed standings supplied after review over pre-review order", () => {
+    const reviewed = standings.map((row) => {
+      if (row.league === "Global League" && row.rank === 1) return { ...row, wrestler: "Reviewed Global #1" };
+      if (row.league === "Global League" && row.rank === 4) return { ...row, wrestler: "Reviewed Global #4" };
+      return row;
+    });
+    const review = deriveLeagueFinalsReview({ completedThroughWeek: 22, standings: reviewed, consequentialTies: [], hasLeagueFinalsTemplate: true });
+    expect(review.champions[0]).toEqual({ league: "Global League", wrestler: "Reviewed Global #1" });
+    expect(review.nightTwo.find((match) => match.id === "finals-elite-cup-sf1")).toMatchObject({ wrestlerA: "Reviewed Global #1", wrestlerB: "Reviewed Global #4" });
+  });
   it("derives direct promotions from lower-league #1 wrestlers", () => {
     expect(derive().directMovements.filter((movement) => movement.reason === "Direct promotion"))
       .toEqual([
@@ -140,6 +169,37 @@ describe("League Finals result resolution", () => {
     const review = derive();
     const allMatches = [...review.nightOne, ...review.nightTwo];
     expect(validateFinalsNightCompletion("Night One", allMatches, [])).toHaveLength(6);
+  });
+
+
+  it("shows saved results only when the winner belongs to the current matchup", () => {
+    const match = derive().relegationMatches[0];
+    const stale: LeagueFinalsResult = { matchId: match.id, resultType: "Winner", winner: "Ethan Page", confirmedAt: "2026-06-22T00:00:00.000Z" };
+    expect(validateLeagueFinalsResult(stale, derive().relegationMatches, [stale])).toContain(`${match.id}: winner must be one of the derived participants.`);
+    expect(sanitizeLeagueFinalsResults(derive().relegationMatches, [stale])).toEqual([]);
+  });
+
+  it("ignores a saved result from a stale matchup index after participants change", () => {
+    const original = derive().relegationMatches[0];
+    const changedStandings = standings.map((row) => row.wrestler === original.wrestlerA ? { ...row, wrestler: "Changed National 11" } : row);
+    const changed = deriveLeagueFinalsReview({ completedThroughWeek: 22, standings: changedStandings, consequentialTies: [], hasLeagueFinalsTemplate: true }).relegationMatches[0];
+    const oldResult: LeagueFinalsResult = {
+      matchId: changed.id,
+      matchIdentity: ["old-card", original.wrestlerA, original.wrestlerB].join(":"),
+      resultType: "Winner",
+      winner: original.wrestlerA,
+      confirmedAt: "2026-06-22T00:00:00.000Z",
+    };
+    expect(sanitizeLeagueFinalsResults([changed], [oldResult])).toEqual([]);
+  });
+
+  it("does not attach old saved winners to regenerated card participants", () => {
+    const oldReview = derive();
+    const oldMatch = oldReview.relegationMatches[0];
+    const regeneratedStandings = standings.map((row) => row.rank === 11 && row.league === "National League" ? { ...row, wrestler: "LA Knight" } : row);
+    const regeneratedMatch = deriveLeagueFinalsReview({ completedThroughWeek: 22, standings: regeneratedStandings, consequentialTies: [], hasLeagueFinalsTemplate: true }).relegationMatches[0];
+    const oldResult: LeagueFinalsResult = { matchId: regeneratedMatch.id, resultType: "Winner", winner: oldMatch.wrestlerA, confirmedAt: "2026-06-22T00:00:00.000Z" };
+    expect(sanitizeLeagueFinalsResults([regeneratedMatch], [oldResult])).toEqual([]);
   });
 
   it("does not perform Phase 9B behavior when both cards can complete", () => {

@@ -26,6 +26,7 @@ export interface LeagueFinalsResult {
   resultType: FinalsResultType;
   winner: string | null;
   confirmedAt: string;
+  matchIdentity?: string;
 }
 
 export interface DirectMovement {
@@ -65,6 +66,23 @@ const leagueOrder: LeagueName[] = [
 
 function rowAt(standings: StandingRow[], league: LeagueName, rank: number): StandingRow | undefined {
   return standings.find((row) => row.league === league && row.rank === rank);
+}
+
+function finalsIdentityPart(value: string | number | null | undefined): string {
+  return `${value ?? "unresolved"}`.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "unresolved";
+}
+
+export function buildLeagueFinalsMatchIdentity(match: LeagueFinalsMatch): string {
+  return [
+    "league-finals",
+    match.night,
+    match.kind,
+    match.matchNumber,
+    match.higherLeague,
+    match.lowerLeague,
+    match.wrestlerA,
+    match.wrestlerB,
+  ].map(finalsIdentityPart).join(":");
 }
 
 function relegationMatch(
@@ -211,6 +229,9 @@ export function validateLeagueFinalsResult(
 ): string[] {
   const match = matches.find((candidate) => candidate.id === result.matchId);
   if (!match || !match.authoritative) return [`${result.matchId}: League Finals match is not authoritative or confirmed.`];
+  if (result.matchIdentity && result.matchIdentity !== buildLeagueFinalsMatchIdentity(match)) {
+    return [`${result.matchId}: saved result belongs to a different League Finals matchup.`];
+  }
   const participants = resolveFinalsParticipants(match, existingResults);
   if (participants.some((participant) => !participant)) return [`${result.matchId}: participants are not yet resolved.`];
   if (result.resultType === "Winner" && !participants.includes(result.winner)) {
@@ -223,6 +244,25 @@ export function validateLeagueFinalsResult(
     return [`${result.matchId}: No Contest fallback is only defined here for relegation matches.`];
   }
   return [];
+}
+
+export function sanitizeLeagueFinalsResults(
+  matches: LeagueFinalsMatch[],
+  results: LeagueFinalsResult[],
+): LeagueFinalsResult[] {
+  const sanitized: LeagueFinalsResult[] = [];
+  for (const result of results) {
+    const match = matches.find((candidate) => candidate.id === result.matchId);
+    if (!match) continue;
+    const participantResults = [...sanitized, ...results.filter((candidate) => candidate.matchId !== result.matchId)];
+    if (validateLeagueFinalsResult(result, matches, participantResults).length) continue;
+    if (!result.matchIdentity && result.resultType === "Winner") {
+      const participants = resolveFinalsParticipants(match, participantResults);
+      if (!participants.includes(result.winner)) continue;
+    }
+    sanitized.push(result.matchIdentity ? result : { ...result, matchIdentity: buildLeagueFinalsMatchIdentity(match) });
+  }
+  return sanitized;
 }
 
 export function relegationHigherLeagueWrestler(
