@@ -110,7 +110,7 @@ describe("League Finals readiness", () => {
     expect([...review.nightOne, ...review.nightTwo]).toHaveLength(12);
   });
 
-  it("is blocked when an unresolved tiebreaker match is required", () => {
+  it("keeps cards renderable when an unresolved tiebreaker warning blocks readiness", () => {
     const tie: ConsequentialTieReview = {
       league: "Global League",
       points: 30,
@@ -124,7 +124,10 @@ describe("League Finals readiness", () => {
     const review = derive({ ties: [tie] });
     expect(review).toMatchObject({ ready: false, readinessLabel: "Blocked" });
     expect(review.readinessReasons).toContain("1 consequential tiebreaker group(s) remain unresolved.");
-    expect([...review.nightOne, ...review.nightTwo]).toEqual([]);
+    expect(review.cardRenderability.renderable).toBe(true);
+    expect(review.cardRenderability.nightOneGeneratedCount).toBe(6);
+    expect(review.cardRenderability.nightTwoGeneratedCount).toBe(6);
+    expect([...review.nightOne, ...review.nightTwo]).toHaveLength(12);
   });
 
   it("does not become ready before Week 22", () => {
@@ -278,6 +281,8 @@ describe("League Finals outcomes and cards", () => {
     const review = deriveLeagueFinalsReview({ completedThroughWeek: 21, standings: stale, consequentialTies: [], hasLeagueFinalsTemplate: false });
     expect(review.ready).toBe(false);
     expect(review.readinessReasons).toContain("League Finals source standings are invalid or stale.");
+    expect(review.cardRenderability.renderable).toBe(false);
+    expect(review.cardRenderability.hiddenReasons.join(" ")).toContain("Final standings source is invalid or stale.");
     expect([...review.nightOne, ...review.nightTwo]).toEqual([]);
   });
 
@@ -292,6 +297,42 @@ describe("League Finals outcomes and cards", () => {
       ["Damian Priest", "Carmelo Hayes"],
       ["Ilja Dragunov", "Chad Gable"],
     ]);
+  });
+
+  it("renders Phase 19J Night One from corrected final standings even when readiness is blocked by stale tiebreaker warning", () => {
+    const tie: ConsequentialTieReview = {
+      league: "Global League", points: 30, placements: [4, 5], wrestlers: ["Cody Rhodes", "Reserve"],
+      status: "Tiebreaker Match Required", winner: null, recommendedFormat: null, explanation: "Stale warning remains from pre-reviewed state.",
+    };
+    const review = deriveLeagueFinalsReview({ completedThroughWeek: 22, standings: phase19gStandings, consequentialTies: [tie], hasLeagueFinalsTemplate: true });
+    expect(review.ready).toBe(false);
+    expect(review.readinessReasons).toContain("1 consequential tiebreaker group(s) remain unresolved.");
+    expect(review.nightOne.map((match) => [match.wrestlerA, match.wrestlerB])).toEqual([
+      ["Penta", "The Miz"],
+      ["Pete Dunne", "Trick Williams"],
+      ["Shinsuke Nakamura", "Kofi Kingston"],
+      ["Kevin Owens", "The Rock"],
+      ["Damian Priest", "Carmelo Hayes"],
+      ["Ilja Dragunov", "Chad Gable"],
+    ]);
+  });
+
+  it("renders Phase 19J Night Two from corrected final standings even when readiness is blocked by stale tiebreaker warning", () => {
+    const tie: ConsequentialTieReview = {
+      league: "Global League", points: 30, placements: [4, 5], wrestlers: ["Cody Rhodes", "Reserve"],
+      status: "Tiebreaker Match Required", winner: null, recommendedFormat: null, explanation: "Stale warning remains from pre-reviewed state.",
+    };
+    const review = deriveLeagueFinalsReview({ completedThroughWeek: 22, standings: phase19gStandings, consequentialTies: [tie], hasLeagueFinalsTemplate: false });
+    expect(review.ready).toBe(false);
+    expect(review.nightTwo.map((match) => [match.wrestlerA, match.wrestlerB])).toEqual([
+      ["AJ Styles", "Jacob Fatu"],
+      ["CM Punk", "Bronson Reed"],
+      ["John Cena", "Shawn Michaels"],
+      ["Gunther", "Cody Rhodes"],
+      ["Roman Reigns", "Drew McIntyre"],
+      [null, null],
+    ]);
+    expect(review.sourceWarnings).not.toHaveLength(0);
   });
 
   it("renders Phase 19G Night Two cards and keeps the Elite Cup Final placeholder card", () => {

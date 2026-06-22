@@ -137,6 +137,7 @@ export function LeagueFinals(props: LeagueFinalsProps) {
   }), [finalLiveStandings, props.completedThroughWeek, props.hasLeagueFinalsTemplate, splitReview.consequentialTies]);
   const rawFinalsResults = useMemo(() => state.leagueFinalsResults ?? [], [state.leagueFinalsResults]);
   const completedNights = useMemo(() => state.completedFinalsNights ?? [], [state.completedFinalsNights]);
+  const cardsRenderable = review.nightOne.length === 6 && review.nightTwo.length === 6;
   const allCardMatches = useMemo(() => [...review.nightOne, ...review.nightTwo], [review.nightOne, review.nightTwo]);
   const finalsResults = useMemo(() => sanitizeLeagueFinalsResults(allCardMatches, rawFinalsResults), [allCardMatches, rawFinalsResults]);
 
@@ -245,6 +246,19 @@ export function LeagueFinals(props: LeagueFinalsProps) {
       <div className="mt-4 grid gap-3 sm:grid-cols-4">{review.eliteCupQualifiers.map((row) => <div key={row.wrestler} className="border border-white/10 p-4"><span className="text-xs text-slate-500">Global #{row.rank}</span><strong className="mt-1 block">{row.wrestler}</strong></div>)}</div>
     </section>
 
+
+    {!cardsRenderable && <section className="border border-red-400/30 bg-red-400/10 p-6 text-red-100">
+      <h2 className="font-black uppercase">League Finals card rendering diagnostic</h2>
+      <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+        <div><dt className="text-red-200/70">Final standings valid</dt><dd className="font-bold">{review.finalStandingsValid ? "yes" : "no"}</dd></div>
+        <div><dt className="text-red-200/70">Night One generated count</dt><dd className="font-bold">{review.cardRenderability.nightOneGeneratedCount}</dd></div>
+        <div><dt className="text-red-200/70">Night Two generated count</dt><dd className="font-bold">{review.cardRenderability.nightTwoGeneratedCount}</dd></div>
+        <div><dt className="text-red-200/70">Readiness state</dt><dd className="font-bold">{review.readinessLabel}</dd></div>
+        <div><dt className="text-red-200/70">Unresolved tiebreaker count</dt><dd className="font-bold">{review.unresolvedTiebreakerCount}</dd></div>
+        <div><dt className="text-red-200/70">Reason cards are hidden</dt><dd className="font-bold">{review.cardRenderability.hiddenReasons.join(" ") || "Derived card count did not reach 6 matches for each night."}</dd></div>
+      </dl>
+    </section>}
+
     {(["Night One", "Night Two"] as const).map((night) => {
       const card = night === "Night One" ? review.nightOne : review.nightTwo;
       const complete = completedNights.some((entry) => entry.night === night);
@@ -252,10 +266,10 @@ export function LeagueFinals(props: LeagueFinalsProps) {
       return <section key={night} className="finals-night-panel border border-white/10 bg-[#111722]">
         <div className="flex items-center justify-between gap-5 border-b border-white/10 p-6">
           <EventBrandPanel night={night} />
-          <button type="button" disabled={!review.ready || complete || completionErrors.length > 0} onClick={() => completeNight(night)} className="border border-white/20 px-4 py-2 text-xs font-black uppercase disabled:cursor-not-allowed disabled:opacity-40">{complete ? "Complete" : `Mark ${night} complete`}</button>
+          <button type="button" disabled={complete || completionErrors.length > 0} onClick={() => completeNight(night)} className="border border-white/20 px-4 py-2 text-xs font-black uppercase disabled:cursor-not-allowed disabled:opacity-40">{complete ? "Complete" : `Mark ${night} complete`}</button>
         </div>
         <div className="grid gap-4 p-6 lg:grid-cols-2">
-          {card.map((match) => <div key={match.id}><MatchCard match={match} results={finalsResults} disabled={!review.ready || complete} onSave={saveResult} onReview={openReview} />
+          {card.map((match) => <div key={match.id}><MatchCard match={match} results={finalsResults} disabled={complete} onSave={saveResult} onReview={openReview} />
             {(state.manualReviews ?? []).filter((item) => item.matchId === match.id && item.status === "open").map((item) => <div key={item.id} className="border border-amber-400/30 bg-amber-400/10 p-3 text-sm"><strong>Manual Review:</strong> {item.note}<div className="mt-2 flex gap-2"><button type="button" disabled={!finalsResults.some((result) => result.matchId === match.id)} onClick={() => clearReview(item.id, "resolved")} className="text-xs font-black uppercase underline disabled:opacity-40">Resolve with Winner/Loser</button><button type="button" onClick={() => clearReview(item.id, "cleared")} className="text-xs font-black uppercase underline">Clear Review</button></div></div>)}
           </div>)}
         </div>
