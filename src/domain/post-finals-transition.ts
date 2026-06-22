@@ -18,7 +18,8 @@ export type MovementKind =
   | "Promoted"
   | "Relegated"
   | "Retained higher league"
-  | "Retained lower league";
+  | "Failed promotion"
+  | "Retained";
 
 export interface PostFinalsAssignment {
   wrestler: string;
@@ -214,10 +215,6 @@ function defaultComposition(): Record<LeagueName, PostFinalsAssignment[]> {
   };
 }
 
-function movementForDirect(movement: DirectMovement): MovementKind {
-  return movement.reason === "Direct promotion" ? "Champion/direct promotion" : "Direct relegation";
-}
-
 function validateComposition(assignments: PostFinalsAssignment[], standings: StandingRow[]): string[] {
   const errors: string[] = [];
   const sourceNames = standings.map((row) => row.wrestler);
@@ -406,25 +403,67 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
 }
 
 export function derivePostFinalsLeagueComposition(input: PostFinalsLeagueCompositionInput): PostFinalsLeagueComposition {
+  type TransferRule = {
+    targetLeague: LeagueName;
+    movement: MovementKind;
+    finalsOutcome: string | null;
+    source: string;
+  };
+
+  const compositionErrors: string[] = [];
   const assignments = input.finalStandings.map<PostFinalsAssignment>((row) => ({
     wrestler: row.wrestler,
     priorLeague: row.league,
     priorRank: row.rank,
     newLeague: row.league,
-    movement: row.rank === 1 ? "Champion/direct promotion" : "Retained lower league",
+    movement: "Retained",
     finalsOutcome: null,
   }));
   const assignmentByWrestler = new Map(assignments.map((assignment) => [assignment.wrestler, assignment]));
-  const compositionErrors: string[] = [];
-  for (const movement of input.directMovements) {
-    const assignment = assignmentByWrestler.get(movement.wrestler);
+  const rulesByWrestler = new Map<string, TransferRule>();
+
+  const addRule = (wrestler: string, rule: TransferRule) => {
+    const assignment = assignmentByWrestler.get(wrestler);
     if (!assignment) {
+      compositionErrors.push(`${wrestler}: ${rule.source} has no final-standing assignment.`);
+      return;
+    }
+    const existing = rulesByWrestler.get(wrestler);
+    if (existing) {
+      compositionErrors.push(`${wrestler}: conflicting movement assignments (${existing.source} → ${existing.targetLeague}; ${rule.source} → ${rule.targetLeague}).`);
+      return;
+    }
+    rulesByWrestler.set(wrestler, rule);
+  };
+
+  const rowAt = (league: LeagueName, rank: number) => input.finalStandings.find((row) => row.league === league && row.rank === rank);
+  const directRules: Array<{ from: LeagueName; rank: number; to: LeagueName; reason: DirectMovement["reason"] }> = [
+    { from: "Continental League", rank: 1, to: "Global League", reason: "Direct promotion" },
+    { from: "National League", rank: 1, to: "Continental League", reason: "Direct promotion" },
+    { from: "Regional League", rank: 1, to: "National League", reason: "Direct promotion" },
+    { from: "Global League", rank: 12, to: "Continental League", reason: "Direct relegation" },
+    { from: "Continental League", rank: 12, to: "National League", reason: "Direct relegation" },
+    { from: "National League", rank: 12, to: "Regional League", reason: "Direct relegation" },
+  ];
+
+  for (const movement of input.directMovements) {
+    if (!assignmentByWrestler.has(movement.wrestler)) {
       compositionErrors.push(`${movement.wrestler}: direct movement has no final-standing assignment.`);
+    }
+  }
+
+  for (const direct of directRules) {
+    const row = rowAt(direct.from, direct.rank);
+    if (!row) {
+      compositionErrors.push(`${direct.from} #${direct.rank}: missing final-standing row for ${direct.reason}.`);
       continue;
     }
-    assignment.newLeague = movement.toLeague;
-    assignment.movement = movementForDirect(movement);
-    assignment.finalsOutcome = movement.reason;
+    addRule(row.wrestler, {
+      targetLeague: direct.to,
+      movement: direct.reason === "Direct promotion" ? "Champion/direct promotion" : "Direct relegation",
+      finalsOutcome: direct.reason,
+      source: `${direct.from} #${direct.rank} ${direct.reason}`,
+    });
   }
 
   const relegationOutcomes: RelegationOutcome[] = [];
@@ -440,9 +479,7 @@ export function derivePostFinalsLeagueComposition(input: PostFinalsLeagueComposi
       compositionErrors.push(`${match.id}: missing League Finals result blocks composition.`);
       continue;
     }
-    const higherAssignment = assignmentByWrestler.get(higher);
-    const lowerAssignment = assignmentByWrestler.get(lower);
-    if (!higherAssignment || !lowerAssignment) {
+    if (!assignmentByWrestler.has(higher) || !assignmentByWrestler.has(lower)) {
       compositionErrors.push(`${match.id}: missing wrestler assignment for relegation playoff.`);
       continue;
     }
@@ -459,12 +496,20 @@ export function derivePostFinalsLeagueComposition(input: PostFinalsLeagueComposi
     }
 
     const lowerWon = result.resultType === "Winner" && result.winner === lower;
-    higherAssignment.newLeague = lowerWon ? match.lowerLeague : match.higherLeague;
-    lowerAssignment.newLeague = lowerWon ? match.higherLeague : match.lowerLeague;
-    higherAssignment.movement = lowerWon ? "Relegated" : "Retained higher league";
-    lowerAssignment.movement = lowerWon ? "Promoted" : "Retained lower league";
-    higherAssignment.finalsOutcome = lowerWon ? `Lost to ${lower}` : result.resultType === "No Contest" ? "No Contest retention" : `Defeated ${lower}`;
-    lowerAssignment.finalsOutcome = lowerWon ? `Defeated ${higher}` : result.resultType === "No Contest" ? "No Contest retention" : `Lost to ${higher}`;
+    const higherWon = result.resultType === "Winner" && result.winner === higher;
+    const noContest = result.resultType === "No Contest";
+    addRule(higher, {
+      targetLeague: lowerWon ? match.lowerLeague : match.higherLeague,
+      movement: lowerWon ? "Relegated" : higherWon ? "Retained higher league" : "Retained",
+      finalsOutcome: lowerWon ? `Lost to ${lower}` : noContest ? "No Contest retention" : `Defeated ${lower}`,
+      source: `${match.id} higher-league playoff assignment`,
+    });
+    addRule(lower, {
+      targetLeague: lowerWon ? match.higherLeague : match.lowerLeague,
+      movement: lowerWon ? "Promoted" : higherWon ? "Failed promotion" : "Retained",
+      finalsOutcome: lowerWon ? `Defeated ${higher}` : noContest ? "No Contest retention" : `Lost to ${higher}`,
+      source: `${match.id} lower-league playoff assignment`,
+    });
     relegationOutcomes.push({
       matchId: match.id,
       higherLeague: match.higherLeague,
@@ -473,13 +518,27 @@ export function derivePostFinalsLeagueComposition(input: PostFinalsLeagueComposi
       lowerLeagueWrestler: lower,
       winner: result.resultType === "Winner" ? result.winner : null,
       loser: result.resultType === "Winner" ? (result.winner === higher ? lower : higher) : null,
-      outcome: result.resultType === "No Contest" ? "No Contest retention" : lowerWon ? "Lower promoted" : "Higher retained",
+      outcome: noContest ? "No Contest retention" : lowerWon ? "Lower promoted" : "Higher retained",
     });
+  }
+
+  for (const assignment of assignments) {
+    const rule = rulesByWrestler.get(assignment.wrestler);
+    if (!rule) continue;
+    assignment.newLeague = rule.targetLeague;
+    assignment.movement = rule.movement;
+    assignment.finalsOutcome = rule.finalsOutcome;
   }
 
   const leagueComposition = defaultComposition();
   for (const assignment of assignments) leagueComposition[assignment.newLeague].push(assignment);
   compositionErrors.push(...validateComposition(assignments, input.finalStandings));
+  for (const [wrestler, rule] of rulesByWrestler) {
+    const assignment = assignmentByWrestler.get(wrestler);
+    if (assignment && assignment.newLeague !== rule.targetLeague) {
+      compositionErrors.push(`${wrestler}: wrong target league ${assignment.newLeague}; expected ${rule.targetLeague} from ${rule.source}.`);
+    }
+  }
   return {
     relegationOutcomes,
     assignments,

@@ -362,6 +362,39 @@ describe("Post-Finals movement and composition", () => {
     });
   });
 
+
+  it("applies all direct transfer-map movements and removes movers from original leagues", () => {
+    const transition = derive();
+    expect(transition.assignments.find((row) => row.wrestler === "National 1")).toMatchObject({
+      priorLeague: "National League", newLeague: "Continental League", movement: "Champion/direct promotion",
+    });
+    expect(transition.assignments.find((row) => row.wrestler === "Regional 1")).toMatchObject({
+      priorLeague: "Regional League", newLeague: "National League", movement: "Champion/direct promotion",
+    });
+    expect(transition.assignments.find((row) => row.wrestler === "Continental 1")).toMatchObject({
+      priorLeague: "Continental League", newLeague: "Global League", movement: "Champion/direct promotion",
+    });
+    expect(transition.assignments.find((row) => row.wrestler === "Global 12")).toMatchObject({
+      priorLeague: "Global League", newLeague: "Continental League", movement: "Direct relegation",
+    });
+    expect(transition.assignments.find((row) => row.wrestler === "Continental 12")).toMatchObject({
+      priorLeague: "Continental League", newLeague: "National League", movement: "Direct relegation",
+    });
+    expect(transition.assignments.find((row) => row.wrestler === "National 12")).toMatchObject({
+      priorLeague: "National League", newLeague: "Regional League", movement: "Direct relegation",
+    });
+    expect(transition.leagueComposition["National League"].some((row) => row.wrestler === "National 1")).toBe(false);
+    expect(transition.leagueComposition["Global League"].some((row) => row.wrestler === "Global 12")).toBe(false);
+  });
+
+  it("labels direct-promoted National #1 and Regional #1 as promotions, not relegations", () => {
+    const transition = derive();
+    expect(transition.assignments.find((row) => row.wrestler === "National 1")?.movement).toBe("Champion/direct promotion");
+    expect(transition.assignments.find((row) => row.wrestler === "Regional 1")?.movement).toBe("Champion/direct promotion");
+    expect(transition.assignments.find((row) => row.wrestler === "National 1")?.movement).not.toBe("Relegated");
+    expect(transition.assignments.find((row) => row.wrestler === "Regional 1")?.movement).not.toBe("Relegated");
+  });
+
   it("places the relegation winner in the higher league and loser in the lower league", () => {
     const results = completedResults();
     const match = finals.relegationMatches[0];
@@ -373,6 +406,18 @@ describe("Post-Finals movement and composition", () => {
     });
     expect(transition.assignments.find((row) => row.wrestler === match.wrestlerA)).toMatchObject({
       newLeague: match.lowerLeague, movement: "Relegated",
+    });
+  });
+
+
+  it("labels a higher-league playoff winner as retained and the lower-league loser as failed promotion", () => {
+    const transition = derive();
+    const match = finals.relegationMatches[0];
+    expect(transition.assignments.find((row) => row.wrestler === match.wrestlerA)).toMatchObject({
+      newLeague: match.higherLeague, movement: "Retained higher league",
+    });
+    expect(transition.assignments.find((row) => row.wrestler === match.wrestlerB)).toMatchObject({
+      newLeague: match.lowerLeague, movement: "Failed promotion",
     });
   });
 
@@ -398,6 +443,15 @@ describe("Post-Finals movement and composition", () => {
     const transition = derive();
     expect(LEAGUE_NAMES.map((league) => transition.leagueComposition[league].length)).toEqual([12, 12, 12, 12]);
     expect(new Set(transition.assignments.map((row) => row.wrestler)).size).toBe(48);
+    expect(transition.compositionErrors).toEqual([]);
+  });
+
+
+  it("regression: fixes the post-finals 11/13 split with a balanced 4x12 transfer map", () => {
+    const transition = derivePhase19p();
+    expect(LEAGUE_NAMES.map((league) => transition.leagueComposition[league].length)).toEqual([12, 12, 12, 12]);
+    expect(new Set(transition.assignments.map((row) => row.wrestler)).size).toBe(48);
+    expect(transition.compositionValid).toBe(true);
     expect(transition.compositionErrors).toEqual([]);
   });
 
@@ -462,7 +516,7 @@ describe("Ordering, readiness, and legacy boundaries", () => {
     }));
     expect(transition.assignments.find((row) => row.wrestler === "Global 2")).toMatchObject({
       newLeague: "Global League",
-      movement: "Retained lower league",
+      movement: "Retained",
     });
   });
 
