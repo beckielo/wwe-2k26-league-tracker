@@ -5,6 +5,7 @@ import {
   deriveLeagueFinalsReview,
   relegationHigherLeagueWrestler,
   normalizeLeagueFinalsResults,
+  normalizeWrestlerNameForMatch,
   sanitizeLeagueFinalsResults,
   validateFinalsNightCompletion,
   validateLeagueFinalsMatchSource,
@@ -473,6 +474,12 @@ describe("League Finals outcomes and cards", () => {
 });
 
 describe("League Finals result resolution", () => {
+  it("normalizes saved winner display strings for comparison only", () => {
+    expect(normalizeWrestlerNameForMatch("Penta wins")).toBe("penta");
+    expect(normalizeWrestlerNameForMatch("#11 Penta")).toBe("penta");
+    expect(normalizeWrestlerNameForMatch("  pEnTa   ")).toBe("penta");
+  });
+
   it("keeps the higher-league wrestler up after a relegation No Contest", () => {
     const match = derive().relegationMatches[0];
     const result: LeagueFinalsResult = {
@@ -540,6 +547,40 @@ describe("League Finals result resolution", () => {
     expect(normalized.staleMetadataIgnoredKeys).toEqual([match.id]);
     expect(validateLeagueFinalsResult(normalized.results[0], [...review.nightOne, ...review.nightTwo], normalized.results)).toEqual([]);
     expect(sanitizeLeagueFinalsResults([...review.nightOne, ...review.nightTwo], [stale])).toEqual(normalized.results);
+  });
+
+  it("repairs saved winner display labels to the authoritative participant name", () => {
+    const review = derive();
+    const match = review.relegationMatches[0];
+    const saved: LeagueFinalsResult = {
+      matchId: match.id,
+      resultType: "Winner",
+      winner: `#11   ${match.wrestlerA} wins`,
+      confirmedAt: "2026-06-22T00:00:00.000Z",
+    };
+
+    const normalized = normalizeLeagueFinalsResults([...review.nightOne, ...review.nightTwo], [saved]);
+
+    expect(normalized.results[0].winner).toBe(match.wrestlerA);
+    expect(normalized.repairedPayloads).toContain(match.id);
+    expect(validateLeagueFinalsResult(normalized.results[0], [...review.nightOne, ...review.nightTwo], normalized.results)).toEqual([]);
+  });
+
+  it("uses saved side-based winner payloads as a safe fallback", () => {
+    const review = derive();
+    const match = review.relegationMatches[0];
+    const saved: LeagueFinalsResult = {
+      matchId: match.id,
+      resultType: "Winner",
+      winner: "Old display label",
+      winnerSide: "B",
+      confirmedAt: "2026-06-22T00:00:00.000Z",
+    };
+
+    const normalized = normalizeLeagueFinalsResults([...review.nightOne, ...review.nightTwo], [saved]);
+
+    expect(normalized.results[0].winner).toBe(match.wrestlerB);
+    expect(validateLeagueFinalsResult(normalized.results[0], [...review.nightOne, ...review.nightTwo], normalized.results)).toEqual([]);
   });
 
   it("validates Elite Cup Final winners after semifinal winners resolve despite stale placeholder metadata", () => {

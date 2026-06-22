@@ -87,6 +87,19 @@ export interface PostFinalsTransition {
     repairedPayloadCount: number;
     invalidWinnerOutcomeCount: number;
     staleMetadataIgnoredCount: number;
+    resultWinnerReconciliation: {
+      canonicalResultId: string;
+      rawSavedWinner: string | null;
+      rawSavedOutcome: string | null;
+      savedLabel: string | null;
+      savedParticipantSnapshot: unknown;
+      authoritativeParticipantA: string | null;
+      authoritativeParticipantB: string | null;
+      normalizedWinner: string;
+      repairedWinner: string | null;
+    }[];
+    repairedWinnerCount: number;
+    noContestAcceptedCount: number;
   };
 }
 
@@ -362,6 +375,9 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
       repairedPayloadCount: resultNormalization.repairedPayloads.length,
       invalidWinnerOutcomeCount: invalidResults.length,
       staleMetadataIgnoredCount: resultNormalization.staleMetadataIgnoredKeys.length,
+      resultWinnerReconciliation: resultNormalization.winnerReconciliationDiagnostics,
+      repairedWinnerCount: resultNormalization.winnerReconciliationDiagnostics.filter((row) => row.rawSavedWinner !== row.repairedWinner).length,
+      noContestAcceptedCount: resultNormalization.noContestAcceptedKeys.length,
     },
   };
 }
