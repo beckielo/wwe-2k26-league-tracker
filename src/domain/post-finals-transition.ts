@@ -1,4 +1,5 @@
 import {
+  buildCanonicalLeagueFinalsRegistry,
   normalizeLeagueFinalsResults,
   resolveFinalsParticipants,
   validateLeagueFinalsResult,
@@ -80,6 +81,8 @@ export interface PostFinalsTransition {
     migratedLegacyResultKeysCount: number;
     unmatchedSavedResultsCount: number;
     missingAuthoritativeFinalsCount: number;
+    missingCanonicalIds: string[];
+    extraUnmatchedSavedIds: string[];
   };
 }
 
@@ -166,7 +169,8 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
     "Night One": input.completedNights.some((entry) => entry.night === "Night One"),
     "Night Two": input.completedNights.some((entry) => entry.night === "Night Two"),
   };
-  const authoritativeMatches = input.matches.filter((match) => match.authoritative);
+  const sharedRegistry = buildCanonicalLeagueFinalsRegistry(input.standings);
+  const authoritativeMatches = (sharedRegistry.length ? sharedRegistry : input.matches).filter((match) => match.authoritative);
   const resultNormalization = normalizeLeagueFinalsResults(authoritativeMatches, input.results);
   const reconciledResults = resultNormalization.results;
   const missingResults = authoritativeMatches
@@ -346,6 +350,10 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
       migratedLegacyResultKeysCount: resultNormalization.migratedLegacyResultKeys.length,
       unmatchedSavedResultsCount: resultNormalization.unmatchedSavedResultKeys.length,
       missingAuthoritativeFinalsCount: missingResults.length,
+      missingCanonicalIds: authoritativeMatches
+        .filter((match) => !reconciledResults.some((result) => result.matchId === match.id))
+        .map((match) => match.id),
+      extraUnmatchedSavedIds: resultNormalization.unmatchedSavedResultKeys,
     },
   };
 }

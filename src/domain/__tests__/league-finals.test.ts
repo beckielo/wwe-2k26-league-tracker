@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildCanonicalLeagueFinalsRegistry,
   buildLeagueFinalsMatchIdentity,
   deriveLeagueFinalsReview,
   relegationHigherLeagueWrestler,
@@ -219,6 +220,23 @@ describe("League Finals outcomes and cards", () => {
     expect(review.eliteCupQualifiers).toHaveLength(4);
   });
 
+
+  it("shared canonical registry returns exactly 12 canonical match IDs", () => {
+    expect(buildCanonicalLeagueFinalsRegistry(standings).map((match) => match.id)).toEqual([
+      "league-finals:night-one:match-1",
+      "league-finals:night-one:match-2",
+      "league-finals:night-one:match-3",
+      "league-finals:night-one:match-4",
+      "league-finals:night-one:match-5",
+      "league-finals:night-one:match-6",
+      "league-finals:night-two:match-1",
+      "league-finals:night-two:match-2",
+      "league-finals:night-two:match-3",
+      "league-finals:night-two:match-4",
+      "league-finals:night-two:match-5",
+      "league-finals:night-two:match-6",
+    ]);
+  });
 
   it("uses stable canonical slot IDs for all League Finals matches", () => {
     const review = derive();

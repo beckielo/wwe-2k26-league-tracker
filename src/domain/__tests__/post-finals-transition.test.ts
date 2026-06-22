@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveCurrentUser } from "../current-user";
-import { buildLeagueFinalsMatchIdentity, deriveLeagueFinalsReview, type LeagueFinalsResult } from "../league-finals";
+import { buildCanonicalLeagueFinalsRegistry, buildLeagueFinalsMatchIdentity, deriveLeagueFinalsReview, type LeagueFinalsResult } from "../league-finals";
 import { buildNextSplitStandings, derivePostFinalsTransition } from "../post-finals-transition";
 import { generateSchedule, validateSchedule } from "../schedule-setup";
 import { LEAGUE_NAMES, type StandingRow } from "../types";
@@ -76,11 +76,44 @@ describe("Post-Finals completion gate", () => {
   });
 
 
+  it("uses shared registry instead of stale or empty passed matches", () => {
+    const transition = derive({ matches: [] });
+    expect(transition.diagnostics.canonicalAuthoritativeFinalsMatchIds).toEqual(buildCanonicalLeagueFinalsRegistry(standings).map((match) => match.id));
+    expect(transition.finalsComplete).toBe(true);
+  });
+
+  it("reconciles canonical Night One match 1 and Night Two match 6 IDs", () => {
+    const transition = derive({ results: completedResults() });
+    expect(transition.diagnostics.savedLeagueFinalsResultKeys).toContain("league-finals:night-one:match-1");
+    expect(transition.diagnostics.savedLeagueFinalsResultKeys).toContain("league-finals:night-two:match-6");
+    expect(transition.diagnostics.extraUnmatchedSavedIds).toEqual([]);
+    expect(transition.diagnostics.missingCanonicalIds).toEqual([]);
+  });
+
   it("recognizes freshly saved canonical League Finals results", () => {
     const transition = derive({ results: completedResults() });
     expect(transition.finalsComplete).toBe(true);
     expect(transition.invalidResults).toEqual([]);
     expect(transition.missingResults).toEqual([]);
+  });
+
+  it("keeps the authoritative registry populated when warnings are present", () => {
+    const transition = derive({
+      hasAuthoritativeClosingSchedule: false,
+      manualReviews: [{
+        id: "review-1",
+        scope: "regular-season",
+        matchId: "warning-only",
+        league: "Global League",
+        weekOrEvent: 22,
+        wrestlerA: "Global 1",
+        wrestlerB: "Global 2",
+        note: "warning should not empty registry",
+        status: "open",
+        createdAt: "2026-06-14T00:00:00.000Z",
+      }],
+    });
+    expect(transition.diagnostics.canonicalAuthoritativeFinalsMatchIds).toHaveLength(12);
   });
 
   it("recognizes migrated legacy participant-based League Finals results", () => {
