@@ -178,6 +178,42 @@ describe("Post-Finals completion gate", () => {
     expect(transition.invalidResults).toEqual([]);
   });
 
+  it("normalizes all twelve canonical saved winners and unlocks without discarding results", () => {
+    const saved = completedResults().map((result, index) => ({
+      ...result,
+      winner: result.winner ? (index % 2 === 0 ? `${result.winner} wins` : `#11 ${result.winner.toUpperCase()}`) : result.winner,
+      label: `Saved card row ${index + 1}`,
+      participantSnapshot: { stale: true },
+    }));
+
+    const transition = derive({ results: saved });
+
+    expect(transition.finalsComplete).toBe(true);
+    expect(transition.unlocked).toBe(true);
+    expect(transition.invalidResults).toEqual([]);
+    expect(transition.missingResults).toEqual([]);
+    expect(transition.diagnostics.savedCanonicalIdsFound).toHaveLength(12);
+    expect(transition.diagnostics.repairedWinnerCount).toBe(12);
+    expect(transition.diagnostics.resultWinnerReconciliation[0]).toMatchObject({
+      canonicalResultId: "league-finals:night-one:match-1",
+      rawSavedWinner: "National 11 wins",
+      normalizedWinner: "national 11",
+      authoritativeParticipantA: "National 11",
+      authoritativeParticipantB: "Regional 2",
+      repairedWinner: "National 11",
+    });
+  });
+
+  it("accepts relegation No Contest results without a winner and counts the diagnostic", () => {
+    const results = completedResults();
+    results[0] = { ...results[0], resultType: "No Contest", winner: null };
+
+    const transition = derive({ results });
+
+    expect(transition.invalidResults).toEqual([]);
+    expect(transition.diagnostics.noContestAcceptedCount).toBe(1);
+  });
+
   it("rejects duplicate finals results", () => {
     const results = completedResults();
     expect(derive({ results: [...results, results[0]] }).invalidResults.join(" ")).toContain("duplicate");
