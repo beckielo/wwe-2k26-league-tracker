@@ -4,7 +4,9 @@ import {
   relegationHigherLeagueWrestler,
   sanitizeLeagueFinalsResults,
   validateFinalsNightCompletion,
+  validateLeagueFinalsMatchSource,
   validateLeagueFinalsResult,
+  type LeagueFinalsMatch,
   type LeagueFinalsResult,
 } from "../league-finals";
 import type { ConsequentialTieReview } from "../split-completion";
@@ -134,7 +136,7 @@ describe("League Finals outcomes and cards", () => {
       ["Global 1", "Global 4"],
       ["Global 2", "Global 3"],
     ]);
-    expect(semifinals.every((match) => match.sourceLabel.startsWith("Final Week 22 standings"))).toBe(true);
+    expect(semifinals.every((match) => match.sourceLabel.startsWith("Final live standings after Week 22 lock"))).toBe(true);
   });
 
   it("does not use a missing old template to block final-standings Elite Cup semifinals", () => {
@@ -174,6 +176,35 @@ describe("League Finals outcomes and cards", () => {
     ]);
   });
 
+  it("uses the same four-league, 12-rank source shape as live standings", () => {
+    const review = derive();
+    expect(review.sourceAudit).toHaveLength(4);
+    expect(review.sourceAudit.map((audit) => audit.league)).toEqual(LEAGUE_NAMES);
+    for (const leagueAudit of review.sourceAudit) {
+      expect(leagueAudit.ranks.map((entry) => entry.rank)).toEqual([1, 2, 3, 4, 9, 10, 11, 12]);
+      expect(leagueAudit.ranks.every((entry) => entry.league === leagueAudit.league)).toBe(true);
+    }
+  });
+
+  it("rejects same-league relegation playoff matchups before rendering cards", () => {
+    const invalid: LeagueFinalsMatch = {
+      ...derive().relegationMatches[0],
+      wrestlerA: "LA Knight",
+      wrestlerB: "Chad Gable",
+      higherLeague: "National League",
+      lowerLeague: "National League",
+    };
+    expect(validateLeagueFinalsMatchSource(invalid).join(" ")).toContain("invalid relegation playoff league pairing");
+    expect(validateLeagueFinalsMatchSource(invalid).join(" ")).toContain("invalid same-league relegation playoff");
+  });
+
+  it("does not use stale Source Audit data outside the supplied final live standings", () => {
+    const current = standings.map((row) => row.league === "Regional League" && row.rank === 3 ? { ...row, wrestler: "Current Regional #3" } : row);
+    const review = deriveLeagueFinalsReview({ completedThroughWeek: 22, standings: current, consequentialTies: [], hasLeagueFinalsTemplate: true });
+    expect(review.sourceAudit.find((audit) => audit.league === "Regional League")?.ranks.find((entry) => entry.rank === 3)?.wrestler).toBe("Current Regional #3");
+    expect(review.nightOne[1].wrestlerB).toBe("Current Regional #3");
+  });
+
   it("blocks card generation for invalid or stale final standings sources", () => {
     const stale = standings.filter((row) => !(row.league === "Regional League" && row.rank === 12));
     const review = deriveLeagueFinalsReview({ completedThroughWeek: 21, standings: stale, consequentialTies: [], hasLeagueFinalsTemplate: false });
@@ -206,7 +237,6 @@ describe("League Finals result resolution", () => {
     const allMatches = [...review.nightOne, ...review.nightTwo];
     expect(validateFinalsNightCompletion("Night One", allMatches, [])).toHaveLength(6);
   });
-
 
   it("shows saved results only when the winner belongs to the current matchup", () => {
     const match = derive().relegationMatches[0];
