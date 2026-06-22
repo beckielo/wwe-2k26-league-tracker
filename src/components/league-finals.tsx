@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   buildLeagueFinalsMatchIdentity,
-  deriveLeagueFinalsReview,
+  deriveLeagueFinalsFromFinalLiveStandings,
   resolveFinalsParticipants,
   sanitizeLeagueFinalsResults,
   validateFinalsNightCompletion,
@@ -13,7 +13,8 @@ import {
   type LeagueFinalsMatch,
   type LeagueFinalsResult,
 } from "@/domain/league-finals";
-import { closeManualReview, markManualReview } from "@/domain/tracker-state";
+import { closeManualReview, markManualReview, reconstructActiveSplitLiveStandings } from "@/domain/tracker-state";
+import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { deriveSplitCompletionReview } from "@/domain/split-completion";
 import type { Match, MatchResult, MatchupReferenceRow, SplitName, StandingRow } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
@@ -107,22 +108,31 @@ function MatchCard({
 export function LeagueFinals(props: LeagueFinalsProps) {
   const { state, updateState, hydrated } = useTrackerState();
   const [messages, setMessages] = useState<string[]>([]);
+  const activeWorkflowMatches = useMemo(() => getActiveWorkflowMatches(state, props.matches), [props.matches, state]);
+  const finalLiveStandings = useMemo(() => reconstructActiveSplitLiveStandings({
+    previousFinalStandings: props.standings,
+    scheduledMatches: activeWorkflowMatches,
+    masterResults: props.results,
+    localResults: hydrated ? state.confirmedResults : [],
+    split: state.activeWorkflow?.split ?? props.split,
+    completedThroughWeek: props.completedThroughWeek,
+  }).standings, [activeWorkflowMatches, hydrated, props.completedThroughWeek, props.results, props.split, props.standings, state.activeWorkflow?.split, state.confirmedResults]);
   const splitReview = useMemo(() => deriveSplitCompletionReview({
     leagueYear: props.leagueYear,
     split: props.split,
     completedThroughWeek: props.completedThroughWeek,
     standings: props.standings,
-    matches: props.matches,
+    matches: activeWorkflowMatches,
     results: props.results,
     matchupReference: props.matchupReference,
     hasLeagueFinalsTemplate: props.hasLeagueFinalsTemplate,
-  }), [props]);
-  const review = useMemo(() => deriveLeagueFinalsReview({
+  }), [activeWorkflowMatches, props]);
+  const review = useMemo(() => deriveLeagueFinalsFromFinalLiveStandings({
     completedThroughWeek: props.completedThroughWeek,
-    standings: splitReview.finalRegularStandings,
+    standings: finalLiveStandings,
     consequentialTies: splitReview.consequentialTies,
     hasLeagueFinalsTemplate: props.hasLeagueFinalsTemplate,
-  }), [props.completedThroughWeek, props.hasLeagueFinalsTemplate, splitReview]);
+  }), [finalLiveStandings, props.completedThroughWeek, props.hasLeagueFinalsTemplate, splitReview.consequentialTies]);
   const rawFinalsResults = useMemo(() => state.leagueFinalsResults ?? [], [state.leagueFinalsResults]);
   const completedNights = useMemo(() => state.completedFinalsNights ?? [], [state.completedFinalsNights]);
   const allCardMatches = useMemo(() => [...review.nightOne, ...review.nightTwo], [review.nightOne, review.nightTwo]);
@@ -204,7 +214,7 @@ export function LeagueFinals(props: LeagueFinalsProps) {
         {review.sourceAudit.map((league) => <div key={league.league} className="border border-white/10 bg-[#111722] p-4">
           <h3 className="text-sm font-black uppercase">{league.league}</h3>
           <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-300">
-            {league.ranks.map((entry) => <p key={entry.rank}><span className="text-slate-500">#{entry.rank}</span> <strong>{entry.wrestler ?? "Missing"}</strong></p>)}
+            {league.ranks.map((entry) => <p key={entry.rank}><span className="text-slate-500">{entry.league} #{entry.rank}</span> <strong>{entry.wrestler ?? "Missing"}</strong></p>)}
           </div>
         </div>)}
       </div>

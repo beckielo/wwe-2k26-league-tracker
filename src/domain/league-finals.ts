@@ -38,7 +38,7 @@ export interface DirectMovement {
 
 export interface LeagueFinalsSourceAuditRow {
   league: LeagueName;
-  ranks: { rank: number; wrestler: string | null }[];
+  ranks: { rank: number; wrestler: string | null; league: LeagueName }[];
 }
 
 export interface LeagueFinalsReview {
@@ -79,7 +79,7 @@ const auditRanks = [1, 2, 3, 4, 9, 10, 11, 12];
 function buildSourceAudit(standings: StandingRow[]): LeagueFinalsSourceAuditRow[] {
   return leagueOrder.map((league) => ({
     league,
-    ranks: auditRanks.map((rank) => ({ rank, wrestler: rowAt(standings, league, rank)?.wrestler ?? null })),
+    ranks: auditRanks.map((rank) => ({ rank, wrestler: rowAt(standings, league, rank)?.wrestler ?? null, league })),
   }));
 }
 
@@ -122,6 +122,25 @@ export function buildLeagueFinalsMatchIdentity(match: LeagueFinalsMatch): string
   ].map(finalsIdentityPart).join(":");
 }
 
+const allowedRelegationPairs = new Set([
+  "National League->Regional League",
+  "Continental League->National League",
+  "Global League->Continental League",
+]);
+
+export function validateLeagueFinalsMatchSource(match: LeagueFinalsMatch): string[] {
+  if (match.kind !== "Relegation") return [];
+  const errors: string[] = [];
+  const pair = `${match.higherLeague}->${match.lowerLeague}`;
+  if (!match.higherLeague || !match.lowerLeague || !allowedRelegationPairs.has(pair)) {
+    errors.push(`${match.id}: invalid relegation playoff league pairing (${match.higherLeague ?? "missing"} vs ${match.lowerLeague ?? "missing"}). Relegation playoffs must be Global vs Continental, Continental vs National, or National vs Regional.`);
+  }
+  if (match.higherLeague && match.lowerLeague && match.higherLeague === match.lowerLeague) {
+    errors.push(`${match.id}: invalid same-league relegation playoff (${match.higherLeague}).`);
+  }
+  return errors;
+}
+
 function relegationMatch(
   standings: StandingRow[],
   night: FinalsNight,
@@ -144,12 +163,12 @@ function relegationMatch(
     stipulation: "1v1, No Countout",
     resultMeaning: `Winner plays next split/season in ${higherLeague}; loser plays in ${lowerLeague}.`,
     authoritative: Boolean(higher && lower),
-    sourceLabel: "Final Week 22 standings: promotion/relegation playoff slot",
+    sourceLabel: "Final live standings after Week 22 lock: promotion/relegation playoff slot",
   };
   return { ...match, id: buildFinalsMatchId(match) };
 }
 
-export function deriveLeagueFinalsReview(input: LeagueFinalsInput): LeagueFinalsReview {
+export function deriveLeagueFinalsFromFinalLiveStandings(input: LeagueFinalsInput): LeagueFinalsReview {
   const unresolvedTies = input.consequentialTies.filter(
     (tie) => tie.status === "Tiebreaker Match Required" || tie.status === "Review Required",
   );
@@ -206,7 +225,7 @@ export function deriveLeagueFinalsReview(input: LeagueFinalsInput): LeagueFinals
       wrestlerB: rowAt(input.standings, "Global League", 4)?.wrestler ?? null,
       higherLeague: null, lowerLeague: null, stipulation: "Steel Cage No Escape, Pin/Sub only",
       resultMeaning: "Winner advances to the Global Elite Cup Final.", authoritative: eliteCupQualifiers.length === 4,
-      sourceLabel: "Final Week 22 standings: Global #1 vs Global #4",
+      sourceLabel: "Final live standings after Week 22 lock: Global #1 vs Global #4",
     },
     {
       night: "Night Two", matchNumber: 5, kind: "Elite Cup Semifinal",
@@ -214,16 +233,19 @@ export function deriveLeagueFinalsReview(input: LeagueFinalsInput): LeagueFinals
       wrestlerB: rowAt(input.standings, "Global League", 3)?.wrestler ?? null,
       higherLeague: null, lowerLeague: null, stipulation: "Steel Cage No Escape, Pin/Sub only",
       resultMeaning: "Winner advances to the Global Elite Cup Final.", authoritative: eliteCupQualifiers.length === 4,
-      sourceLabel: "Final Week 22 standings: Global #2 vs Global #3",
+      sourceLabel: "Final live standings after Week 22 lock: Global #2 vs Global #3",
     },
     {
       night: "Night Two", matchNumber: 6, kind: "Elite Cup Final",
       wrestlerA: null, wrestlerB: null, higherLeague: null, lowerLeague: null,
       stipulation: "Steel Cage No Escape, Pin/Sub only", resultMeaning: "Winner becomes Global Elite Cup Winner.",
-      authoritative: true, sourceLabel: "Final Week 22 standings: winners of SF1 and SF2",
+      authoritative: true, sourceLabel: "Final live standings after Week 22 lock: winners of SF1 and SF2",
     },
   ];
   const eliteMatches: LeagueFinalsMatch[] = eliteBase.map((match) => ({ ...match, id: buildFinalsMatchId(match) }));
+  const relegationValidationErrors = relegationMatches.flatMap(validateLeagueFinalsMatchSource);
+  readinessReasons.push(...relegationValidationErrors);
+  const safeRelegationMatches = relegationValidationErrors.length ? [] : relegationMatches;
   const reviewRequired = [];
   reviewRequired.push("DQ encoding: current event result model does not safely identify the wrestler who caused a DQ.");
   reviewRequired.push("Manual card padding required if WWE 2K requires more matches; no filler is generated.");
@@ -234,10 +256,10 @@ export function deriveLeagueFinalsReview(input: LeagueFinalsInput): LeagueFinals
     readinessReasons,
     champions,
     directMovements,
-    relegationMatches: readinessReasons.length ? [] : relegationMatches,
+    relegationMatches: readinessReasons.length ? [] : safeRelegationMatches,
     eliteCupQualifiers,
-    nightOne: readinessReasons.length ? [] : relegationMatches.filter((match) => match.night === "Night One"),
-    nightTwo: readinessReasons.length ? [] : [...relegationMatches.filter((match) => match.night === "Night Two"), ...eliteMatches],
+    nightOne: readinessReasons.length ? [] : safeRelegationMatches.filter((match) => match.night === "Night One"),
+    nightTwo: readinessReasons.length ? [] : [...safeRelegationMatches.filter((match) => match.night === "Night Two"), ...eliteMatches],
     reviewRequired,
     sourceAudit: buildSourceAudit(input.standings),
     sourceWarnings: [
@@ -322,4 +344,8 @@ export function validateFinalsNightCompletion(
   errors.push(...manualReviews.filter((review) => review.scope === "league-finals" && review.status === "open" && review.weekOrEvent === night)
     .map((review) => `${review.matchId}: open Manual Review must be resolved or cleared before ${night} can be completed.`));
   return errors;
+}
+
+export function deriveLeagueFinalsReview(input: LeagueFinalsInput): LeagueFinalsReview {
+  return deriveLeagueFinalsFromFinalLiveStandings(input);
 }
