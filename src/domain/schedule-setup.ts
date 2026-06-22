@@ -1,5 +1,5 @@
 import { LEAGUE_NAMES, type LeagueName, type Match, type SplitName } from "./types";
-import type { ActiveWorkflow, TrackerState } from "./tracker-state";
+import { recoverPostRegularSeasonWorkflowState, type ActiveWorkflow, type TrackerState } from "./tracker-state";
 import { applyRosterReplacementsToMatches } from "./roster-replacement";
 
 export const SCHEDULE_GENERATOR_VERSION = "1.0.0";
@@ -166,6 +166,32 @@ export function createAcceptedScheduleSnapshot(input: {
     generatorVersion: source === "Generated" ? input.preview[0]?.generatorVersion : undefined,
     importerVersion: source === "Imported" ? input.preview[0]?.importerVersion : undefined,
     validation: input.validation,
+  };
+}
+
+
+export interface CompletedRegularSeasonScheduleSetupStatus {
+  complete: boolean;
+  recoveredState: TrackerState;
+  message: string | null;
+}
+
+export function getCompletedRegularSeasonScheduleSetupStatus(state: TrackerState): CompletedRegularSeasonScheduleSetupStatus {
+  const recoveredState = recoverPostRegularSeasonWorkflowState(state);
+  const workflow = recoveredState.activeWorkflow;
+  const complete = Boolean(
+    workflow
+    && workflow.leagueYear === 2
+    && workflow.split === "Closing Split"
+    && workflow.yearWeek >= 47
+    && workflow.splitWeek >= 23
+    && recoveredState.completedWeeks.some((week) => week.week === 46),
+  );
+
+  return {
+    complete,
+    recoveredState,
+    message: complete ? "Closing Split regular season is complete. No regular-season schedule preview is required. Continue to Tiebreaker Review." : null,
   };
 }
 
