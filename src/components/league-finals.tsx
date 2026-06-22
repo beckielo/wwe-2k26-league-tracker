@@ -197,9 +197,24 @@ export function LeagueFinals(props: LeagueFinalsProps) {
       <div className="bg-[#111722] p-5"><p className="text-xs uppercase text-slate-500">League Finals readiness</p><strong className={`mt-2 block text-xl ${review.ready ? "text-emerald-300" : "text-amber-300"}`}>{review.readinessLabel}</strong></div>
     </section>
 
+
+    <section className="border border-sky-400/20 bg-sky-400/5 p-6">
+      <h2 className="text-xl font-black uppercase text-sky-200">League Finals Source Audit</h2>
+      <div className="mt-4 grid gap-3 xl:grid-cols-4">
+        {review.sourceAudit.map((league) => <div key={league.league} className="border border-white/10 bg-[#111722] p-4">
+          <h3 className="text-sm font-black uppercase">{league.league}</h3>
+          <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-300">
+            {league.ranks.map((entry) => <p key={entry.rank}><span className="text-slate-500">#{entry.rank}</span> <strong>{entry.wrestler ?? "Missing"}</strong></p>)}
+          </div>
+        </div>)}
+      </div>
+    </section>
+
     {(messages.length > 0 || review.readinessReasons.length > 0) && <div className="border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-200">
       {[...messages, ...review.readinessReasons].map((message) => <p key={message}>{message}</p>)}
     </div>}
+
+    {!review.ready && review.readinessReasons.includes("League Finals source standings are invalid or stale.") && <section className="border border-red-400/30 bg-red-400/10 p-6 text-red-100"><h2 className="font-black uppercase">League Finals source standings are invalid or stale.</h2><p className="mt-2 text-sm">Card generation is blocked so stale finals data cannot be displayed.</p></section>}
 
     <section className="grid gap-6 xl:grid-cols-2">
       <div className="border border-white/10 bg-[#111722] p-6">

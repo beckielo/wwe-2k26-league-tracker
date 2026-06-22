@@ -32,8 +32,8 @@ function completedResults(): LeagueFinalsResult[] {
   const results: LeagueFinalsResult[] = [];
   for (const match of matches) {
     let winner = match.wrestlerA;
-    if (match.id === "finals-elite-cup-final") {
-      winner = results.find((result) => result.matchId === "finals-elite-cup-sf1")?.winner ?? null;
+    if (match.kind === "Elite Cup Final") {
+      winner = results.find((result) => result.matchId === matches.find((candidate) => candidate.kind === "Elite Cup Semifinal" && candidate.matchNumber === 4)?.id)?.winner ?? null;
     }
     results.push({
       matchId: match.id,
@@ -175,7 +175,7 @@ describe("Post-Finals movement and composition", () => {
 describe("Ordering, readiness, and legacy boundaries", () => {
   it("keeps Global #1 champion separate from the Elite Cup winner", () => {
     const results = completedResults();
-    const finalIndex = results.findIndex((result) => result.matchId === "finals-elite-cup-final");
+    const finalIndex = results.findIndex((result) => result.matchId === matches.find((match) => match.kind === "Elite Cup Final")?.id);
     results[finalIndex] = { ...results[finalIndex], winner: "Global 2" };
     const transition = derive({ results });
     expect(transition.champions[0]).toEqual({ league: "Global League", wrestler: "Global 1" });
