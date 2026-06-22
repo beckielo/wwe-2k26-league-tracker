@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveCurrentUser } from "../current-user";
-import { deriveLeagueFinalsReview, type LeagueFinalsResult } from "../league-finals";
+import { buildLeagueFinalsMatchIdentity, deriveLeagueFinalsReview, type LeagueFinalsResult } from "../league-finals";
 import { buildNextSplitStandings, derivePostFinalsTransition } from "../post-finals-transition";
 import { generateSchedule, validateSchedule } from "../schedule-setup";
 import { LEAGUE_NAMES, type StandingRow } from "../types";
@@ -73,6 +73,35 @@ describe("Post-Finals completion gate", () => {
 
   it("unlocks after every required result and both nights are complete", () => {
     expect(derive()).toMatchObject({ unlocked: true, finalsComplete: true, compositionValid: true });
+  });
+
+
+  it("recognizes freshly saved canonical League Finals results", () => {
+    const transition = derive({ results: completedResults() });
+    expect(transition.finalsComplete).toBe(true);
+    expect(transition.invalidResults).toEqual([]);
+    expect(transition.missingResults).toEqual([]);
+  });
+
+  it("recognizes migrated legacy participant-based League Finals results", () => {
+    const legacy = completedResults().map((result) => {
+      const match = matches.find((candidate) => candidate.id === result.matchId)!;
+      return { ...result, matchId: buildLeagueFinalsMatchIdentity(match) };
+    });
+    const transition = derive({ results: legacy });
+    expect(transition.finalsComplete).toBe(true);
+    expect(transition.invalidResults).toEqual([]);
+    expect(transition.missingResults).toEqual([]);
+    expect(transition.diagnostics.migratedLegacyResultKeysCount).toBe(12);
+  });
+
+  it("validates the Elite Cup Final by canonical slot ID", () => {
+    const results = completedResults();
+    const final = matches.find((match) => match.kind === "Elite Cup Final")!;
+    const finalResult = results.find((result) => result.matchId === final.id)!;
+    expect(final.id).toBe("league-finals:night-two:match-6");
+    expect(finalResult.winner).toBe("Global 1");
+    expect(derive({ results }).invalidResults).toEqual([]);
   });
 
   it("rejects duplicate finals results", () => {

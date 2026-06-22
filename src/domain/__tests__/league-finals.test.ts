@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildLeagueFinalsMatchIdentity,
   deriveLeagueFinalsReview,
   relegationHigherLeagueWrestler,
+  normalizeLeagueFinalsResults,
   sanitizeLeagueFinalsResults,
   validateFinalsNightCompletion,
   validateLeagueFinalsMatchSource,
@@ -217,6 +219,65 @@ describe("League Finals outcomes and cards", () => {
     expect(review.eliteCupQualifiers).toHaveLength(4);
   });
 
+
+  it("uses stable canonical slot IDs for all League Finals matches", () => {
+    const review = derive();
+    expect(review.nightOne.map((match) => match.id)).toEqual([
+      "league-finals:night-one:match-1",
+      "league-finals:night-one:match-2",
+      "league-finals:night-one:match-3",
+      "league-finals:night-one:match-4",
+      "league-finals:night-one:match-5",
+      "league-finals:night-one:match-6",
+    ]);
+    expect(review.nightTwo.map((match) => match.id)).toEqual([
+      "league-finals:night-two:match-1",
+      "league-finals:night-two:match-2",
+      "league-finals:night-two:match-3",
+      "league-finals:night-two:match-4",
+      "league-finals:night-two:match-5",
+      "league-finals:night-two:match-6",
+    ]);
+  });
+
+  it("migrates legacy participant-based League Finals result keys without dropping outcomes", () => {
+    const review = derive();
+    const match = review.nightOne[0];
+    const legacyKey = buildLeagueFinalsMatchIdentity(match);
+    const normalized = normalizeLeagueFinalsResults([...review.nightOne, ...review.nightTwo], [{
+      matchId: legacyKey,
+      resultType: "Winner",
+      winner: match.wrestlerB,
+      confirmedAt: "2026-06-14T00:00:00.000Z",
+    }]);
+
+    expect(normalized.migratedLegacyResultKeys).toEqual([legacyKey]);
+    expect(normalized.unmatchedSavedResultKeys).toEqual([]);
+    expect(normalized.results[0]).toMatchObject({
+      matchId: "league-finals:night-one:match-1",
+      resultType: "Winner",
+      winner: match.wrestlerB,
+    });
+  });
+
+  it("preserves existing Night One and Night Two canonical result state across sanitization", () => {
+    const review = derive();
+    const matches = [...review.nightOne, ...review.nightTwo];
+    const semifinalResults = [
+      { matchId: "league-finals:night-two:match-4", resultType: "Winner" as const, winner: review.nightTwo[3].wrestlerA, confirmedAt: "2026-06-14T00:00:00.000Z" },
+      { matchId: "league-finals:night-two:match-5", resultType: "Winner" as const, winner: review.nightTwo[4].wrestlerA, confirmedAt: "2026-06-14T00:00:00.000Z" },
+    ];
+    const results: LeagueFinalsResult[] = matches.map((match) => ({
+      matchId: match.id,
+      resultType: "Winner",
+      winner: match.kind === "Elite Cup Final" ? semifinalResults[0].winner : match.wrestlerA,
+      confirmedAt: "2026-06-14T00:00:00.000Z",
+    }));
+    results.splice(9, 2, ...semifinalResults);
+
+    expect(sanitizeLeagueFinalsResults(matches, results).map((result) => result.matchId)).toEqual(results.map((result) => result.matchId));
+  });
+
   it("does not generate filler, Week 25, or a Closing Split roster", () => {
     const review = derive();
     expect([...review.nightOne, ...review.nightTwo]).toHaveLength(12);
@@ -385,10 +446,11 @@ describe("League Finals outcomes and cards", () => {
     expect(review.eliteCupQualifiers.map((row) => row.wrestler)).toEqual(["Gunther", "Roman Reigns", "Drew McIntyre", "Cody Rhodes"]);
   });
 
-  it("keys saved results with stable participant-aware match IDs", () => {
+  it("keys saved results with stable canonical slot match IDs", () => {
     const match = derive().nightOne[0];
-    expect(match.id).toContain("national-11");
-    expect(match.id).toContain("regional-2");
+    expect(match.id).toBe("league-finals:night-one:match-1");
+    expect(match.id).not.toContain("national-11");
+    expect(match.id).not.toContain("regional-2");
   });
 });
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { deriveLeagueFinalsReview } from "@/domain/league-finals";
+import { useEffect, useMemo } from "react";
+import { deriveLeagueFinalsReview, normalizeLeagueFinalsResults } from "@/domain/league-finals";
 import { derivePostFinalsTransition } from "@/domain/post-finals-transition";
 import { deriveSplitCompletionReview } from "@/domain/split-completion";
 import type { Match, MatchResult, MatchupReferenceRow, SplitName, StandingRow } from "@/domain/types";
@@ -20,7 +20,7 @@ interface Props {
 }
 
 export function PostFinalsTransitionView(props: Props) {
-  const { state, hydrated } = useTrackerState();
+  const { state, updateState, hydrated } = useTrackerState();
   const splitReview = useMemo(() => deriveSplitCompletionReview({
     leagueYear: props.leagueYear,
     split: props.split,
@@ -37,18 +37,28 @@ export function PostFinalsTransitionView(props: Props) {
     consequentialTies: splitReview.consequentialTies,
     hasLeagueFinalsTemplate: props.hasLeagueFinalsTemplate,
   }), [props.completedThroughWeek, props.hasLeagueFinalsTemplate, splitReview]);
+  const allFinalsMatches = useMemo(() => [...finals.nightOne, ...finals.nightTwo], [finals.nightOne, finals.nightTwo]);
+  const normalizedResults = useMemo(() => normalizeLeagueFinalsResults(allFinalsMatches, state.leagueFinalsResults ?? []), [allFinalsMatches, state.leagueFinalsResults]);
+  useEffect(() => {
+    if (!hydrated || normalizedResults.migratedLegacyResultKeys.length === 0) return;
+    const current = state.leagueFinalsResults ?? [];
+    const changed = normalizedResults.results.length !== current.length
+      || normalizedResults.results.some((result, index) => JSON.stringify(result) !== JSON.stringify(current[index]));
+    if (!changed) return;
+    updateState((current) => ({ ...current, leagueFinalsResults: normalizedResults.results }));
+  }, [hydrated, normalizedResults, state.leagueFinalsResults, updateState]);
   const transition = useMemo(() => derivePostFinalsTransition({
     completedThroughWeek: props.completedThroughWeek,
     standings: splitReview.finalRegularStandings,
     consequentialTies: splitReview.consequentialTies,
-    matches: [...finals.nightOne, ...finals.nightTwo],
+    matches: allFinalsMatches,
     results: state.leagueFinalsResults ?? [],
     completedNights: state.completedFinalsNights ?? [],
     champions: finals.champions,
     directMovements: finals.directMovements,
     hasAuthoritativeClosingSchedule: props.hasAuthoritativeClosingSchedule,
     manualReviews: state.manualReviews,
-  }), [finals, props.completedThroughWeek, props.hasAuthoritativeClosingSchedule, splitReview, state]);
+  }), [allFinalsMatches, finals.champions, finals.directMovements, props.completedThroughWeek, props.hasAuthoritativeClosingSchedule, splitReview.consequentialTies, splitReview.finalRegularStandings, state.completedFinalsNights, state.leagueFinalsResults, state.manualReviews]);
 
   if (!hydrated) return <div className="border border-white/10 p-6 text-slate-400">Loading Post-Finals Transition state…</div>;
 
@@ -62,6 +72,16 @@ export function PostFinalsTransitionView(props: Props) {
       </div>
       {transition.missingResults.length > 0 && <div className="mt-4"><strong>Missing League Finals results</strong><ul className="list-disc pl-5 text-sm">{transition.missingResults.map((item) => <li key={item}>{item}</li>)}</ul></div>}
       {transition.invalidResults.length > 0 && <div className="mt-4"><strong>Invalid / ambiguous results</strong><ul className="list-disc pl-5 text-sm">{transition.invalidResults.map((item) => <li key={item}>{item}</li>)}</ul></div>}
+      {(transition.invalidResults.length > 0 || transition.missingResults.length > 0) && <details className="mt-4 text-xs">
+        <summary className="cursor-pointer font-black uppercase">Reconciliation diagnostics</summary>
+        <dl className="mt-2 grid gap-1 sm:grid-cols-2">
+          <div><dt>Saved result keys</dt><dd>{transition.diagnostics.savedLeagueFinalsResultKeys.join(", ") || "none"}</dd></div>
+          <div><dt>Canonical match IDs</dt><dd>{transition.diagnostics.canonicalAuthoritativeFinalsMatchIds.join(", ") || "none"}</dd></div>
+          <div><dt>Migrated legacy result keys</dt><dd>{transition.diagnostics.migratedLegacyResultKeysCount}</dd></div>
+          <div><dt>Unmatched saved results</dt><dd>{transition.diagnostics.unmatchedSavedResultsCount}</dd></div>
+          <div><dt>Missing authoritative finals</dt><dd>{transition.diagnostics.missingAuthoritativeFinalsCount}</dd></div>
+        </dl>
+      </details>}
     </section>
 
     {transition.unlocked && <>
