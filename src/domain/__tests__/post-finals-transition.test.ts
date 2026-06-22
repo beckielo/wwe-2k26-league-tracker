@@ -28,6 +28,26 @@ const finals = deriveLeagueFinalsReview({
 });
 const matches = [...finals.nightOne, ...finals.nightTwo];
 
+const phase19pPlacements: Record<string, Record<number, string>> = {
+  "Global League": { 1: "Gunther", 2: "Roman Reigns", 3: "Drew McIntyre", 4: "Cody Rhodes", 9: "John Cena", 10: "CM Punk", 11: "AJ Styles", 12: "Triple H" },
+  "Continental League": { 1: "Randy Orton", 2: "Jacob Fatu", 3: "Bronson Reed", 4: "Shawn Michaels", 9: "Ilja Dragunov", 10: "Damian Priest", 11: "Kevin Owens", 12: "Undertaker" },
+  "National League": { 1: "LA Knight", 2: "The Rock", 3: "Carmelo Hayes", 4: "Chad Gable", 9: "Shinsuke Nakamura", 10: "Pete Dunne", 11: "Penta", 12: "Rey Mysterio" },
+  "Regional League": { 1: "Dragon Lee", 2: "The Miz", 3: "Trick Williams", 4: "Kofi Kingston", 9: "Johnny Gargano", 10: "Xavier Woods", 11: "Montez Ford", 12: "Axiom" },
+};
+
+const phase19pStandings: StandingRow[] = standings.map((row) => ({
+  ...row,
+  wrestler: phase19pPlacements[row.league]?.[row.rank] ?? `${row.league.split(" ")[0]} Reserve ${row.rank}`,
+}));
+
+const phase19pFinals = deriveLeagueFinalsReview({
+  completedThroughWeek: 22,
+  standings: phase19pStandings,
+  consequentialTies: [],
+  hasLeagueFinalsTemplate: true,
+});
+const phase19pMatches = [...phase19pFinals.nightOne, ...phase19pFinals.nightTwo];
+
 function completedResults(): LeagueFinalsResult[] {
   const results: LeagueFinalsResult[] = [];
   for (const match of matches) {
@@ -63,6 +83,48 @@ function derive(overrides: Partial<Parameters<typeof derivePostFinalsTransition>
   });
 }
 
+function phase19pCompletedResults(): LeagueFinalsResult[] {
+  const winners: Record<string, string> = {
+    "league-finals:night-one:match-1": "The Miz",
+    "league-finals:night-one:match-2": "Trick Williams",
+    "league-finals:night-one:match-3": "Kofi Kingston",
+    "league-finals:night-one:match-4": "The Rock",
+    "league-finals:night-one:match-5": "Damian Priest",
+    "league-finals:night-one:match-6": "Ilja Dragunov",
+    "league-finals:night-two:match-1": "AJ Styles",
+    "league-finals:night-two:match-2": "Bronson Reed",
+    "league-finals:night-two:match-3": "Shawn Michaels",
+    "league-finals:night-two:match-4": "Gunther",
+    "league-finals:night-two:match-5": "Roman Reigns",
+    "league-finals:night-two:match-6": "Gunther",
+  };
+  return phase19pMatches.map((match) => ({
+    matchId: match.id,
+    resultType: "Winner",
+    winner: winners[match.id],
+    confirmedAt: "2026-06-22T00:00:00.000Z",
+    matchIdentity: buildLeagueFinalsMatchIdentity(match),
+  }));
+}
+
+function derivePhase19p(overrides: Partial<Parameters<typeof derivePostFinalsTransition>[0]> = {}) {
+  return derivePostFinalsTransition({
+    completedThroughWeek: 22,
+    standings: phase19pStandings,
+    consequentialTies: [],
+    matches: phase19pMatches,
+    results: phase19pCompletedResults(),
+    completedNights: [
+      { night: "Night One", completedAt: "2026-06-22T00:00:00.000Z" },
+      { night: "Night Two", completedAt: "2026-06-22T00:00:00.000Z" },
+    ],
+    champions: phase19pFinals.champions,
+    directMovements: phase19pFinals.directMovements,
+    hasAuthoritativeClosingSchedule: false,
+    ...overrides,
+  });
+}
+
 describe("Post-Finals completion gate", () => {
   it("remains locked while League Finals results or a night are incomplete", () => {
     const transition = derive({ results: [], completedNights: [] });
@@ -80,6 +142,56 @@ describe("Post-Finals completion gate", () => {
     const transition = derive({ matches: [] });
     expect(transition.diagnostics.canonicalAuthoritativeFinalsMatchIds).toEqual(buildCanonicalLeagueFinalsRegistry(standings).map((match) => match.id));
     expect(transition.finalsComplete).toBe(true);
+  });
+
+  it("shares the exact canonical Phase 19P registry with League Finals", () => {
+    const transition = derivePhase19p();
+    expect(buildCanonicalLeagueFinalsRegistry(phase19pStandings).map((match) => [match.id, match.wrestlerA, match.wrestlerB]))
+      .toEqual(phase19pMatches.map((match) => [match.id, match.wrestlerA, match.wrestlerB]));
+    expect(transition.diagnostics.resultWinnerReconciliation.find((row) => row.canonicalResultId === "league-finals:night-one:match-1"))
+      .toMatchObject({ authoritativeParticipantA: "Penta", authoritativeParticipantB: "The Miz", rawSavedWinner: "The Miz" });
+  });
+
+  it("validates corrected Phase 19P saved winners and completes the gate", () => {
+    const transition = derivePhase19p();
+    expect(phase19pMatches.map((match) => [match.id, match.wrestlerA, match.wrestlerB])).toEqual([
+      ["league-finals:night-one:match-1", "Penta", "The Miz"],
+      ["league-finals:night-one:match-2", "Pete Dunne", "Trick Williams"],
+      ["league-finals:night-one:match-3", "Shinsuke Nakamura", "Kofi Kingston"],
+      ["league-finals:night-one:match-4", "Kevin Owens", "The Rock"],
+      ["league-finals:night-one:match-5", "Damian Priest", "Carmelo Hayes"],
+      ["league-finals:night-one:match-6", "Ilja Dragunov", "Chad Gable"],
+      ["league-finals:night-two:match-1", "AJ Styles", "Jacob Fatu"],
+      ["league-finals:night-two:match-2", "CM Punk", "Bronson Reed"],
+      ["league-finals:night-two:match-3", "John Cena", "Shawn Michaels"],
+      ["league-finals:night-two:match-4", "Gunther", "Cody Rhodes"],
+      ["league-finals:night-two:match-5", "Roman Reigns", "Drew McIntyre"],
+      ["league-finals:night-two:match-6", null, null],
+    ]);
+    expect(transition.finalsComplete).toBe(true);
+    expect(transition.invalidResults).toEqual([]);
+    expect(transition.missingResults).toEqual([]);
+    expect(transition.diagnostics.savedCanonicalIdsFound).toHaveLength(12);
+  });
+
+  it("repairs a stale authoritative registry mismatch from saved matchIdentity without deleting results", () => {
+    const staleStandings = phase19pStandings.map((row) => {
+      if (row.league === "National League" && row.rank === 11) return { ...row, wrestler: "Carmelo Hayes" };
+      if (row.league === "Regional League" && row.rank === 2) return { ...row, wrestler: "Dragon Lee" };
+      if (row.league === "National League" && row.rank === 3) return { ...row, wrestler: "Penta" };
+      if (row.league === "Regional League" && row.rank === 1) return { ...row, wrestler: "The Miz" };
+      return row;
+    });
+    const transition = derivePhase19p({ standings: staleStandings });
+    const diagnostic = transition.diagnostics.resultWinnerReconciliation.find((row) => row.canonicalResultId === "league-finals:night-one:match-1");
+    expect(diagnostic).toMatchObject({
+      savedMatchIdentity: expect.stringContaining("penta:the-miz"),
+      rawSavedWinner: "The Miz",
+      authoritativeParticipantA: "Penta",
+      authoritativeParticipantB: "The Miz",
+      registrySource: "saved-match-identity-fallback",
+    });
+    expect(transition.invalidResults).not.toContain("league-finals:night-one:match-1: winner must be one of the derived participants.");
   });
 
   it("reconciles canonical Night One match 1 and Night Two match 6 IDs", () => {

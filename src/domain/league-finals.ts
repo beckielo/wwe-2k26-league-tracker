@@ -442,10 +442,13 @@ export interface LeagueFinalsResultReconciliationDiagnostic {
   canonicalResultId: string;
   rawSavedWinner: string | null;
   rawSavedOutcome: string | null;
+  savedMatchIdentity: string | null;
   savedLabel: string | null;
   savedParticipantSnapshot: unknown;
   authoritativeParticipantA: string | null;
   authoritativeParticipantB: string | null;
+  registrySource: "shared-finals-helper" | "saved-match-identity-fallback";
+  participantMismatchCausedByWrongRegistry: boolean;
   rawSavedObject: unknown;
   rawSavedSelectedOption: string | number | null;
   rawSavedResult: string | number | null;
@@ -474,6 +477,7 @@ export interface LeagueFinalsResultsNormalization {
 export function normalizeLeagueFinalsResults(
   matches: LeagueFinalsMatch[],
   results: LeagueFinalsResult[],
+  registrySources: Map<string, "shared-finals-helper" | "saved-match-identity-fallback"> = new Map(),
 ): LeagueFinalsResultsNormalization {
   const canonicalMatchIds = matches.map((match) => match.id);
   const canonical = new Map(matches.map((match) => [match.id, match]));
@@ -529,10 +533,18 @@ export function normalizeLeagueFinalsResults(
       canonicalResultId: match.id,
       rawSavedWinner: result.winner,
       rawSavedOutcome: result.outcome ?? result.resultType,
+      savedMatchIdentity: result.matchIdentity ?? null,
       savedLabel: result.label ?? null,
       savedParticipantSnapshot: result.participantSnapshot ?? null,
       authoritativeParticipantA: participantA,
       authoritativeParticipantB: participantB,
+      registrySource: registrySources.get(match.id) ?? "shared-finals-helper",
+      participantMismatchCausedByWrongRegistry: Boolean(
+        result.matchIdentity
+        && ![participantA, participantB].some((participant) => participant && result.matchIdentity?.includes(finalsIdentityPart(participant)))
+        && parsedOutcome.type === "invalid"
+        && parsedOutcome.reason === "winner must be one of the derived participants"
+      ),
       rawSavedObject: result,
       rawSavedSelectedOption: result.selectedResult ?? result.selectedWinner ?? result.selection ?? result.value ?? null,
       rawSavedResult: result.result ?? result.resultType ?? null,
