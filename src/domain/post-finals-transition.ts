@@ -238,6 +238,31 @@ function validateComposition(assignments: PostFinalsAssignment[], standings: Sta
   return errors;
 }
 
+
+function deriveDirectMovementsFromFinalStandings(standings: StandingRow[]): DirectMovement[] {
+  const rowAt = (league: LeagueName, rank: number) => standings.find((row) => row.league === league && row.rank === rank);
+  const movements: DirectMovement[] = [];
+  for (let index = 1; index < LEAGUE_NAMES.length; index += 1) {
+    const promoted = rowAt(LEAGUE_NAMES[index], 1);
+    if (promoted) movements.push({
+      wrestler: promoted.wrestler,
+      fromLeague: LEAGUE_NAMES[index],
+      toLeague: LEAGUE_NAMES[index - 1],
+      reason: "Direct promotion",
+    });
+  }
+  for (let index = 0; index < LEAGUE_NAMES.length - 1; index += 1) {
+    const relegated = rowAt(LEAGUE_NAMES[index], 12);
+    if (relegated) movements.push({
+      wrestler: relegated.wrestler,
+      fromLeague: LEAGUE_NAMES[index],
+      toLeague: LEAGUE_NAMES[index + 1],
+      reason: "Direct relegation",
+    });
+  }
+  return movements;
+}
+
 function proposedSort(a: PostFinalsAssignment, b: PostFinalsAssignment): number {
   return (tier.get(a.priorLeague) ?? 99) - (tier.get(b.priorLeague) ?? 99)
     || a.priorRank - b.priorRank
@@ -280,11 +305,12 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
   );
   if (unresolvedTies.length) reviewRequired.push(`${unresolvedTies.length} required tiebreaker state(s) remain unresolved.`);
 
+  const directMovements = deriveDirectMovementsFromFinalStandings(input.standings);
   const composition = derivePostFinalsLeagueComposition({
     finalStandings: input.standings,
     leagueFinalsMatches: authoritativeMatches,
     leagueFinalsResults: reconciledResults,
-    directMovements: input.directMovements,
+    directMovements,
   });
   const assignments = composition.assignments;
   const relegationOutcomes = composition.relegationOutcomes;
@@ -320,7 +346,7 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
     const runnerUp = eliteParticipants.find((participant) => participant && participant !== eliteResult.winner);
     if (runnerUp) legacyFacts.push({ label: "Global Elite Cup Runner-up", wrestler: runnerUp, detail: "Elite Cup finalist." });
   }
-  for (const movement of input.directMovements) {
+  for (const movement of directMovements) {
     legacyFacts.push({
       label: movement.reason === "Direct promotion" ? "Direct Promotion" : "Direct Relegation",
       wrestler: movement.wrestler,
@@ -363,7 +389,7 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
     missingResults,
     invalidResults,
     champions: input.champions,
-    directMovements: input.directMovements,
+    directMovements,
     relegationOutcomes,
     assignments,
     leagueComposition,

@@ -137,7 +137,7 @@ describe("Post-Finals completion gate", () => {
     expect(derive()).toMatchObject({ unlocked: true, finalsComplete: true, compositionValid: true });
   });
 
-  it("changes gate copy away from complete League Finals first once finals are complete", () => {
+  it("ignores stale passed direct movements and derives them from final standings", () => {
     const transition = derive({
       directMovements: [
         ...finals.directMovements,
@@ -151,9 +151,8 @@ describe("Post-Finals completion gate", () => {
     });
 
     expect(transition.finalsComplete).toBe(true);
-    expect(transition.compositionValid).toBe(false);
-    expect(transition.lockedMessage).toBe("Post-Finals transition locked: review league composition first.");
-    expect(transition.lockedMessage?.toLowerCase()).not.toContain("complete league finals first");
+    expect(transition.compositionValid).toBe(true);
+    expect(transition.directMovements.map((movement) => movement.wrestler)).not.toContain("Missing Wrestler");
   });
 
 
@@ -452,6 +451,62 @@ describe("Post-Finals movement and composition", () => {
     expect(LEAGUE_NAMES.map((league) => transition.leagueComposition[league].length)).toEqual([12, 12, 12, 12]);
     expect(new Set(transition.assignments.map((row) => row.wrestler)).size).toBe(48);
     expect(transition.compositionValid).toBe(true);
+    expect(transition.compositionErrors).toEqual([]);
+  });
+
+  it("Phase 19S: uses the same final standings source for direct movements as the League Finals registry", () => {
+    const transition = derivePhase19p({
+      directMovements: [
+        { wrestler: "Drew McIntyre", fromLeague: "Continental League", toLeague: "Global League", reason: "Direct promotion" },
+        { wrestler: "Shinsuke Nakamura", fromLeague: "National League", toLeague: "Continental League", reason: "Direct promotion" },
+        { wrestler: "Pete Dunne", fromLeague: "Regional League", toLeague: "National League", reason: "Direct promotion" },
+        { wrestler: "The Rock", fromLeague: "Continental League", toLeague: "National League", reason: "Direct relegation" },
+        { wrestler: "Austin Theory", fromLeague: "National League", toLeague: "Regional League", reason: "Direct relegation" },
+      ],
+    });
+
+    expect(transition.directMovements).toEqual([
+      { wrestler: "Randy Orton", fromLeague: "Continental League", toLeague: "Global League", reason: "Direct promotion" },
+      { wrestler: "LA Knight", fromLeague: "National League", toLeague: "Continental League", reason: "Direct promotion" },
+      { wrestler: "Dragon Lee", fromLeague: "Regional League", toLeague: "National League", reason: "Direct promotion" },
+      { wrestler: "Triple H", fromLeague: "Global League", toLeague: "Continental League", reason: "Direct relegation" },
+      { wrestler: "Undertaker", fromLeague: "Continental League", toLeague: "National League", reason: "Direct relegation" },
+      { wrestler: "Rey Mysterio", fromLeague: "National League", toLeague: "Regional League", reason: "Direct relegation" },
+    ]);
+    expect(transition.directMovements.map((movement) => movement.wrestler)).not.toEqual(expect.arrayContaining([
+      "Drew McIntyre", "Shinsuke Nakamura", "Pete Dunne", "The Rock", "Austin Theory",
+    ]));
+  });
+
+  it("Phase 19S: maps playoff outcomes without Elite Cup placement changes or duplicate targets", () => {
+    const transition = derivePhase19p();
+    const target = (wrestler: string) => transition.assignments.find((assignment) => assignment.wrestler === wrestler);
+
+    expect(target("The Miz")).toMatchObject({ newLeague: "National League", movement: "Promoted" });
+    expect(target("Penta")).toMatchObject({ newLeague: "Regional League", movement: "Relegated" });
+    expect(target("Trick Williams")).toMatchObject({ newLeague: "National League", movement: "Promoted" });
+    expect(target("Pete Dunne")).toMatchObject({ newLeague: "Regional League", movement: "Relegated" });
+    expect(target("Kofi Kingston")).toMatchObject({ newLeague: "National League", movement: "Promoted" });
+    expect(target("Shinsuke Nakamura")).toMatchObject({ newLeague: "Regional League", movement: "Relegated" });
+    expect(target("The Rock")).toMatchObject({ newLeague: "Continental League", movement: "Promoted" });
+    expect(target("Kevin Owens")).toMatchObject({ newLeague: "National League", movement: "Relegated" });
+    expect(target("Damian Priest")).toMatchObject({ newLeague: "Continental League", movement: "Retained higher league" });
+    expect(target("Carmelo Hayes")).toMatchObject({ newLeague: "National League", movement: "Failed promotion" });
+    expect(target("Ilja Dragunov")).toMatchObject({ newLeague: "Continental League", movement: "Retained higher league" });
+    expect(target("Chad Gable")).toMatchObject({ newLeague: "National League", movement: "Failed promotion" });
+    expect(target("AJ Styles")).toMatchObject({ newLeague: "Global League", movement: "Retained higher league" });
+    expect(target("Jacob Fatu")).toMatchObject({ newLeague: "Continental League", movement: "Failed promotion" });
+    expect(target("Bronson Reed")).toMatchObject({ newLeague: "Global League", movement: "Promoted" });
+    expect(target("CM Punk")).toMatchObject({ newLeague: "Continental League", movement: "Relegated" });
+    expect(target("Shawn Michaels")).toMatchObject({ newLeague: "Global League", movement: "Promoted" });
+    expect(target("John Cena")).toMatchObject({ newLeague: "Continental League", movement: "Relegated" });
+
+    for (const wrestler of ["Pete Dunne", "Shinsuke Nakamura", "The Rock"]) {
+      expect(transition.assignments.filter((assignment) => assignment.wrestler === wrestler)).toHaveLength(1);
+    }
+    expect(target("Gunther")).toMatchObject({ newLeague: "Global League", movement: "Retained" });
+    expect(LEAGUE_NAMES.map((league) => transition.leagueComposition[league].length)).toEqual([12, 12, 12, 12]);
+    expect(new Set(transition.assignments.map((assignment) => assignment.wrestler)).size).toBe(48);
     expect(transition.compositionErrors).toEqual([]);
   });
 
