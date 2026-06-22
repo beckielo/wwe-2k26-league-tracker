@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  buildLeagueFinalsMatchIdentity,
   deriveLeagueFinalsReview,
   resolveFinalsParticipants,
+  sanitizeLeagueFinalsResults,
   validateFinalsNightCompletion,
   validateLeagueFinalsResult,
   type FinalsNight,
@@ -84,6 +86,7 @@ function MatchCard({
           resultType: selection === "no-contest" ? "No Contest" : "Winner",
           winner: selection === "no-contest" ? null : selection,
           confirmedAt: new Date().toISOString(),
+          matchIdentity: buildLeagueFinalsMatchIdentity(match),
         })}
         className="bg-red-500 px-4 py-2 text-xs font-black uppercase disabled:cursor-not-allowed disabled:opacity-40"
       >
@@ -120,9 +123,23 @@ export function LeagueFinals(props: LeagueFinalsProps) {
     consequentialTies: splitReview.consequentialTies,
     hasLeagueFinalsTemplate: props.hasLeagueFinalsTemplate,
   }), [props.completedThroughWeek, props.hasLeagueFinalsTemplate, splitReview]);
-  const finalsResults = state.leagueFinalsResults ?? [];
-  const completedNights = state.completedFinalsNights ?? [];
-  const allCardMatches = [...review.nightOne, ...review.nightTwo];
+  const rawFinalsResults = useMemo(() => state.leagueFinalsResults ?? [], [state.leagueFinalsResults]);
+  const completedNights = useMemo(() => state.completedFinalsNights ?? [], [state.completedFinalsNights]);
+  const allCardMatches = useMemo(() => [...review.nightOne, ...review.nightTwo], [review.nightOne, review.nightTwo]);
+  const finalsResults = useMemo(() => sanitizeLeagueFinalsResults(allCardMatches, rawFinalsResults), [allCardMatches, rawFinalsResults]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const resultChanged = finalsResults.length !== rawFinalsResults.length
+      || finalsResults.some((result, index) => JSON.stringify(result) !== JSON.stringify(rawFinalsResults[index]));
+    const completedChanged = completedNights.some((entry) => validateFinalsNightCompletion(entry.night, allCardMatches, finalsResults, state.manualReviews ?? []).length > 0);
+    if (!resultChanged && !completedChanged) return;
+    updateState((current) => ({
+      ...current,
+      leagueFinalsResults: finalsResults,
+      completedFinalsNights: (current.completedFinalsNights ?? []).filter((entry) => validateFinalsNightCompletion(entry.night, allCardMatches, finalsResults, current.manualReviews ?? []).length === 0),
+    }));
+  }, [allCardMatches, completedNights, finalsResults, hydrated, rawFinalsResults, state.manualReviews, updateState]);
 
   function saveResult(result: LeagueFinalsResult) {
     const errors = validateLeagueFinalsResult(result, allCardMatches, finalsResults);
