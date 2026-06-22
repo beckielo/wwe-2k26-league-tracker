@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { deriveLeagueFinalsReview } from "@/domain/league-finals";
 import { derivePostFinalsTransition } from "@/domain/post-finals-transition";
 import { deriveSplitCompletionReview } from "@/domain/split-completion";
 import { assignContinuitySeeds } from "@/domain/year-rollover-continuity";
-import { activateWeek25, canActivateNextWeek, createAcceptedScheduleSnapshot, generateSchedule, getScheduleAcceptanceStatus, getWeek25ActivationStatus, importScheduleJson, validateSchedule, type GeneratedScheduleMatch } from "@/domain/schedule-setup";
+import { activateWeek25, canActivateNextWeek, createAcceptedScheduleSnapshot, generateSchedule, getCompletedRegularSeasonScheduleSetupStatus, getScheduleAcceptanceStatus, getWeek25ActivationStatus, importScheduleJson, validateSchedule, type GeneratedScheduleMatch } from "@/domain/schedule-setup";
 import { LEAGUE_NAMES, type Match, type MatchResult, type MatchupReferenceRow, type SplitName, type StandingRow } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
 
@@ -29,6 +30,15 @@ export function ScheduleSetupView(props: Props) {
   const yearWeekStart = targetSplit === "Closing Split" ? 25 : 1;
   const rosters = Object.fromEntries(LEAGUE_NAMES.map((league) => [league, readiness.seeds.seeds[league].map((row) => row.wrestler)])) as Record<(typeof LEAGUE_NAMES)[number], string[]>;
   const validation = validateSchedule(preview, { rosters, lockedYearWeeks: state.completedWeeks.map((week) => week.week) });
+  const completedRegularSeasonStatus = getCompletedRegularSeasonScheduleSetupStatus(state);
+  const needsPostRegularRecovery = completedRegularSeasonStatus.recoveredState !== state;
+  const closingRegularSeasonComplete = completedRegularSeasonStatus.complete;
+  const postRegularNextHref = deriveSplitCompletionReview({ ...props }).consequentialTies.some((tie) => tie.status === "Tiebreaker Match Required" || tie.status === "Review Required") ? "/tiebreakers" : "/league-finals";
+  const postRegularNextLabel = postRegularNextHref === "/tiebreakers" ? "Continue to Tiebreaker Review" : "Prepare League Finals";
+
+  useEffect(() => {
+    if (hydrated && needsPostRegularRecovery) updateState(() => completedRegularSeasonStatus.recoveredState);
+  }, [hydrated, needsPostRegularRecovery, completedRegularSeasonStatus.recoveredState, updateState]);
 
   const generate = () => {
     setPreview(generateSchedule({ leagueYear: targetYear, split: targetSplit, yearWeekStart, seeds: readiness.seeds.seeds }));
@@ -62,6 +72,19 @@ export function ScheduleSetupView(props: Props) {
   };
   const exportJson = () => { const blob = new Blob([JSON.stringify({ matches: preview }, null, 2)], { type: "application/json" }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `league-year-${targetYear}-${targetSplit.toLowerCase().replaceAll(" ", "-")}-schedule.json`; link.click(); URL.revokeObjectURL(link.href); };
   if (!hydrated) return <p>Loading schedule readiness…</p>;
+  if (closingRegularSeasonComplete) {
+    return <div className="space-y-8">
+      <section className="border border-emerald-400/30 bg-emerald-400/10 p-6">
+        <p className="text-xs font-black uppercase tracking-wider text-emerald-200">Regular season complete</p>
+        <h2 className="mt-2 text-2xl font-black uppercase">Closing Split regular season is complete</h2>
+        <p className="mt-3 text-sm text-emerald-50">No regular-season schedule preview is required. The accepted Closing Split snapshot belongs to the already-completed Year Weeks 25–46 schedule, so missing transient preview data is not a blocking error.</p>
+        <p className="mt-2 text-sm text-emerald-50">Regular season complete. Next phase: {postRegularNextHref === "/tiebreakers" ? "Tiebreaker Review" : "League Finals setup"}.</p>
+        {needsPostRegularRecovery && <p className="mt-2 text-sm font-bold text-amber-100">Recovered browser-local workflow from Closing Split Week 22 / Year Week 46 without resetting results or locked weeks.</p>}
+        <Link href={postRegularNextHref} className="mt-5 inline-flex bg-red-500 px-5 py-3 font-black uppercase text-white">{postRegularNextLabel}</Link>
+      </section>
+      {state.acceptedSchedule && <section className="border border-emerald-400/30 bg-[#111722] p-6"><h2 className="text-xl font-black uppercase">Accepted snapshot</h2><p className="mt-2 text-sm text-slate-300">Accepted and persisted for the completed Closing Split regular season. No re-import, regeneration, or promotion is required.</p><dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4"><Metadata label="leagueYear" value={String(state.acceptedSchedule.leagueYear)} /><Metadata label="split" value={state.acceptedSchedule.split} /><Metadata label="matchCount" value={String(state.acceptedSchedule.matches.length)} /><Metadata label="validationStatus" value={state.acceptedSchedule.validation.status} /></dl></section>}
+    </div>;
+  }
   const unlocked = canActivateNextWeek({ transitionValid, seedsValid: readiness.seeds.valid, acceptedSchedule: state.acceptedSchedule, target: targetSplit === "Closing Split" ? "Closing Split Week 1" : "New League Year Week 1", hasOpenManualReviews: hasBlockingManualReview });
   const postTransitionUserLeague = readiness.transition.assignments.find((entry) => entry.wrestler === props.userWrestler)?.newLeague ?? props.userLeague;
   const activation = getWeek25ActivationStatus({ state, transitionValid, seedsValid: readiness.seeds.valid });
