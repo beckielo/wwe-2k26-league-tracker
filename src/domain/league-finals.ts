@@ -54,6 +54,14 @@ export interface LeagueFinalsReview {
   reviewRequired: string[];
   sourceWarnings: string[];
   sourceAudit: LeagueFinalsSourceAuditRow[];
+  finalStandingsValid: boolean;
+  unresolvedTiebreakerCount: number;
+  cardRenderability: {
+    renderable: boolean;
+    nightOneGeneratedCount: number;
+    nightTwoGeneratedCount: number;
+    hiddenReasons: string[];
+  };
 }
 
 interface LeagueFinalsInput {
@@ -260,7 +268,9 @@ export function deriveLeagueFinalsFromFinalLiveStandings(input: LeagueFinalsInpu
   const eliteMatches: LeagueFinalsMatch[] = eliteBase.map((match) => ({ ...match, id: buildFinalsMatchId(match) }));
   const relegationValidationErrors = relegationMatches.flatMap(validateLeagueFinalsMatchSource);
   readinessReasons.push(...relegationValidationErrors);
-  const canRenderDerivedCards = completeStandings && relegationValidationErrors.length === 0 && unresolvedTies.length === 0;
+  const finalStandingsErrors = validateFinalStandingsSource(input.standings, input.completedThroughWeek);
+  const finalStandingsValid = finalStandingsErrors.length === 0 && completeStandings;
+  const canRenderDerivedCards = finalStandingsValid && relegationValidationErrors.length === 0;
   const safeRelegationMatches = canRenderDerivedCards ? relegationMatches : [];
   const reviewRequired = [];
   reviewRequired.push("DQ encoding: current event result model does not safely identify the wrestler who caused a DQ.");
@@ -278,6 +288,17 @@ export function deriveLeagueFinalsFromFinalLiveStandings(input: LeagueFinalsInpu
     nightTwo: canRenderDerivedCards ? [...safeRelegationMatches.filter((match) => match.night === "Night Two"), ...eliteMatches] : [],
     reviewRequired,
     sourceAudit: buildSourceAudit(input.standings),
+    finalStandingsValid,
+    unresolvedTiebreakerCount: unresolvedTies.length,
+    cardRenderability: {
+      renderable: canRenderDerivedCards && safeRelegationMatches.filter((match) => match.night === "Night One").length === 6 && safeRelegationMatches.filter((match) => match.night === "Night Two").length + eliteMatches.length === 6,
+      nightOneGeneratedCount: safeRelegationMatches.filter((match) => match.night === "Night One").length,
+      nightTwoGeneratedCount: canRenderDerivedCards ? safeRelegationMatches.filter((match) => match.night === "Night Two").length + eliteMatches.length : 0,
+      hiddenReasons: canRenderDerivedCards ? [] : [
+        ...(!finalStandingsValid ? ["Final standings source is invalid or stale."] : []),
+        ...(relegationValidationErrors.length ? relegationValidationErrors : []),
+      ],
+    },
     sourceWarnings: [
       "League Finals results are browser-local event results and do not mutate the workbook.",
       "League Finals completion does not create Week 25, a Closing Split, or post-finals league rosters.",
