@@ -39,6 +39,24 @@ function renderFinals() {
   );
 }
 
+function renderFinalsWithStandings(customStandings: StandingRow[]) {
+  window.localStorage.clear();
+  return render(
+    <TrackerStateProvider>
+      <LeagueFinals
+        completedThroughWeek={22}
+        leagueYear={2}
+        split="Opening Split"
+        standings={customStandings}
+        matches={[]}
+        results={[]}
+        matchupReference={[]}
+        hasLeagueFinalsTemplate
+      />
+    </TrackerStateProvider>,
+  );
+}
+
 async function hydratedSelects() {
   await waitFor(() => expect(screen.queryByText(/Loading League Finals state/i)).toBeNull());
   return screen.getAllByRole("combobox");
@@ -72,6 +90,16 @@ describe("League Finals result input", () => {
     expect(saveButtons[0]).toBeDisabled();
   });
 
+  it("enables Save after selecting a relegation No Contest result", async () => {
+    renderFinals();
+    const selects = await hydratedSelects();
+    const saveButtons = screen.getAllByRole("button", { name: "Save" });
+    fireEvent.change(selects[0], { target: { value: "no-contest" } });
+    expect(saveButtons[0]).toBeEnabled();
+    fireEvent.click(saveButtons[0]);
+    await waitFor(() => expect(screen.getByText("Saved: National 11 remains in the higher league")).toBeInTheDocument());
+  });
+
   it("keeps Night One completion disabled until all six Night One results are saved", async () => {
     renderFinals();
     const selects = await hydratedSelects();
@@ -102,5 +130,13 @@ describe("League Finals result input", () => {
     fireEvent.change(selects[11], { target: { value: "Global 1" } });
     fireEvent.click(screen.getAllByRole("button", { name: "Save" })[11]);
     await waitFor(() => expect(nightTwoComplete).toBeEnabled());
+  });
+
+  it("hides stale unresolved warnings and keeps rendered card inputs enabled for reviewed final standings", async () => {
+    renderFinalsWithStandings(standings);
+    const selects = await hydratedSelects();
+    expect(screen.getByText("Ready")).toBeInTheDocument();
+    expect(screen.queryByText(/consequential tiebreaker group\(s\) remain unresolved/i)).toBeNull();
+    expect(selects[0]).toBeEnabled();
   });
 });

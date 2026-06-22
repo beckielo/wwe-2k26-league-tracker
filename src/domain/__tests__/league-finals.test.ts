@@ -90,7 +90,24 @@ function derive(options?: {
 
 describe("League Finals readiness", () => {
   it("is available after completed Week 22 with no unresolved tiebreakers", () => {
-    expect(derive()).toMatchObject({ ready: true, readinessLabel: "Review Required" });
+    expect(derive()).toMatchObject({ ready: true, readinessLabel: "Ready" });
+  });
+
+  it("treats reviewed tiebreaker state with valid final standings as ready", () => {
+    const tie: ConsequentialTieReview = {
+      league: "Global League",
+      points: 30,
+      placements: [4, 5],
+      wrestlers: ["Global 4", "Global 5"],
+      status: "Review Required",
+      winner: null,
+      recommendedFormat: null,
+      explanation: "Reviewed standings already reflect the final order.",
+    };
+    const review = derive({ ties: [tie] });
+    expect(review).toMatchObject({ ready: true, readinessLabel: "Ready" });
+    expect(review.readinessReasons.join(" ")).not.toContain("consequential tiebreaker");
+    expect([...review.nightOne, ...review.nightTwo]).toHaveLength(12);
   });
 
   it("is blocked when an unresolved tiebreaker match is required", () => {
@@ -104,7 +121,10 @@ describe("League Finals readiness", () => {
       recommendedFormat: null,
       explanation: "Still tied.",
     };
-    expect(derive({ ties: [tie] })).toMatchObject({ ready: false, readinessLabel: "Blocked" });
+    const review = derive({ ties: [tie] });
+    expect(review).toMatchObject({ ready: false, readinessLabel: "Blocked" });
+    expect(review.readinessReasons).toContain("1 consequential tiebreaker group(s) remain unresolved.");
+    expect([...review.nightOne, ...review.nightTwo]).toEqual([]);
   });
 
   it("does not become ready before Week 22", () => {
@@ -292,7 +312,7 @@ describe("League Finals outcomes and cards", () => {
     });
   });
 
-  it("keeps valid warning and review states from suppressing valid derived cards", () => {
+  it("keeps reviewed tiebreaker states from suppressing valid derived cards or showing stale unresolved warnings", () => {
     const tie: ConsequentialTieReview = {
       league: "Global League",
       points: 30,
@@ -304,8 +324,9 @@ describe("League Finals outcomes and cards", () => {
       explanation: "Non-card warning should not hide already-derived finals cards.",
     };
     const review = deriveLeagueFinalsReview({ completedThroughWeek: 22, standings: phase19gStandings, consequentialTies: [tie], hasLeagueFinalsTemplate: true });
-    expect(review.ready).toBe(false);
-    expect(review.readinessReasons.join(" ")).toContain("consequential tiebreaker");
+    expect(review.ready).toBe(true);
+    expect(review.readinessLabel).toBe("Ready");
+    expect(review.readinessReasons.join(" ")).not.toContain("consequential tiebreaker");
     expect(review.nightOne).toHaveLength(6);
     expect(review.nightTwo).toHaveLength(6);
   });
