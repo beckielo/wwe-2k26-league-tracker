@@ -197,6 +197,55 @@ function relegationMatch(
   return { ...match, id: buildFinalsMatchId(match) };
 }
 
+/**
+ * Builds the single canonical 12-slot League Finals registry used for both
+ * result entry and Post-Finals reconciliation. This helper intentionally does
+ * not inspect readiness warnings (manual padding, DQ encoding, completion
+ * locks, browser-local storage, etc.) so those warnings cannot empty the
+ * authoritative slot registry when final live standings are otherwise valid.
+ */
+export function buildCanonicalLeagueFinalsRegistry(finalLiveStandings: StandingRow[]): LeagueFinalsMatch[] {
+  const relegationMatches = [
+    relegationMatch(finalLiveStandings, "Night One", 1, "National League", 11, "Regional League", 2),
+    relegationMatch(finalLiveStandings, "Night One", 2, "National League", 10, "Regional League", 3),
+    relegationMatch(finalLiveStandings, "Night One", 3, "National League", 9, "Regional League", 4),
+    relegationMatch(finalLiveStandings, "Night One", 4, "Continental League", 11, "National League", 2),
+    relegationMatch(finalLiveStandings, "Night One", 5, "Continental League", 10, "National League", 3),
+    relegationMatch(finalLiveStandings, "Night One", 6, "Continental League", 9, "National League", 4),
+    relegationMatch(finalLiveStandings, "Night Two", 1, "Global League", 11, "Continental League", 2),
+    relegationMatch(finalLiveStandings, "Night Two", 2, "Global League", 10, "Continental League", 3),
+    relegationMatch(finalLiveStandings, "Night Two", 3, "Global League", 9, "Continental League", 4),
+  ];
+  const eliteCupQualifiers = finalLiveStandings
+    .filter((row) => row.league === "Global League" && row.rank <= 4)
+    .sort((a, b) => a.rank - b.rank);
+  const eliteBase: Omit<LeagueFinalsMatch, "id">[] = [
+    {
+      night: "Night Two", matchNumber: 4, kind: "Elite Cup Semifinal",
+      wrestlerA: rowAt(finalLiveStandings, "Global League", 1)?.wrestler ?? null,
+      wrestlerB: rowAt(finalLiveStandings, "Global League", 4)?.wrestler ?? null,
+      higherLeague: null, lowerLeague: null, stipulation: "Steel Cage No Escape, Pin/Sub only",
+      resultMeaning: "Winner advances to the Global Elite Cup Final.", authoritative: eliteCupQualifiers.length === 4,
+      sourceLabel: "Final live standings after Week 22 lock: Global #1 vs Global #4",
+    },
+    {
+      night: "Night Two", matchNumber: 5, kind: "Elite Cup Semifinal",
+      wrestlerA: rowAt(finalLiveStandings, "Global League", 2)?.wrestler ?? null,
+      wrestlerB: rowAt(finalLiveStandings, "Global League", 3)?.wrestler ?? null,
+      higherLeague: null, lowerLeague: null, stipulation: "Steel Cage No Escape, Pin/Sub only",
+      resultMeaning: "Winner advances to the Global Elite Cup Final.", authoritative: eliteCupQualifiers.length === 4,
+      sourceLabel: "Final live standings after Week 22 lock: Global #2 vs Global #3",
+    },
+    {
+      night: "Night Two", matchNumber: 6, kind: "Elite Cup Final",
+      wrestlerA: null, wrestlerB: null, higherLeague: null, lowerLeague: null,
+      stipulation: "Steel Cage No Escape, Pin/Sub only", resultMeaning: "Winner becomes Global Elite Cup Winner.",
+      authoritative: true, sourceLabel: "Final live standings after Week 22 lock: winners of SF1 and SF2",
+    },
+  ];
+  return [...relegationMatches, ...eliteBase.map((match) => ({ ...match, id: buildFinalsMatchId(match) }))];
+}
+
 export function deriveLeagueFinalsFromFinalLiveStandings(input: LeagueFinalsInput): LeagueFinalsReview {
   const unresolvedTies = input.consequentialTies.filter((tie) => tie.status === "Tiebreaker Match Required");
   const completeStandings = leagueOrder.every(
@@ -231,45 +280,12 @@ export function deriveLeagueFinalsFromFinalLiveStandings(input: LeagueFinalsInpu
     });
   }
 
-  const relegationMatches = [
-    relegationMatch(input.standings, "Night One", 1, "National League", 11, "Regional League", 2),
-    relegationMatch(input.standings, "Night One", 2, "National League", 10, "Regional League", 3),
-    relegationMatch(input.standings, "Night One", 3, "National League", 9, "Regional League", 4),
-    relegationMatch(input.standings, "Night One", 4, "Continental League", 11, "National League", 2),
-    relegationMatch(input.standings, "Night One", 5, "Continental League", 10, "National League", 3),
-    relegationMatch(input.standings, "Night One", 6, "Continental League", 9, "National League", 4),
-    relegationMatch(input.standings, "Night Two", 1, "Global League", 11, "Continental League", 2),
-    relegationMatch(input.standings, "Night Two", 2, "Global League", 10, "Continental League", 3),
-    relegationMatch(input.standings, "Night Two", 3, "Global League", 9, "Continental League", 4),
-  ];
+  const canonicalRegistry = buildCanonicalLeagueFinalsRegistry(input.standings);
+  const relegationMatches = canonicalRegistry.filter((match) => match.kind === "Relegation");
   const eliteCupQualifiers = input.standings
     .filter((row) => row.league === "Global League" && row.rank <= 4)
     .sort((a, b) => a.rank - b.rank);
-  const eliteBase: Omit<LeagueFinalsMatch, "id">[] = [
-    {
-      night: "Night Two", matchNumber: 4, kind: "Elite Cup Semifinal",
-      wrestlerA: rowAt(input.standings, "Global League", 1)?.wrestler ?? null,
-      wrestlerB: rowAt(input.standings, "Global League", 4)?.wrestler ?? null,
-      higherLeague: null, lowerLeague: null, stipulation: "Steel Cage No Escape, Pin/Sub only",
-      resultMeaning: "Winner advances to the Global Elite Cup Final.", authoritative: eliteCupQualifiers.length === 4,
-      sourceLabel: "Final live standings after Week 22 lock: Global #1 vs Global #4",
-    },
-    {
-      night: "Night Two", matchNumber: 5, kind: "Elite Cup Semifinal",
-      wrestlerA: rowAt(input.standings, "Global League", 2)?.wrestler ?? null,
-      wrestlerB: rowAt(input.standings, "Global League", 3)?.wrestler ?? null,
-      higherLeague: null, lowerLeague: null, stipulation: "Steel Cage No Escape, Pin/Sub only",
-      resultMeaning: "Winner advances to the Global Elite Cup Final.", authoritative: eliteCupQualifiers.length === 4,
-      sourceLabel: "Final live standings after Week 22 lock: Global #2 vs Global #3",
-    },
-    {
-      night: "Night Two", matchNumber: 6, kind: "Elite Cup Final",
-      wrestlerA: null, wrestlerB: null, higherLeague: null, lowerLeague: null,
-      stipulation: "Steel Cage No Escape, Pin/Sub only", resultMeaning: "Winner becomes Global Elite Cup Winner.",
-      authoritative: true, sourceLabel: "Final live standings after Week 22 lock: winners of SF1 and SF2",
-    },
-  ];
-  const eliteMatches: LeagueFinalsMatch[] = eliteBase.map((match) => ({ ...match, id: buildFinalsMatchId(match) }));
+  const eliteMatches = canonicalRegistry.filter((match) => match.kind !== "Relegation");
   const relegationValidationErrors = relegationMatches.flatMap(validateLeagueFinalsMatchSource);
   readinessReasons.push(...relegationValidationErrors);
   const finalStandingsErrors = validateFinalStandingsSource(input.standings, input.completedThroughWeek);

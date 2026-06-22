@@ -80,6 +80,8 @@ export function PostFinalsTransitionView(props: Props) {
           <div><dt>Migrated legacy result keys</dt><dd>{transition.diagnostics.migratedLegacyResultKeysCount}</dd></div>
           <div><dt>Unmatched saved results</dt><dd>{transition.diagnostics.unmatchedSavedResultsCount}</dd></div>
           <div><dt>Missing authoritative finals</dt><dd>{transition.diagnostics.missingAuthoritativeFinalsCount}</dd></div>
+          <div><dt>Missing canonical IDs</dt><dd>{transition.diagnostics.missingCanonicalIds.join(", ") || "none"}</dd></div>
+          <div><dt>Extra unmatched saved IDs</dt><dd>{transition.diagnostics.extraUnmatchedSavedIds.join(", ") || "none"}</dd></div>
         </dl>
       </details>}
     </section>
