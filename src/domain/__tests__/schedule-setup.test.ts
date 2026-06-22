@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LEAGUE_NAMES, type LeagueName } from "../types";
-import { canActivateNextWeek, createAcceptedScheduleSnapshot, generateSchedule, getScheduleAcceptanceStatus, importScheduleJson, validateSchedule, type ScheduleSeed } from "../schedule-setup";
+import { canActivateNextWeek, createAcceptedScheduleSnapshot, generateSchedule, getCompletedRegularSeasonScheduleSetupStatus, getScheduleAcceptanceStatus, importScheduleJson, validateSchedule, type ScheduleSeed } from "../schedule-setup";
 
 const seeds = Object.fromEntries(LEAGUE_NAMES.map((league, leagueIndex) => [league, Array.from({ length: 12 }, (_, i) => ({ seed: i + 1, wrestler: `L${leagueIndex + 1} Wrestler ${i + 1}` }))])) as Record<LeagueName, ScheduleSeed[]>;
 const rosters = Object.fromEntries(LEAGUE_NAMES.map((league) => [league, seeds[league].map((row) => row.wrestler)])) as Record<LeagueName, string[]>;
@@ -123,4 +123,50 @@ describe("Phase 9.6 schedule setup", () => {
     expect(accepted.matches.every((match) => match.validationStatus === "Valid")).toBe(true);
     expect(canActivateNextWeek({ transitionValid: true, seedsValid: true, acceptedSchedule: accepted, target: "Closing Split Week 1" })).toBe(true);
   });
+
+  it("recovers schedule setup from accepted snapshot plus no preview after Closing Split Week 22 is locked", () => {
+    const preview = build();
+    const validation = validateSchedule(preview, { rosters });
+    const acceptedSchedule = createAcceptedScheduleSnapshot({ preview, validation, leagueYear: 2, split: "Closing Split" });
+    const state = {
+      version: 1 as const,
+      confirmedResults: preview.filter((match) => match.splitWeek === 22).map((match) => ({
+        league: match.league,
+        week: 46,
+        matchId: match.id,
+        wrestlerA: match.wrestlerA,
+        wrestlerB: match.wrestlerB,
+        resultType: "Winner" as const,
+        winner: match.wrestlerA,
+        source: "Simulation" as const,
+        confirmedAt: "2026-06-22T00:00:00.000Z",
+      })),
+      completedWeeks: [{ week: 46, completedAt: "2026-06-22T00:00:00.000Z" }],
+      lastExportedAt: null,
+      lastImportedAt: null,
+      leagueFinalsResults: [],
+      completedFinalsNights: [],
+      manualReviews: [],
+      acceptedSchedule,
+      activeWorkflow: {
+        leagueYear: 2,
+        split: "Closing Split" as const,
+        yearWeek: 46,
+        splitWeek: 22,
+        scheduleSource: "accepted generated snapshot" as const,
+        acceptedScheduleAt: acceptedSchedule.acceptedAt,
+        activatedAt: "2026-06-01T00:00:00.000Z",
+        userLeague: "National League" as const,
+      },
+    };
+
+    const status = getCompletedRegularSeasonScheduleSetupStatus(state);
+
+    expect(status.complete).toBe(true);
+    expect(status.recoveredState.activeWorkflow).toMatchObject({ yearWeek: 47, splitWeek: 23 });
+    expect(status.recoveredState.acceptedSchedule).toBe(acceptedSchedule);
+    expect(status.recoveredState.confirmedResults).toEqual(state.confirmedResults);
+    expect(status.message).toContain("No regular-season schedule preview is required");
+  });
+
 });
