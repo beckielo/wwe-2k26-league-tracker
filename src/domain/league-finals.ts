@@ -245,7 +245,8 @@ export function deriveLeagueFinalsFromFinalLiveStandings(input: LeagueFinalsInpu
   const eliteMatches: LeagueFinalsMatch[] = eliteBase.map((match) => ({ ...match, id: buildFinalsMatchId(match) }));
   const relegationValidationErrors = relegationMatches.flatMap(validateLeagueFinalsMatchSource);
   readinessReasons.push(...relegationValidationErrors);
-  const safeRelegationMatches = relegationValidationErrors.length ? [] : relegationMatches;
+  const canRenderDerivedCards = completeStandings && relegationValidationErrors.length === 0;
+  const safeRelegationMatches = canRenderDerivedCards ? relegationMatches : [];
   const reviewRequired = [];
   reviewRequired.push("DQ encoding: current event result model does not safely identify the wrestler who caused a DQ.");
   reviewRequired.push("Manual card padding required if WWE 2K requires more matches; no filler is generated.");
@@ -256,10 +257,10 @@ export function deriveLeagueFinalsFromFinalLiveStandings(input: LeagueFinalsInpu
     readinessReasons,
     champions,
     directMovements,
-    relegationMatches: readinessReasons.length ? [] : safeRelegationMatches,
+    relegationMatches: safeRelegationMatches,
     eliteCupQualifiers,
-    nightOne: readinessReasons.length ? [] : safeRelegationMatches.filter((match) => match.night === "Night One"),
-    nightTwo: readinessReasons.length ? [] : [...safeRelegationMatches.filter((match) => match.night === "Night Two"), ...eliteMatches],
+    nightOne: safeRelegationMatches.filter((match) => match.night === "Night One"),
+    nightTwo: canRenderDerivedCards ? [...safeRelegationMatches.filter((match) => match.night === "Night Two"), ...eliteMatches] : [],
     reviewRequired,
     sourceAudit: buildSourceAudit(input.standings),
     sourceWarnings: [
