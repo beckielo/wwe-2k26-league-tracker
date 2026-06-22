@@ -27,6 +27,54 @@ const standings: StandingRow[] = LEAGUE_NAMES.flatMap((league) =>
   })),
 );
 
+const phase19gPlacements: Record<string, Record<number, string>> = {
+  "Global League": {
+    1: "Gunther",
+    2: "Roman Reigns",
+    3: "Drew McIntyre",
+    4: "Cody Rhodes",
+    9: "John Cena",
+    10: "CM Punk",
+    11: "AJ Styles",
+    12: "Triple H",
+  },
+  "Continental League": {
+    1: "Randy Orton",
+    2: "Jacob Fatu",
+    3: "Bronson Reed",
+    4: "Shawn Michaels",
+    9: "Ilja Dragunov",
+    10: "Damian Priest",
+    11: "Kevin Owens",
+    12: "Undertaker",
+  },
+  "National League": {
+    1: "LA Knight",
+    2: "The Rock",
+    3: "Carmelo Hayes",
+    4: "Chad Gable",
+    9: "Shinsuke Nakamura",
+    10: "Pete Dunne",
+    11: "Penta",
+    12: "Rey Mysterio",
+  },
+  "Regional League": {
+    1: "Dragon Lee",
+    2: "The Miz",
+    3: "Trick Williams",
+    4: "Kofi Kingston",
+    9: "Johnny Gargano",
+    10: "Xavier Woods",
+    11: "Montez Ford",
+    12: "Axiom",
+  },
+};
+
+const phase19gStandings: StandingRow[] = standings.map((row) => ({
+  ...row,
+  wrestler: phase19gPlacements[row.league]?.[row.rank] ?? `${row.league.split(" ")[0]} Reserve ${row.rank}`,
+}));
+
 function derive(options?: {
   week?: number;
   ties?: ConsequentialTieReview[];
@@ -211,6 +259,68 @@ describe("League Finals outcomes and cards", () => {
     expect(review.ready).toBe(false);
     expect(review.readinessReasons).toContain("League Finals source standings are invalid or stale.");
     expect([...review.nightOne, ...review.nightTwo]).toEqual([]);
+  });
+
+  it("renders Phase 19G Night One cards from the corrected final standings placements", () => {
+    const review = deriveLeagueFinalsReview({ completedThroughWeek: 22, standings: phase19gStandings, consequentialTies: [], hasLeagueFinalsTemplate: true });
+    expect(review.nightOne).toHaveLength(6);
+    expect(review.nightOne.map((match) => [match.wrestlerA, match.wrestlerB])).toEqual([
+      ["Penta", "The Miz"],
+      ["Pete Dunne", "Trick Williams"],
+      ["Shinsuke Nakamura", "Kofi Kingston"],
+      ["Kevin Owens", "The Rock"],
+      ["Damian Priest", "Carmelo Hayes"],
+      ["Ilja Dragunov", "Chad Gable"],
+    ]);
+  });
+
+  it("renders Phase 19G Night Two cards and keeps the Elite Cup Final placeholder card", () => {
+    const review = deriveLeagueFinalsReview({ completedThroughWeek: 22, standings: phase19gStandings, consequentialTies: [], hasLeagueFinalsTemplate: true });
+    expect(review.nightTwo).toHaveLength(6);
+    expect(review.nightTwo.map((match) => [match.wrestlerA, match.wrestlerB])).toEqual([
+      ["AJ Styles", "Jacob Fatu"],
+      ["CM Punk", "Bronson Reed"],
+      ["John Cena", "Shawn Michaels"],
+      ["Gunther", "Cody Rhodes"],
+      ["Roman Reigns", "Drew McIntyre"],
+      [null, null],
+    ]);
+    expect(review.nightTwo[5]).toMatchObject({
+      kind: "Elite Cup Final",
+      authoritative: true,
+      resultMeaning: "Winner becomes Global Elite Cup Winner.",
+    });
+  });
+
+  it("keeps valid warning and review states from suppressing valid derived cards", () => {
+    const tie: ConsequentialTieReview = {
+      league: "Global League",
+      points: 30,
+      placements: [5, 6],
+      wrestlers: ["Global Reserve 5", "Global Reserve 6"],
+      status: "Review Required",
+      winner: null,
+      recommendedFormat: null,
+      explanation: "Non-card warning should not hide already-derived finals cards.",
+    };
+    const review = deriveLeagueFinalsReview({ completedThroughWeek: 22, standings: phase19gStandings, consequentialTies: [tie], hasLeagueFinalsTemplate: true });
+    expect(review.ready).toBe(false);
+    expect(review.readinessReasons.join(" ")).toContain("consequential tiebreaker");
+    expect(review.nightOne).toHaveLength(6);
+    expect(review.nightTwo).toHaveLength(6);
+  });
+
+  it("preserves corrected source sections while rendering Phase 19G cards", () => {
+    const review = deriveLeagueFinalsReview({ completedThroughWeek: 22, standings: phase19gStandings, consequentialTies: [], hasLeagueFinalsTemplate: true });
+    expect(review.champions).toEqual([
+      { league: "Global League", wrestler: "Gunther" },
+      { league: "Continental League", wrestler: "Randy Orton" },
+      { league: "National League", wrestler: "LA Knight" },
+      { league: "Regional League", wrestler: "Dragon Lee" },
+    ]);
+    expect(review.directMovements.filter((movement) => movement.reason === "Direct promotion").map((movement) => movement.wrestler)).toEqual(["Randy Orton", "LA Knight", "Dragon Lee"]);
+    expect(review.directMovements.filter((movement) => movement.reason === "Direct relegation").map((movement) => movement.wrestler)).toEqual(["Triple H", "Undertaker", "Rey Mysterio"]);
+    expect(review.eliteCupQualifiers.map((row) => row.wrestler)).toEqual(["Gunther", "Roman Reigns", "Drew McIntyre", "Cody Rhodes"]);
   });
 
   it("keys saved results with stable participant-aware match IDs", () => {
