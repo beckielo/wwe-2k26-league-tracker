@@ -122,6 +122,23 @@ export function buildLeagueFinalsMatchIdentity(match: LeagueFinalsMatch): string
   ].map(finalsIdentityPart).join(":");
 }
 
+export function buildLeagueFinalsResultIdentity(
+  match: LeagueFinalsMatch,
+  results: LeagueFinalsResult[] = [],
+): string {
+  const [participantA, participantB] = resolveFinalsParticipants(match, results);
+  return [
+    "league-finals",
+    match.night,
+    match.kind,
+    match.matchNumber,
+    match.higherLeague,
+    match.lowerLeague,
+    participantA,
+    participantB,
+  ].map(finalsIdentityPart).join(":");
+}
+
 const allowedRelegationPairs = new Set([
   "National League->Regional League",
   "Continental League->National League",
@@ -275,9 +292,14 @@ export function resolveFinalsParticipants(
   results: LeagueFinalsResult[],
 ): [string | null, string | null] {
   if (match.kind !== "Elite Cup Final") return [match.wrestlerA, match.wrestlerB];
+  const semifinalWinners = results.filter((result) => (
+    result.resultType === "Winner"
+    && result.winner
+    && result.matchId.includes("night-two:elite-cup-semifinal")
+  ));
   return [
-    results.find((result) => result.matchId.includes("elite-cup-semifinal") && result.matchId.includes("4"))?.winner ?? null,
-    results.find((result) => result.matchId.includes("elite-cup-semifinal") && result.matchId.includes("5"))?.winner ?? null,
+    semifinalWinners.find((result) => result.matchId.includes(":4:"))?.winner ?? null,
+    semifinalWinners.find((result) => result.matchId.includes(":5:"))?.winner ?? null,
   ];
 }
 
@@ -288,10 +310,10 @@ export function validateLeagueFinalsResult(
 ): string[] {
   const match = matches.find((candidate) => candidate.id === result.matchId);
   if (!match || !match.authoritative) return [`${result.matchId}: League Finals match is not authoritative or confirmed.`];
-  if (result.matchIdentity && result.matchIdentity !== buildLeagueFinalsMatchIdentity(match)) {
+  const participants = resolveFinalsParticipants(match, existingResults);
+  if (result.matchIdentity && result.matchIdentity !== buildLeagueFinalsResultIdentity(match, existingResults)) {
     return [`${result.matchId}: saved result belongs to a different League Finals matchup.`];
   }
-  const participants = resolveFinalsParticipants(match, existingResults);
   if (participants.some((participant) => !participant)) return [`${result.matchId}: participants are not yet resolved.`];
   if (result.resultType === "Winner" && !participants.includes(result.winner)) {
     return [`${result.matchId}: winner must be one of the derived participants.`];
@@ -319,7 +341,7 @@ export function sanitizeLeagueFinalsResults(
       const participants = resolveFinalsParticipants(match, participantResults);
       if (!participants.includes(result.winner)) continue;
     }
-    sanitized.push(result.matchIdentity ? result : { ...result, matchIdentity: buildLeagueFinalsMatchIdentity(match) });
+    sanitized.push(result.matchIdentity ? result : { ...result, matchIdentity: buildLeagueFinalsResultIdentity(match, participantResults) });
   }
   return sanitized;
 }

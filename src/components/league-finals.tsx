@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
-  buildLeagueFinalsMatchIdentity,
+  buildLeagueFinalsResultIdentity,
   deriveLeagueFinalsFromFinalLiveStandings,
   resolveFinalsParticipants,
   sanitizeLeagueFinalsResults,
@@ -48,6 +48,7 @@ function MatchCard({
   const [participantA, participantB] = resolveFinalsParticipants(match, results);
   const [selection, setSelection] = useState(existing?.resultType === "No Contest" ? "no-contest" : existing?.winner ?? "");
   const participantsReady = Boolean(participantA && participantB);
+  const canSelectResult = !disabled && participantsReady;
   const [reviewNote, setReviewNote] = useState("");
 
   return <article className="border border-white/10 bg-white/[.025] p-4">
@@ -66,13 +67,14 @@ function MatchCard({
     </div>
     <p className="mt-3 text-xs text-slate-400">{match.stipulation} · {match.resultMeaning}</p>
     <p className="mt-1 text-[10px] text-slate-600">{match.sourceLabel}</p>
+    {match.kind === "Elite Cup Final" && !participantsReady && <p className="mt-3 text-xs font-bold text-amber-300">Complete semifinals first.</p>}
     <div className="mt-4 flex gap-2">
       <select
         aria-label={`Result for ${match.id}`}
         value={selection}
-        disabled={disabled || !participantsReady}
+        disabled={!canSelectResult}
         onChange={(event) => setSelection(event.target.value)}
-        className="min-w-0 flex-1 border border-white/10 bg-[#080b11] px-3 py-2 text-sm disabled:opacity-50"
+        className="min-w-0 flex-1 rounded-md border border-white/10 bg-[#080b11] px-3 py-2 text-sm text-slate-100 shadow-inner outline-none ring-0 focus:border-red-400 focus:ring-2 focus:ring-red-500/30 disabled:cursor-not-allowed disabled:opacity-50 [&_option]:bg-[#080b11] [&_option]:text-slate-100"
       >
         <option value="">Select result</option>
         {participantA && <option value={participantA}>{participantA} wins</option>}
@@ -81,13 +83,13 @@ function MatchCard({
       </select>
       <button
         type="button"
-        disabled={disabled || !selection || !participantsReady}
+        disabled={!canSelectResult || !selection || selection === (existing?.resultType === "No Contest" ? "no-contest" : existing?.winner ?? "")}
         onClick={() => onSave({
           matchId: match.id,
           resultType: selection === "no-contest" ? "No Contest" : "Winner",
           winner: selection === "no-contest" ? null : selection,
           confirmedAt: new Date().toISOString(),
-          matchIdentity: buildLeagueFinalsMatchIdentity(match),
+          matchIdentity: buildLeagueFinalsResultIdentity(match, results),
         })}
         className="bg-red-500 px-4 py-2 text-xs font-black uppercase disabled:cursor-not-allowed disabled:opacity-40"
       >
@@ -246,10 +248,11 @@ export function LeagueFinals(props: LeagueFinalsProps) {
     {(["Night One", "Night Two"] as const).map((night) => {
       const card = night === "Night One" ? review.nightOne : review.nightTwo;
       const complete = completedNights.some((entry) => entry.night === night);
+      const completionErrors = validateFinalsNightCompletion(night, allCardMatches, finalsResults, state.manualReviews ?? []);
       return <section key={night} className="finals-night-panel border border-white/10 bg-[#111722]">
         <div className="flex items-center justify-between gap-5 border-b border-white/10 p-6">
           <EventBrandPanel night={night} />
-          <button type="button" disabled={!review.ready || complete} onClick={() => completeNight(night)} className="border border-white/20 px-4 py-2 text-xs font-black uppercase disabled:opacity-40">{complete ? "Complete" : `Mark ${night} complete`}</button>
+          <button type="button" disabled={!review.ready || complete || completionErrors.length > 0} onClick={() => completeNight(night)} className="border border-white/20 px-4 py-2 text-xs font-black uppercase disabled:cursor-not-allowed disabled:opacity-40">{complete ? "Complete" : `Mark ${night} complete`}</button>
         </div>
         <div className="grid gap-4 p-6 lg:grid-cols-2">
           {card.map((match) => <div key={match.id}><MatchCard match={match} results={finalsResults} disabled={!review.ready || complete} onSave={saveResult} onReview={openReview} />
