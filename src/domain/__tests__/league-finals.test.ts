@@ -88,7 +88,7 @@ describe("League Finals outcomes and cards", () => {
     });
     const review = deriveLeagueFinalsReview({ completedThroughWeek: 22, standings: reviewed, consequentialTies: [], hasLeagueFinalsTemplate: true });
     expect(review.champions[0]).toEqual({ league: "Global League", wrestler: "Reviewed Global #1" });
-    expect(review.nightTwo.find((match) => match.id === "finals-elite-cup-sf1")).toMatchObject({ wrestlerA: "Reviewed Global #1", wrestlerB: "Reviewed Global #4" });
+    expect(review.nightTwo.find((match) => match.kind === "Elite Cup Semifinal" && match.matchNumber === 4)).toMatchObject({ wrestlerA: "Reviewed Global #1", wrestlerB: "Reviewed Global #4" });
   });
   it("derives direct promotions from lower-league #1 wrestlers", () => {
     expect(derive().directMovements.filter((movement) => movement.reason === "Direct promotion"))
@@ -128,19 +128,19 @@ describe("League Finals outcomes and cards", () => {
     expect(review.eliteCupQualifiers.map((row) => row.wrestler)).toEqual(["Global 1", "Global 2", "Global 3", "Global 4"]);
   });
 
-  it("uses workbook template semifinal pairings and labels their source", () => {
+  it("derives Elite Cup semifinal pairings directly from final Global standings", () => {
     const semifinals = derive().nightTwo.filter((match) => match.kind === "Elite Cup Semifinal");
     expect(semifinals.map((match) => [match.wrestlerA, match.wrestlerB])).toEqual([
       ["Global 1", "Global 4"],
       ["Global 2", "Global 3"],
     ]);
-    expect(semifinals.every((match) => match.sourceLabel.startsWith("PPV_Template_Layout"))).toBe(true);
+    expect(semifinals.every((match) => match.sourceLabel.startsWith("Final Week 22 standings"))).toBe(true);
   });
 
-  it("shows Review Required rather than guessing semifinals when the template is missing", () => {
+  it("does not use a missing old template to block final-standings Elite Cup semifinals", () => {
     const review = derive({ template: false });
-    expect(review.nightTwo.filter((match) => match.kind === "Elite Cup Semifinal")).toHaveLength(0);
-    expect(review.reviewRequired.join(" ")).toContain("no authoritative source template");
+    expect(review.nightTwo.filter((match) => match.kind === "Elite Cup Semifinal")).toHaveLength(2);
+    expect(review.reviewRequired.join(" ")).not.toContain("no authoritative source template");
     expect(review.eliteCupQualifiers).toHaveLength(4);
   });
 
@@ -150,6 +150,42 @@ describe("League Finals outcomes and cards", () => {
     expect(review.reviewRequired).toContain("Manual card padding required if WWE 2K requires more matches; no filler is generated.");
     expect(review).not.toHaveProperty("week25");
     expect(review).not.toHaveProperty("closingSplitRoster");
+  });
+
+  it("derives Night One exactly from lower and middle transition ranks", () => {
+    expect(derive().nightOne.map((match) => [match.wrestlerA, match.wrestlerB])).toEqual([
+      ["National 11", "Regional 2"],
+      ["National 10", "Regional 3"],
+      ["National 9", "Regional 4"],
+      ["Continental 11", "National 2"],
+      ["Continental 10", "National 3"],
+      ["Continental 9", "National 4"],
+    ]);
+  });
+
+  it("derives Night Two exactly from upper transition ranks and Global Elite Cup structure", () => {
+    expect(derive().nightTwo.map((match) => [match.wrestlerA, match.wrestlerB])).toEqual([
+      ["Global 11", "Continental 2"],
+      ["Global 10", "Continental 3"],
+      ["Global 9", "Continental 4"],
+      ["Global 1", "Global 4"],
+      ["Global 2", "Global 3"],
+      [null, null],
+    ]);
+  });
+
+  it("blocks card generation for invalid or stale final standings sources", () => {
+    const stale = standings.filter((row) => !(row.league === "Regional League" && row.rank === 12));
+    const review = deriveLeagueFinalsReview({ completedThroughWeek: 21, standings: stale, consequentialTies: [], hasLeagueFinalsTemplate: false });
+    expect(review.ready).toBe(false);
+    expect(review.readinessReasons).toContain("League Finals source standings are invalid or stale.");
+    expect([...review.nightOne, ...review.nightTwo]).toEqual([]);
+  });
+
+  it("keys saved results with stable participant-aware match IDs", () => {
+    const match = derive().nightOne[0];
+    expect(match.id).toContain("national-11");
+    expect(match.id).toContain("regional-2");
   });
 });
 

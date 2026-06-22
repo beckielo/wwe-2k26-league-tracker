@@ -35,8 +35,8 @@ const finalsMatches = [...finals.nightOne, ...finals.nightTwo];
 function completedResults(): LeagueFinalsResult[] {
   const results: LeagueFinalsResult[] = [];
   for (const match of finalsMatches) {
-    const winner = match.id === "finals-elite-cup-final"
-      ? results.find((result) => result.matchId === "finals-elite-cup-sf1")?.winner ?? null
+    const winner = match.kind === "Elite Cup Final"
+      ? results.find((result) => result.matchId === finalsMatches.find((candidate) => candidate.kind === "Elite Cup Semifinal" && candidate.matchNumber === 4)?.id)?.winner ?? null
       : match.wrestlerA;
     results.push({ matchId: match.id, resultType: "Winner", winner, confirmedAt: "2026-06-14T00:00:00.000Z" });
   }
