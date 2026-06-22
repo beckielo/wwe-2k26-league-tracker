@@ -6,6 +6,7 @@ import {
   relegationHigherLeagueWrestler,
   normalizeLeagueFinalsResults,
   normalizeWrestlerNameForMatch,
+  parseLeagueFinalsSavedOutcome,
   sanitizeLeagueFinalsResults,
   validateFinalsNightCompletion,
   validateLeagueFinalsMatchSource,
@@ -605,6 +606,53 @@ describe("League Finals result resolution", () => {
 
     expect(validateLeagueFinalsResult(finalResult, matches, normalized.results)).toEqual([]);
     expect(normalized.staleMetadataIgnoredKeys).toContain("league-finals:night-two:match-6");
+  });
+
+
+  it("parses saved outcome labels, side selections, indexes, and No Contest rules", () => {
+    const review = derive();
+    const match = review.relegationMatches[0];
+    expect(parseLeagueFinalsSavedOutcome({ matchId: match.id, resultType: "Winner", winner: `${match.wrestlerA} wins`, confirmedAt: "x" }, match)).toEqual({ type: "winner", winner: match.wrestlerA });
+    expect(parseLeagueFinalsSavedOutcome({ matchId: match.id, resultType: "Winner", winner: `#11 ${match.wrestlerA} wins`, confirmedAt: "x" }, match)).toEqual({ type: "winner", winner: match.wrestlerA });
+    expect(parseLeagueFinalsSavedOutcome({ matchId: match.id, resultType: "Winner", winner: `  ${match.wrestlerB.toUpperCase()}  `, confirmedAt: "x" }, match)).toEqual({ type: "winner", winner: match.wrestlerB });
+    expect(parseLeagueFinalsSavedOutcome({ matchId: match.id, resultType: "Winner", winner: "stale", winnerSide: "A", confirmedAt: "x" }, match)).toEqual({ type: "winner", winner: match.wrestlerA });
+    expect(parseLeagueFinalsSavedOutcome({ matchId: match.id, resultType: "Winner", winner: "stale", selectedSide: "right", confirmedAt: "x" }, match)).toEqual({ type: "winner", winner: match.wrestlerB });
+    expect(parseLeagueFinalsSavedOutcome({ matchId: match.id, resultType: "Winner", winner: "stale", winnerIndex: 0, confirmedAt: "x" }, match)).toEqual({ type: "winner", winner: match.wrestlerA });
+    expect(parseLeagueFinalsSavedOutcome({ matchId: match.id, resultType: "Winner", winner: "stale", winnerIndex: 1, confirmedAt: "x" }, match)).toEqual({ type: "winner", winner: match.wrestlerB });
+    expect(parseLeagueFinalsSavedOutcome({ matchId: match.id, resultType: "Winner", winner: null, selectedResult: "no-contest", confirmedAt: "x" }, match)).toEqual({ type: "no-contest" });
+
+    const elite = review.nightTwo.find((candidate) => candidate.kind === "Elite Cup Semifinal")!;
+    expect(parseLeagueFinalsSavedOutcome({ matchId: elite.id, resultType: "Winner", winner: null, outcome: "No Contest", confirmedAt: "x" }, elite)).toEqual({ type: "invalid", reason: "No Contest fallback is only defined here for relegation matches" });
+  });
+
+  it("parses actual League Finals select option payload shape from selectedResult without user re-entry", () => {
+    const review = derive();
+    const matches = [...review.nightOne, ...review.nightTwo];
+    const seeded: LeagueFinalsResult[] = [];
+    const selectedWinners = new Map<string, string | null>();
+    for (const match of matches) {
+      const [participantA, participantB] = match.kind === "Elite Cup Final"
+        ? [selectedWinners.get("league-finals:night-two:match-4") ?? null, selectedWinners.get("league-finals:night-two:match-5") ?? null]
+        : [match.wrestlerA, match.wrestlerB];
+      const winner = match.matchNumber % 2 === 0 ? participantB : participantA;
+      selectedWinners.set(match.id, winner);
+      seeded.push({
+        matchId: match.id,
+        resultType: "Winner",
+        winner: null,
+        selectedResult: `${winner} wins`,
+        label: `${winner} wins`,
+        value: winner,
+        participantSnapshot: { a: participantA, b: participantB, stale: true },
+        confirmedAt: "2026-06-22T00:00:00.000Z",
+      });
+    }
+
+    const normalized = normalizeLeagueFinalsResults(matches, seeded);
+
+    expect(normalized.results).toHaveLength(12);
+    expect(normalized.results.every((result) => validateLeagueFinalsResult(result, matches, normalized.results).length === 0)).toBe(true);
+    expect(normalized.repairedPayloads).toHaveLength(12);
   });
 
   it("does not perform Phase 9B behavior when both cards can complete", () => {

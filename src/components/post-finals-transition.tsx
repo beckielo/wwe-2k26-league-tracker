@@ -79,15 +79,17 @@ export function PostFinalsTransitionView(props: Props) {
           <div><dt>Saved result keys</dt><dd>{transition.diagnostics.savedLeagueFinalsResultKeys.join(", ") || "none"}</dd></div>
           <div><dt>Canonical match IDs</dt><dd>{transition.diagnostics.canonicalAuthoritativeFinalsMatchIds.join(", ") || "none"}</dd></div>
           <div><dt>Saved canonical IDs found</dt><dd>{transition.diagnostics.savedCanonicalIdsFound.join(", ") || "none"}</dd></div>
+          <div><dt>Parsed valid results</dt><dd>{transition.diagnostics.parsedValidResultsCount}</dd></div>
+          <div><dt>Invalid results</dt><dd>{transition.diagnostics.invalidWinnerOutcomeCount}</dd></div>
           <div><dt>Repaired payloads</dt><dd>{transition.diagnostics.repairedPayloadCount}</dd></div>
           <div><dt>Stale metadata ignored</dt><dd>{transition.diagnostics.staleMetadataIgnoredCount}</dd></div>
-          <div><dt>Invalid winner/outcome</dt><dd>{transition.diagnostics.invalidWinnerOutcomeCount}</dd></div>
           <div><dt>Migrated legacy result keys</dt><dd>{transition.diagnostics.migratedLegacyResultKeysCount}</dd></div>
           <div><dt>Unmatched saved results</dt><dd>{transition.diagnostics.unmatchedSavedResultsCount}</dd></div>
           <div><dt>Missing authoritative finals</dt><dd>{transition.diagnostics.missingAuthoritativeFinalsCount}</dd></div>
           <div><dt>Missing canonical IDs</dt><dd>{transition.diagnostics.missingCanonicalIds.join(", ") || "none"}</dd></div>
           <div><dt>Extra unmatched saved IDs</dt><dd>{transition.diagnostics.extraUnmatchedSavedIds.join(", ") || "none"}</dd></div>
         </dl>
+        {transition.diagnostics.invalidWinnerOutcomeCount > 0 && <pre className="mt-3 overflow-auto whitespace-pre-wrap border border-white/10 bg-black/20 p-3 text-[10px] text-slate-300">{JSON.stringify(transition.diagnostics.resultWinnerReconciliation.filter((row) => row.validationReason), null, 2)}</pre>}
       </details>}
     </section>
 
