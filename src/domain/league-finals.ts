@@ -186,9 +186,7 @@ function relegationMatch(
 }
 
 export function deriveLeagueFinalsFromFinalLiveStandings(input: LeagueFinalsInput): LeagueFinalsReview {
-  const unresolvedTies = input.consequentialTies.filter(
-    (tie) => tie.status === "Tiebreaker Match Required" || tie.status === "Review Required",
-  );
+  const unresolvedTies = input.consequentialTies.filter((tie) => tie.status === "Tiebreaker Match Required");
   const completeStandings = leagueOrder.every(
     (league) => Array.from({ length: 12 }, (_, index) => rowAt(input.standings, league, index + 1)).every(Boolean),
   );
@@ -262,7 +260,7 @@ export function deriveLeagueFinalsFromFinalLiveStandings(input: LeagueFinalsInpu
   const eliteMatches: LeagueFinalsMatch[] = eliteBase.map((match) => ({ ...match, id: buildFinalsMatchId(match) }));
   const relegationValidationErrors = relegationMatches.flatMap(validateLeagueFinalsMatchSource);
   readinessReasons.push(...relegationValidationErrors);
-  const canRenderDerivedCards = completeStandings && relegationValidationErrors.length === 0;
+  const canRenderDerivedCards = completeStandings && relegationValidationErrors.length === 0 && unresolvedTies.length === 0;
   const safeRelegationMatches = canRenderDerivedCards ? relegationMatches : [];
   const reviewRequired = [];
   reviewRequired.push("DQ encoding: current event result model does not safely identify the wrestler who caused a DQ.");
@@ -270,7 +268,7 @@ export function deriveLeagueFinalsFromFinalLiveStandings(input: LeagueFinalsInpu
 
   return {
     ready: readinessReasons.length === 0,
-    readinessLabel: readinessReasons.length ? "Blocked" : reviewRequired.length ? "Review Required" : "Ready",
+    readinessLabel: readinessReasons.length ? "Blocked" : "Ready",
     readinessReasons,
     champions,
     directMovements,
