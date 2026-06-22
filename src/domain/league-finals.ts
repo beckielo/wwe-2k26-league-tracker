@@ -33,7 +33,14 @@ export interface LeagueFinalsResult {
   winnerSide?: string | number | null;
   selectedParticipant?: string | number | null;
   selectedSide?: string | number | null;
+  participantSide?: string | number | null;
   winnerIndex?: number | null;
+  winnerName?: string | null;
+  selectedWinner?: string | null;
+  selectedResult?: string | null;
+  result?: string | null;
+  value?: string | number | null;
+  selection?: string | number | null;
 }
 
 export interface DirectMovement {
@@ -349,39 +356,71 @@ export function resolveFinalsParticipants(
   ];
 }
 
-export function normalizeWrestlerNameForMatch(value: string | null | undefined): string {
+export function normalizeWrestlerNameForMatch(value: string | number | null | undefined): string {
   return `${value ?? ""}`
     .replace(/\([^)]*\)/g, " ")
     .replace(/\[[^\]]*\]/g, " ")
+    .replace(/^\s*winner\s*:\s*/i, "")
     .replace(/^\s*#\d+\s+/, "")
     .replace(/\s+(?:wins?|defeats?|advances?|retains?)\s*$/i, "")
+    .replace(/^[\s:;,.#-]+|[\s:;,.#-]+$/g, "")
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
 }
 
+export type ParsedLeagueFinalsSavedOutcome =
+  | { type: "winner"; winner: string }
+  | { type: "no-contest" }
+  | { type: "invalid"; reason: string };
+
 function selectedSideFromSavedResult(result: LeagueFinalsResult): "A" | "B" | null {
-  const sideValue = result.winnerSide ?? result.selectedParticipant ?? result.selectedSide ?? result.winnerIndex;
-  if (sideValue === 0 || `${sideValue}`.trim().toLowerCase() === "0" || `${sideValue}`.trim().toLowerCase() === "a") return "A";
-  if (sideValue === 1 || `${sideValue}`.trim().toLowerCase() === "1" || `${sideValue}`.trim().toLowerCase() === "b") return "B";
+  const sideValue = result.winnerSide ?? result.selectedSide ?? result.participantSide ?? result.selectedParticipant ?? result.winnerIndex;
+  const normalized = `${sideValue ?? ""}`.trim().toLowerCase();
+  if (sideValue === 0 || normalized === "0" || normalized === "a" || normalized === "left" || normalized === "participant-a" || normalized === "wrestlera") return "A";
+  if (sideValue === 1 || normalized === "1" || normalized === "b" || normalized === "right" || normalized === "participant-b" || normalized === "wrestlerb") return "B";
   return null;
 }
 
-function reconcileResultWinner(result: LeagueFinalsResult, match: LeagueFinalsMatch, allResults: LeagueFinalsResult[]): { winner: string | null; repaired: boolean } {
-  if (result.resultType !== "Winner") return { winner: null, repaired: result.winner !== null };
-  const [participantA, participantB] = resolveFinalsParticipants(match, allResults);
-  const side = selectedSideFromSavedResult(result);
-  if (side === "A" && participantA) return { winner: participantA, repaired: result.winner !== participantA };
-  if (side === "B" && participantB) return { winner: participantB, repaired: result.winner !== participantB };
+function isNoContestValue(value: unknown): boolean {
+  const normalized = `${value ?? ""}`.trim().replace(/[\s_-]+/g, "").toLowerCase();
+  return normalized === "nocontest" || normalized === "nc" || normalized === "unclear";
+}
 
-  const normalizedWinner = normalizeWrestlerNameForMatch(result.winner);
-  if (normalizedWinner && participantA && normalizedWinner === normalizeWrestlerNameForMatch(participantA)) {
-    return { winner: participantA, repaired: result.winner !== participantA };
+function savedOutcomeCandidates(result: LeagueFinalsResult): unknown[] {
+  return [result.winner, result.winnerName, result.selectedWinner, result.selectedResult, result.result, result.outcome, result.value, result.label, result.selection, result.resultType];
+}
+
+export function parseLeagueFinalsSavedOutcome(
+  savedResult: LeagueFinalsResult,
+  authoritativeMatch: LeagueFinalsMatch,
+  allResults: LeagueFinalsResult[] = [],
+): ParsedLeagueFinalsSavedOutcome {
+  const [participantA, participantB] = resolveFinalsParticipants(authoritativeMatch, allResults);
+  if (!participantA || !participantB) return { type: "invalid", reason: "participants are not yet resolved" };
+  if (!["Winner", "No Contest"].includes(savedResult.resultType as string)) {
+    return { type: "invalid", reason: "DQ/unsupported ending is ambiguous without caused-by-wrestler metadata" };
   }
-  if (normalizedWinner && participantB && normalizedWinner === normalizeWrestlerNameForMatch(participantB)) {
-    return { winner: participantB, repaired: result.winner !== participantB };
+
+  if (savedOutcomeCandidates(savedResult).some(isNoContestValue)) {
+    return authoritativeMatch.kind === "Relegation"
+      ? { type: "no-contest" }
+      : { type: "invalid", reason: "No Contest fallback is only defined here for relegation matches" };
   }
-  return { winner: result.winner, repaired: false };
+
+  const side = selectedSideFromSavedResult(savedResult);
+  if (side === "A") return { type: "winner", winner: participantA };
+  if (side === "B") return { type: "winner", winner: participantB };
+
+  const normalizedA = normalizeWrestlerNameForMatch(participantA);
+  const normalizedB = normalizeWrestlerNameForMatch(participantB);
+  for (const candidate of savedOutcomeCandidates(savedResult)) {
+    const normalized = normalizeWrestlerNameForMatch(candidate as string | number | null | undefined);
+    if (!normalized) continue;
+    if (normalized === normalizedA) return { type: "winner", winner: participantA };
+    if (normalized === normalizedB) return { type: "winner", winner: participantB };
+  }
+  return { type: "invalid", reason: "winner must be one of the derived participants" };
 }
 
 export function validateLeagueFinalsResult(
@@ -391,16 +430,10 @@ export function validateLeagueFinalsResult(
 ): string[] {
   const match = matches.find((candidate) => candidate.id === result.matchId);
   if (!match || !match.authoritative) return [`${result.matchId}: League Finals match is not authoritative or confirmed.`];
-  if (result.resultType === "No Contest" && result.winner !== null) {
+  const parsed = parseLeagueFinalsSavedOutcome(result, match, existingResults);
+  if (parsed.type === "invalid") return [`${result.matchId}: ${parsed.reason}.`];
+  if (parsed.type === "no-contest" && result.winner !== null && result.winner !== undefined && !isNoContestValue(result.winner)) {
     return [`${result.matchId}: No Contest cannot have a winner.`];
-  }
-  if (result.resultType === "No Contest" && match.kind !== "Relegation") {
-    return [`${result.matchId}: No Contest fallback is only defined here for relegation matches.`];
-  }
-  const participants = resolveFinalsParticipants(match, existingResults);
-  if (participants.some((participant) => !participant)) return [`${result.matchId}: participants are not yet resolved.`];
-  if (result.resultType === "Winner" && !participants.includes(reconcileResultWinner(result, match, existingResults).winner)) {
-    return [`${result.matchId}: winner must be one of the derived participants.`];
   }
   return [];
 }
@@ -413,8 +446,16 @@ export interface LeagueFinalsResultReconciliationDiagnostic {
   savedParticipantSnapshot: unknown;
   authoritativeParticipantA: string | null;
   authoritativeParticipantB: string | null;
+  rawSavedObject: unknown;
+  rawSavedSelectedOption: string | number | null;
+  rawSavedResult: string | number | null;
+  rawWinnerSide: string | number | null;
+  rawSelectedSide: string | number | null;
+  rawParticipantSide: string | number | null;
+  rawWinnerIndex: number | null;
   normalizedWinner: string;
   repairedWinner: string | null;
+  validationReason: string | null;
 }
 
 export interface LeagueFinalsResultsNormalization {
@@ -478,9 +519,12 @@ export function normalizeLeagueFinalsResults(
         .map((candidate) => candidate.matchId === result.matchId ? { ...candidate, matchId: match.id } : candidate),
     ];
     const [participantA, participantB] = resolveFinalsParticipants(match, allResultsForParticipants);
-    const reconciledWinner = reconcileResultWinner(result, match, allResultsForParticipants);
-    if (reconciledWinner.repaired) repairedPayloads.push(match.id);
-    if (result.resultType === "No Contest" && match.kind === "Relegation" && result.winner === null) noContestAcceptedKeys.push(match.id);
+    const parsedOutcome = parseLeagueFinalsSavedOutcome(result, match, allResultsForParticipants);
+    const normalizedResultType: FinalsResultType = parsedOutcome.type === "no-contest" ? "No Contest" : "Winner";
+    const repairedWinner = parsedOutcome.type === "winner" ? parsedOutcome.winner : null;
+    const repairedOutcome = parsedOutcome.type === "invalid" ? null : parsedOutcome.type;
+    if (parsedOutcome.type !== "invalid" && (result.resultType !== normalizedResultType || result.winner !== repairedWinner || result.outcome !== repairedOutcome)) repairedPayloads.push(match.id);
+    if (parsedOutcome.type === "no-contest") noContestAcceptedKeys.push(match.id);
     winnerReconciliationDiagnostics.push({
       canonicalResultId: match.id,
       rawSavedWinner: result.winner,
@@ -489,13 +533,23 @@ export function normalizeLeagueFinalsResults(
       savedParticipantSnapshot: result.participantSnapshot ?? null,
       authoritativeParticipantA: participantA,
       authoritativeParticipantB: participantB,
-      normalizedWinner: normalizeWrestlerNameForMatch(result.winner),
-      repairedWinner: reconciledWinner.winner,
+      rawSavedObject: result,
+      rawSavedSelectedOption: result.selectedResult ?? result.selectedWinner ?? result.selection ?? result.value ?? null,
+      rawSavedResult: result.result ?? result.resultType ?? null,
+      rawWinnerSide: result.winnerSide ?? null,
+      rawSelectedSide: result.selectedSide ?? null,
+      rawParticipantSide: result.participantSide ?? null,
+      rawWinnerIndex: result.winnerIndex ?? null,
+      normalizedWinner: normalizeWrestlerNameForMatch(result.winner ?? result.winnerName ?? result.selectedWinner ?? result.selectedResult ?? result.result ?? result.outcome ?? result.value ?? result.label ?? result.selection),
+      repairedWinner,
+      validationReason: parsedOutcome.type === "invalid" ? parsedOutcome.reason : null,
     });
     normalized.set(match.id, {
       ...result,
       matchId: match.id,
-      winner: reconciledWinner.winner,
+      resultType: parsedOutcome.type === "invalid" ? result.resultType : normalizedResultType,
+      winner: parsedOutcome.type === "invalid" ? result.winner : repairedWinner,
+      outcome: parsedOutcome.type === "invalid" ? result.outcome : repairedOutcome,
       matchIdentity: currentIdentity,
     });
   }

@@ -85,6 +85,7 @@ export interface PostFinalsTransition {
     extraUnmatchedSavedIds: string[];
     savedCanonicalIdsFound: string[];
     repairedPayloadCount: number;
+    parsedValidResultsCount: number;
     invalidWinnerOutcomeCount: number;
     staleMetadataIgnoredCount: number;
     resultWinnerReconciliation: {
@@ -95,8 +96,16 @@ export interface PostFinalsTransition {
       savedParticipantSnapshot: unknown;
       authoritativeParticipantA: string | null;
       authoritativeParticipantB: string | null;
+      rawSavedObject: unknown;
+      rawSavedSelectedOption: string | number | null;
+      rawSavedResult: string | number | null;
+      rawWinnerSide: string | number | null;
+      rawSelectedSide: string | number | null;
+      rawParticipantSide: string | number | null;
+      rawWinnerIndex: number | null;
       normalizedWinner: string;
       repairedWinner: string | null;
+      validationReason: string | null;
     }[];
     repairedWinnerCount: number;
     noContestAcceptedCount: number;
@@ -373,6 +382,7 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
       extraUnmatchedSavedIds: resultNormalization.unmatchedSavedResultKeys,
       savedCanonicalIdsFound: resultNormalization.savedCanonicalResultIds,
       repairedPayloadCount: resultNormalization.repairedPayloads.length,
+      parsedValidResultsCount: reconciledResults.length - invalidResults.length,
       invalidWinnerOutcomeCount: invalidResults.length,
       staleMetadataIgnoredCount: resultNormalization.staleMetadataIgnoredKeys.length,
       resultWinnerReconciliation: resultNormalization.winnerReconciliationDiagnostics,
