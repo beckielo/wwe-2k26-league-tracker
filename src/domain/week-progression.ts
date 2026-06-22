@@ -35,6 +35,7 @@ export type WorkflowAction =
 | "simulation"
 | "week-review"
 | "tiebreaker-review"
+| "league-finals"
 | "complete";
 
 export interface LeagueWeekProgress {
@@ -54,10 +55,38 @@ progress: WeekProgress | null;
 userLeagueProgress: LeagueWeekProgress | null;
 nonUserLeagueProgress: LeagueWeekProgress[];
 recommendedAction: WorkflowAction;
-recommendedHref: "/" | "/results" | "/simulation" | "/week-review";
+recommendedHref: "/" | "/results" | "/simulation" | "/week-review" | "/league-finals";
 recommendedLabel: string;
 recommendedReason: string;
 }
+
+export function getCompletedRegularSplitWeek(state: TrackerState, workbookCurrentWeek: number): number {
+  const latestLockedWeek = [...state.completedWeeks].sort((a, b) => b.week - a.week)[0]?.week ?? null;
+  const effectiveYearWeek = Math.max(workbookCurrentWeek, latestLockedWeek ?? workbookCurrentWeek);
+  return state.activeWorkflow?.split === "Closing Split" ? Math.max(0, effectiveYearWeek - 24) : effectiveYearWeek;
+}
+
+export function isRegularSeasonComplete(state: TrackerState, workbookCurrentWeek: number): boolean {
+  return getCompletedRegularSplitWeek(state, workbookCurrentWeek) >= 22;
+}
+
+export function getNextWorkflowPhaseAfterWeek22(hasRelevantTiebreakers: boolean | null): { action: WorkflowAction; href: WorkflowSummary["recommendedHref"]; label: string; reason: string } {
+  if (hasRelevantTiebreakers === false) {
+    return {
+      action: "league-finals",
+      href: "/league-finals",
+      label: "Prepare League Finals",
+      reason: "Regular season complete. No normal weekly card remains before League Finals.",
+    };
+  }
+  return {
+    action: "tiebreaker-review",
+    href: "/week-review",
+    label: "Regular season complete. Next phase: Tiebreaker Review.",
+    reason: "No normal Week 23 card will be generated. Review and resolve any consequential ties before League Finals.",
+  };
+}
+
 export function getWorkflowScheduledWeeks(matches: Match[], workbookCurrentWeek: number): number[] {
   return [...new Set(
     matches
@@ -165,7 +194,8 @@ workbookCurrentWeek,
 resolution.latestLockedWeek ?? workbookCurrentWeek,
 );
 
-if (effectiveCompletedThroughWeek >= 22 && resolution.activeWeek === null) {
+if (isRegularSeasonComplete(state, workbookCurrentWeek) && resolution.activeWeek === null) {
+const nextPhase = getNextWorkflowPhaseAfterWeek22(null);
 return {
 workbookCompletedThroughWeek: effectiveCompletedThroughWeek,
 activeWeek: null,
@@ -175,10 +205,10 @@ seasonComplete: false,
 progress: null,
 userLeagueProgress: null,
 nonUserLeagueProgress: [],
-recommendedAction: "tiebreaker-review",
-recommendedHref: "/week-review",
-recommendedLabel: "Opening Split regular season complete",
-recommendedReason: "Next phase: Tiebreaker Review. No normal Week 23 card will be generated.",
+recommendedAction: nextPhase.action,
+recommendedHref: nextPhase.href,
+recommendedLabel: nextPhase.label,
+recommendedReason: nextPhase.reason,
 };
 }
 

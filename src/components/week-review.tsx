@@ -76,6 +76,7 @@ const latestLockedWeek = summary.latestLockedWeek;
 const activeSplit = state.activeWorkflow?.split ?? split;
 const miniStandingsCompletedThroughWeek = latestLockedWeek ?? workbookCurrentWeek;
 const activeSplitWeek = activeSplit === "Closing Split" ? Math.max(1, miniStandingsCompletedThroughWeek - 24) : miniStandingsCompletedThroughWeek;
+const splitReviewCompletedThroughWeek = activeSplit === "Closing Split" ? activeSplitWeek : Math.max(workbookCurrentWeek, latestLockedWeek ?? 0);
 const liveStandings = reconstructActiveSplitLiveStandings({
 previousFinalStandings: baselineStandings,
 scheduledMatches: workflowMatches,
@@ -103,8 +104,8 @@ source: { file: "browser-local tracker state", sheet: "confirmedResults" },
 const localResultIds = new Set(localMatchResults.map((result) => result.matchId));
 const splitReview = deriveSplitCompletionReview({
 leagueYear,
-split,
-completedThroughWeek: Math.max(workbookCurrentWeek, latestLockedWeek ?? 0),
+split: activeSplit,
+completedThroughWeek: splitReviewCompletedThroughWeek,
 standings: updatedStandings,
 matches: allMatches,
 results: [
@@ -226,17 +227,17 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
     </div>
   )}
 
-  {!state.activeWorkflow && splitReview.regularPhaseComplete && (
+  {splitReview.regularPhaseComplete && (
     <section className="border border-amber-400/30 bg-[#111722]">
       <div className="border-b border-amber-400/20 bg-amber-400/10 p-6">
         <p className="text-xs font-black uppercase tracking-[.2em] text-amber-300">
-          Opening Split completion
+          {activeSplit} completion
         </p>
         <h2 className="mt-2 text-2xl font-black uppercase">
           Tiebreaker Review
         </h2>
         <p className="mt-2 text-sm text-slate-300">
-          Final regular standings through Week {splitReview.completedRegularSplitWeek}. Next phase: {splitReview.nextPhase}.
+          Final regular standings through Split Week {splitReview.completedRegularSplitWeek}. Next phase: {splitReview.nextPhase}.
         </p>
       </div>
 
@@ -361,13 +362,13 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
   ) : (
     <div className="border border-emerald-400/20 bg-emerald-400/5 p-10 text-center">
       <h2 className="text-3xl font-black uppercase">
-        {state.activeWorkflow ? "Closing Split workflow complete" : splitReview.regularPhaseComplete ? "Opening Split regular season complete" : "Season workflow complete"}
+        {splitReview.regularPhaseComplete ? `${activeSplit} regular season complete` : "Season workflow complete"}
       </h2>
       <p className="mt-2 text-slate-400">
-        {state.activeWorkflow
-          ? "Every authoritative Closing Split regular week is locked in browser-local tracker state."
-          : splitReview.regularPhaseComplete
-          ? "Next phase: Tiebreaker Review. No normal Week 23 fixtures are generated."
+        {splitReview.regularPhaseComplete
+          ? splitReview.consequentialTies.some((tie) => tie.status === "Tiebreaker Match Required" || tie.status === "Review Required")
+            ? "Regular season complete. Next phase: Tiebreaker Review. No normal Week 23 fixtures are generated."
+            : "Regular season complete. No normal weekly card remains before League Finals."
           : "Every later authoritative scheduled week is locked in browser-local tracker state."}
       </p>
 
@@ -378,6 +379,13 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
           importFile={importFile}
           reset={reset}
         />
+        {splitReview.regularPhaseComplete && (
+          splitReview.consequentialTies.some((tie) => tie.status === "Tiebreaker Match Required" || tie.status === "Review Required") ? (
+            <Link href="/tiebreakers" className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-amber-200">Tiebreaker Review</Link>
+          ) : (
+            <Link href="/league-finals" className="rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-emerald-200">Prepare League Finals</Link>
+          )
+        )}
       </div>
     </div>
   )}
