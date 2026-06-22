@@ -70,6 +70,7 @@ export function PostFinalsTransitionView(props: Props) {
         <p>Night One: <strong>{transition.nightCompletion["Night One"] ? "Complete" : "Incomplete"}</strong></p>
         <p>Night Two: <strong>{transition.nightCompletion["Night Two"] ? "Complete" : "Incomplete"}</strong></p>
         <p>League Finals complete: <strong>{transition.finalsComplete ? "Yes" : "No"}</strong></p>
+        <p>Post-Finals league composition valid: <strong>{transition.compositionValid ? "Yes" : "No"}</strong></p>
       </div>
       {transition.missingResults.length > 0 && <div className="mt-4"><strong>Missing League Finals results</strong><ul className="list-disc pl-5 text-sm">{transition.missingResults.map((item) => <li key={item}>{item}</li>)}</ul></div>}
       {transition.invalidResults.length > 0 && <div className="mt-4"><strong>Invalid / ambiguous results</strong><ul className="list-disc pl-5 text-sm">{transition.invalidResults.map((item) => <li key={item}>{item}</li>)}</ul></div>}
@@ -93,7 +94,7 @@ export function PostFinalsTransitionView(props: Props) {
       </details>}
     </section>
 
-    {transition.unlocked && <>
+    {transition.finalsComplete && <>
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="border border-white/10 bg-[#111722] p-6">
           <h2 className="text-xl font-black uppercase">Direct movements</h2>
@@ -108,6 +109,13 @@ export function PostFinalsTransitionView(props: Props) {
       <section className="border border-white/10 bg-[#111722] p-6">
         <h2 className="text-xl font-black uppercase">New league composition preview</h2>
         <p className={`mt-2 text-sm font-bold ${transition.compositionValid ? "text-emerald-300" : "text-amber-300"}`}>{transition.compositionValid ? "Post-Finals league composition valid" : "Review Required"}</p>
+        <button
+          type="button"
+          disabled={!transition.compositionValid}
+          className="mt-4 border border-emerald-300/40 px-4 py-2 text-xs font-black uppercase tracking-[.16em] text-emerald-100 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-slate-500"
+        >
+          Review New League Composition
+        </button>
         <div className="mt-5 grid gap-5 xl:grid-cols-4">{transition.proposedOrder.map((group) => <div key={group.league} className="border border-white/10 p-4">
           <h3 className="font-black uppercase">{group.league}</h3>
           <p className="mt-1 text-[10px] font-bold uppercase text-amber-300">Proposed seed order / Review Required</p>
