@@ -7,6 +7,7 @@ import {
   exportTrackerState,
   importTrackerState,
   resetTrackerState,
+  recoverPostRegularSeasonWorkflowState,
   type TrackerState,
 } from "@/domain/tracker-state";
 import type { LeagueName, Match } from "@/domain/types";
@@ -33,7 +34,11 @@ export function TrackerStateProvider({ children }: { children: ReactNode }) {
       if (stored) {
         try {
           const parsed = JSON.parse(stored) as TrackerState;
-          if (parsed.version === 1) setState(parsed);
+          if (parsed.version === 1) {
+            const recovered = recoverPostRegularSeasonWorkflowState(parsed);
+            setState(recovered);
+            if (recovered !== parsed) window.localStorage.setItem(TRACKER_STATE_STORAGE_KEY, JSON.stringify(recovered));
+          }
         } catch {
           window.localStorage.removeItem(TRACKER_STATE_STORAGE_KEY);
         }

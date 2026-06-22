@@ -216,18 +216,34 @@ errors.push(matchId + ": duplicate confirmed results are not allowed.");
   return [...new Set(errors)];
 }
 
+export function recoverPostRegularSeasonWorkflowState(state: TrackerState): TrackerState {
+  const workflow = state.activeWorkflow;
+  if (!workflow || workflow.split !== "Closing Split") return state;
+  const week22Complete = isWeekLocked(state, 46);
+  const stuckOnFinalRegularCard = workflow.yearWeek === 46 && workflow.splitWeek === 22;
+  if (!week22Complete || !stuckOnFinalRegularCard) return state;
+  return {
+    ...state,
+    activeWorkflow: {
+      ...workflow,
+      yearWeek: 47,
+      splitWeek: 23,
+    },
+  };
+}
+
 export function advanceActiveWorkflowAfterLock(state: TrackerState, lockedWeek: number): TrackerState {
   if (!state.activeWorkflow || state.activeWorkflow.split !== "Closing Split") return state;
-  const nextYearWeek = Math.min(46, lockedWeek + 1);
-  if (lockedWeek < state.activeWorkflow.yearWeek || nextYearWeek === state.activeWorkflow.yearWeek) return state;
-  return {
+  const nextYearWeek = lockedWeek >= 46 ? 47 : lockedWeek + 1;
+  if (lockedWeek < state.activeWorkflow.yearWeek || nextYearWeek === state.activeWorkflow.yearWeek) return recoverPostRegularSeasonWorkflowState(state);
+  return recoverPostRegularSeasonWorkflowState({
     ...state,
     activeWorkflow: {
       ...state.activeWorkflow,
       yearWeek: nextYearWeek,
       splitWeek: Math.max(1, nextYearWeek - 24),
     },
-  };
+  });
 }
 
 export function getLatestLockedWeek(state: TrackerState): CompletedWeek | null {

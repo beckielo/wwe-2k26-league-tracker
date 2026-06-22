@@ -277,7 +277,7 @@ activeWeek: null,
 seasonComplete: false,
 recommendedAction: "tiebreaker-review",
 recommendedHref: "/week-review",
-recommendedLabel: "Opening Split regular season complete",
+recommendedLabel: "Regular season complete. Next phase: Tiebreaker Review.",
 });
 });
 
@@ -298,5 +298,102 @@ workbookCompletedThroughWeek: 22,
 activeWeek: null,
 recommendedAction: "tiebreaker-review",
 });
+});
+});
+
+describe("Phase 19 regular-season completion transition", () => {
+function closingWeek(yearWeek: number): Match[] {
+  return scheduledWeek(yearWeek).map((match) => ({
+    ...match,
+    id: `closing-${match.id}`,
+    split: "Closing Split" as const,
+    week: yearWeek,
+  }));
+}
+
+it("recovers a browser-local Closing Split Week 22 locked-but-active state without resetting results", async () => {
+  const { recoverPostRegularSeasonWorkflowState } = await import("../tracker-state");
+  const matches = closingWeek(46);
+  const state: TrackerState = {
+    ...createEmptyTrackerState(),
+    activeWorkflow: {
+      leagueYear: 2,
+      split: "Closing Split",
+      yearWeek: 46,
+      splitWeek: 22,
+      scheduleSource: "accepted generated snapshot",
+      acceptedScheduleAt: "2026-06-01T00:00:00.000Z",
+      activatedAt: "2026-06-01T00:00:00.000Z",
+      userLeague: "National League",
+    },
+    completedWeeks: [{ week: 46, completedAt: "2026-06-22T00:00:00.000Z" }],
+    confirmedResults: confirmations(matches),
+  };
+
+  const recovered = recoverPostRegularSeasonWorkflowState(state);
+
+  expect(recovered.activeWorkflow).toMatchObject({ yearWeek: 47, splitWeek: 23 });
+  expect(recovered.completedWeeks).toEqual(state.completedWeeks);
+  expect(recovered.confirmedResults).toEqual(state.confirmedResults);
+});
+
+it("promote path after Closing Split Week 22 exposes post-regular-season phase and no normal Week 23 card", () => {
+  const matches = closingWeek(46);
+  const state: TrackerState = {
+    ...createEmptyTrackerState(),
+    activeWorkflow: {
+      leagueYear: 2,
+      split: "Closing Split",
+      yearWeek: 47,
+      splitWeek: 23,
+      scheduleSource: "accepted generated snapshot",
+      acceptedScheduleAt: "2026-06-01T00:00:00.000Z",
+      activatedAt: "2026-06-01T00:00:00.000Z",
+      userLeague: "National League",
+    },
+    completedWeeks: [{ week: 46, completedAt: "2026-06-22T00:00:00.000Z" }],
+    confirmedResults: confirmations(matches),
+  };
+
+  const summary = getWorkflowSummary(state, matches, 24, "National League");
+
+  expect(summary).toMatchObject({
+    activeWeek: null,
+    seasonComplete: false,
+    latestLockedWeek: 46,
+    recommendedAction: "tiebreaker-review",
+  });
+  expect(getActiveUserLeagueMatches(state, matches, 24, "National League")).toEqual([]);
+});
+
+it("advances Closing Split Week 22 lock out of the active Week 46 card", () => {
+  const matches = closingWeek(46);
+  const ready: TrackerState = {
+    ...createEmptyTrackerState(),
+    activeWorkflow: {
+      leagueYear: 2,
+      split: "Closing Split",
+      yearWeek: 46,
+      splitWeek: 22,
+      scheduleSource: "accepted generated snapshot",
+      acceptedScheduleAt: "2026-06-01T00:00:00.000Z",
+      activatedAt: "2026-06-01T00:00:00.000Z",
+      userLeague: "National League",
+    },
+    confirmedResults: confirmations(matches),
+  };
+
+  const locked = completeWeek(ready, 46, matches, "National League", "2026-06-22T00:00:00.000Z");
+
+  expect(locked.ok).toBe(true);
+  expect(locked.state.activeWorkflow).toMatchObject({ yearWeek: 47, splitWeek: 23 });
+  expect(locked.state.confirmedResults).toEqual(ready.confirmedResults);
+});
+
+it("does not regress regular Weeks 1-21", () => {
+  expect(getWorkflowSummary(createEmptyTrackerState(), scheduledWeek(21), 20, "National League")).toMatchObject({
+    activeWeek: 21,
+    recommendedAction: "result-entry",
+  });
 });
 });
