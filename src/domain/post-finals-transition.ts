@@ -92,10 +92,13 @@ export interface PostFinalsTransition {
       canonicalResultId: string;
       rawSavedWinner: string | null;
       rawSavedOutcome: string | null;
+      savedMatchIdentity: string | null;
       savedLabel: string | null;
       savedParticipantSnapshot: unknown;
       authoritativeParticipantA: string | null;
       authoritativeParticipantB: string | null;
+      registrySource: "shared-finals-helper" | "saved-match-identity-fallback";
+      participantMismatchCausedByWrongRegistry: boolean;
       rawSavedObject: unknown;
       rawSavedSelectedOption: string | number | null;
       rawSavedResult: string | number | null;
@@ -123,6 +126,46 @@ export interface PostFinalsTransitionInput {
   directMovements: DirectMovement[];
   hasAuthoritativeClosingSchedule: boolean;
   manualReviews?: ManualReview[];
+}
+
+function slug(value: string | number | null | undefined): string {
+  return `${value ?? ""}`.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function canonicalSavedIdentityParticipantSlugs(match: LeagueFinalsMatch, result: LeagueFinalsResult): [string, string] | null {
+  if (!result.matchIdentity || !result.matchId.startsWith("league-finals:")) return null;
+  const parts = result.matchIdentity.split(":");
+  if (parts.length < 8 || parts[0] !== "league-finals") return null;
+  const [, savedNight, savedKind, savedMatchNumber, savedHigherLeague, savedLowerLeague, savedA, savedB] = parts;
+  if (savedNight !== slug(match.night) || savedKind !== slug(match.kind) || savedMatchNumber !== slug(match.matchNumber)) return null;
+  if (match.kind === "Relegation" && (savedHigherLeague !== slug(match.higherLeague) || savedLowerLeague !== slug(match.lowerLeague))) return null;
+  if (savedA === "unresolved" || savedB === "unresolved") return null;
+  return [savedA, savedB];
+}
+
+function repairRegistryFromSavedMatchIdentities(
+  sharedRegistry: LeagueFinalsMatch[],
+  results: LeagueFinalsResult[],
+  standings: StandingRow[],
+): { matches: LeagueFinalsMatch[]; registrySources: Map<string, "shared-finals-helper" | "saved-match-identity-fallback"> } {
+  const bySlug = new Map(standings.map((row) => [slug(row.wrestler), row.wrestler]));
+  const registrySources = new Map<string, "shared-finals-helper" | "saved-match-identity-fallback">();
+  const matches = sharedRegistry.map((match) => {
+    registrySources.set(match.id, "shared-finals-helper");
+    if (match.kind === "Elite Cup Final") return match;
+    const result = results.find((candidate) => candidate.matchId === match.id);
+    const savedParticipants = result ? canonicalSavedIdentityParticipantSlugs(match, result) : null;
+    if (!savedParticipants) return match;
+    const [savedASlug, savedBSlug] = savedParticipants;
+    const savedA = bySlug.get(savedASlug);
+    const savedB = bySlug.get(savedBSlug);
+    if (!savedA || !savedB) return match;
+    const sharedSlugs = [slug(match.wrestlerA), slug(match.wrestlerB)];
+    if (sharedSlugs[0] === savedASlug && sharedSlugs[1] === savedBSlug) return match;
+    registrySources.set(match.id, "saved-match-identity-fallback");
+    return { ...match, wrestlerA: savedA, wrestlerB: savedB };
+  });
+  return { matches, registrySources };
 }
 
 export function buildNextSplitStandings(assignments: PostFinalsAssignment[]): StandingRow[] {
@@ -196,8 +239,9 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
     "Night Two": input.completedNights.some((entry) => entry.night === "Night Two"),
   };
   const sharedRegistry = buildCanonicalLeagueFinalsRegistry(input.standings);
-  const authoritativeMatches = (sharedRegistry.length ? sharedRegistry : input.matches).filter((match) => match.authoritative);
-  const resultNormalization = normalizeLeagueFinalsResults(authoritativeMatches, input.results);
+  const registryRepair = repairRegistryFromSavedMatchIdentities(sharedRegistry.length ? sharedRegistry : input.matches, input.results, input.standings);
+  const authoritativeMatches = registryRepair.matches.filter((match) => match.authoritative);
+  const resultNormalization = normalizeLeagueFinalsResults(authoritativeMatches, input.results, registryRepair.registrySources);
   const reconciledResults = resultNormalization.results;
   const missingResults = authoritativeMatches
     .filter((match) => !reconciledResults.some((result) => result.matchId === match.id))
