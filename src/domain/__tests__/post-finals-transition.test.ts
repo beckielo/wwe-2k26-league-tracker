@@ -137,6 +137,25 @@ describe("Post-Finals completion gate", () => {
     expect(derive()).toMatchObject({ unlocked: true, finalsComplete: true, compositionValid: true });
   });
 
+  it("changes gate copy away from complete League Finals first once finals are complete", () => {
+    const transition = derive({
+      directMovements: [
+        ...finals.directMovements,
+        {
+          wrestler: "Missing Wrestler",
+          fromLeague: "Regional League",
+          toLeague: "National League",
+          reason: "Direct promotion",
+        },
+      ],
+    });
+
+    expect(transition.finalsComplete).toBe(true);
+    expect(transition.compositionValid).toBe(false);
+    expect(transition.lockedMessage).toBe("Post-Finals transition locked: review league composition first.");
+    expect(transition.lockedMessage?.toLowerCase()).not.toContain("complete league finals first");
+  });
+
 
   it("uses shared registry instead of stale or empty passed matches", () => {
     const transition = derive({ matches: [] });
@@ -382,6 +401,14 @@ describe("Post-Finals movement and composition", () => {
     expect(transition.compositionErrors).toEqual([]);
   });
 
+  it("blocks composition when a relegation playoff result is missing", () => {
+    const missingFirstRelegation = completedResults().filter((result) => result.matchId !== finals.relegationMatches[0].id);
+    const transition = derive({ results: missingFirstRelegation });
+
+    expect(transition.compositionValid).toBe(false);
+    expect(transition.compositionErrors).toContain(`${finals.relegationMatches[0].id}: missing League Finals result blocks composition.`);
+  });
+
   it("builds zeroed next-split standings without carrying old completed results forward", () => {
     const nextStandings = buildNextSplitStandings(derive().assignments);
     expect(nextStandings).toHaveLength(48);
@@ -433,6 +460,10 @@ describe("Ordering, readiness, and legacy boundaries", () => {
     expect(transition.legacyFacts).toContainEqual(expect.objectContaining({
       label: "Global Elite Cup Winner", wrestler: "Global 2",
     }));
+    expect(transition.assignments.find((row) => row.wrestler === "Global 2")).toMatchObject({
+      newLeague: "Global League",
+      movement: "Retained lower league",
+    });
   });
 
   it("does not use source seed as a proposed-order tiebreaker", () => {
