@@ -1,4 +1,5 @@
 import {
+  normalizeLeagueFinalsResults,
   resolveFinalsParticipants,
   validateLeagueFinalsResult,
   type DirectMovement,
@@ -73,6 +74,13 @@ export interface PostFinalsTransition {
   hasAuthoritativeClosingSchedule: boolean;
   closingScheduleMessage: string | null;
   week25Generated: false;
+  diagnostics: {
+    savedLeagueFinalsResultKeys: string[];
+    canonicalAuthoritativeFinalsMatchIds: string[];
+    migratedLegacyResultKeysCount: number;
+    unmatchedSavedResultsCount: number;
+    missingAuthoritativeFinalsCount: number;
+  };
 }
 
 export interface PostFinalsTransitionInput {
@@ -159,20 +167,22 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
     "Night Two": input.completedNights.some((entry) => entry.night === "Night Two"),
   };
   const authoritativeMatches = input.matches.filter((match) => match.authoritative);
+  const resultNormalization = normalizeLeagueFinalsResults(authoritativeMatches, input.results);
+  const reconciledResults = resultNormalization.results;
   const missingResults = authoritativeMatches
-    .filter((match) => !input.results.some((result) => result.matchId === match.id))
+    .filter((match) => !reconciledResults.some((result) => result.matchId === match.id))
     .map((match) => `${match.night} Match ${match.matchNumber} (${match.kind})`);
   const invalidResults = authoritativeMatches.flatMap((match) => {
-    const matching = input.results.filter((result) => result.matchId === match.id);
+    const matching = reconciledResults.filter((result) => result.matchId === match.id);
     if (matching.length > 1) return [`${match.id}: duplicate League Finals results.`];
     if (matching.length !== 1) return [];
     if (!["Winner", "No Contest"].includes(matching[0].resultType as string)) {
       return [`${match.id}: DQ/unsupported ending is ambiguous without caused-by-wrestler metadata.`];
     }
-    return validateLeagueFinalsResult(matching[0], authoritativeMatches, input.results);
+    return validateLeagueFinalsResult(matching[0], authoritativeMatches, reconciledResults);
   });
-  const unknownResults = input.results.filter((result) => !authoritativeMatches.some((match) => match.id === result.matchId));
-  invalidResults.push(...unknownResults.map((result) => `${result.matchId}: result has no authoritative League Finals match.`));
+  invalidResults.push(...resultNormalization.duplicateCanonicalResultIds.map((key) => `${key}: duplicate League Finals results.`));
+  invalidResults.push(...resultNormalization.unmatchedSavedResultKeys.map((key) => `${key}: saved League Finals result could not be reconciled to an authoritative canonical match ID.`));
 
   const reviewRequired: string[] = [];
   const openReviews = (input.manualReviews ?? []).filter((review) => review.status === "open");
@@ -204,7 +214,7 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
 
   const relegationOutcomes: RelegationOutcome[] = [];
   for (const match of authoritativeMatches.filter((candidate) => candidate.kind === "Relegation")) {
-    const result = input.results.find((candidate) => candidate.matchId === match.id);
+    const result = reconciledResults.find((candidate) => candidate.matchId === match.id);
     const higher = match.wrestlerA;
     const lower = match.wrestlerB;
     if (!higher || !lower || !match.higherLeague || !match.lowerLeague || !result) continue;
@@ -260,8 +270,8 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
   }));
 
   const eliteFinal = authoritativeMatches.find((match) => match.kind === "Elite Cup Final");
-  const eliteResult = eliteFinal && input.results.find((result) => result.matchId === eliteFinal.id);
-  const eliteParticipants = eliteFinal ? resolveFinalsParticipants(eliteFinal, input.results) : [null, null];
+  const eliteResult = eliteFinal && reconciledResults.find((result) => result.matchId === eliteFinal.id);
+  const eliteParticipants = eliteFinal ? resolveFinalsParticipants(eliteFinal, reconciledResults) : [null, null];
   const legacyFacts: LegacyFact[] = input.champions.map((champion) => ({
     label: `${champion.league.replace(" League", "")} League Champion`,
     wrestler: champion.wrestler,
@@ -330,5 +340,12 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
       ? null
       : "Closing Split schedule source missing: create or import schedule before starting Week 25.",
     week25Generated: false,
+    diagnostics: {
+      savedLeagueFinalsResultKeys: input.results.map((result) => result.matchId),
+      canonicalAuthoritativeFinalsMatchIds: resultNormalization.canonicalMatchIds,
+      migratedLegacyResultKeysCount: resultNormalization.migratedLegacyResultKeys.length,
+      unmatchedSavedResultsCount: resultNormalization.unmatchedSavedResultKeys.length,
+      missingAuthoritativeFinalsCount: missingResults.length,
+    },
   };
 }
