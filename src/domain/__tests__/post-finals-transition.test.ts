@@ -172,6 +172,77 @@ describe("Post-Finals completion gate", () => {
     ]);
   });
 
+
+  it("Phase 19V: completed League Finals bypass stale unresolved tiebreaker blockers for post-finals composition", () => {
+    const transition = derivePhase19p({
+      consequentialTies: [
+        {
+          league: "Global League",
+          points: 30,
+          placements: [4, 5],
+          wrestlers: ["Cody Rhodes", "Drew McIntyre"],
+          status: "Tiebreaker Match Required",
+          winner: null,
+          recommendedFormat: null,
+          explanation: "Stale pre-finals tie state after Finals card was already completed.",
+        },
+        {
+          league: "Continental League",
+          points: 27,
+          placements: [9, 10],
+          wrestlers: ["Ilja Dragunov", "Damian Priest"],
+          status: "Review Required",
+          winner: null,
+          recommendedFormat: null,
+          explanation: "Stale review state consumed by Finals page model.",
+        },
+        {
+          league: "National League",
+          points: 24,
+          placements: [11, 12],
+          wrestlers: ["Penta", "Rey Mysterio"],
+          status: "Review Required",
+          winner: null,
+          recommendedFormat: null,
+          explanation: "Stale review state consumed by Finals page model.",
+        },
+      ],
+    });
+
+    expect(transition.finalsComplete).toBe(true);
+    expect(transition.compositionValid).toBe(true);
+    expect(transition.unlocked).toBe(true);
+    expect(transition.reviewRequired.join(" ")).not.toContain("3 required tiebreaker state(s) remain unresolved");
+    expect(transition.diagnostics.preFinalsTiebreakerStateIgnoredAfterCompletedFinals).toBe(true);
+    expect(transition.diagnostics.compositionValidationResult).toBe("valid");
+  });
+
+  it("Phase 19V: completed League Finals bypass stale opening-split-complete false flag for post-finals composition", () => {
+    const transition = derivePhase19p({ completedThroughWeek: 21 });
+
+    expect(transition.finalsComplete).toBe(true);
+    expect(transition.openingSplitComplete).toBe(false);
+    expect(transition.compositionValid).toBe(true);
+    expect(transition.unlocked).toBe(true);
+    expect(transition.diagnostics.openingSplitReadinessIgnoredAfterCompletedFinals).toBe(true);
+  });
+
+  it("Phase 19V: review and boundary notes remain non-blocking after valid completed Finals composition", () => {
+    const transition = derivePhase19p();
+
+    expect(transition.reviewRequired.join(" ")).toContain("Proposed seed order / Review Required");
+    expect(transition.reviewRequired.join(" ")).toContain("Legacy formula Review Required");
+    expect(transition.warnings).toContain("No workbook cells are mutated.");
+    expect(transition.warnings).toContain("No Closing Split fixtures or normal Week 25 workflow are generated automatically.");
+    expect(transition.compositionValid).toBe(true);
+    expect(transition.diagnostics.compositionLeagueSizes).toEqual({
+      "Global League": 12,
+      "Continental League": 12,
+      "National League": 12,
+      "Regional League": 12,
+    });
+  });
+
   it("uses shared registry instead of stale or empty passed matches", () => {
     const transition = derive({ matches: [] });
     expect(transition.diagnostics.canonicalAuthoritativeFinalsMatchIds).toEqual(buildCanonicalLeagueFinalsRegistry(standings).map((match) => match.id));
