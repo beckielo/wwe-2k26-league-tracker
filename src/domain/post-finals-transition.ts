@@ -1,5 +1,6 @@
 import {
   buildCanonicalLeagueFinalsRegistry,
+  createLeagueFinalsPageModelSourceSignature,
   normalizeLeagueFinalsResults,
   resolveFinalsParticipants,
   validateLeagueFinalsResult,
@@ -118,9 +119,13 @@ export interface PostFinalsTransition {
 }
 
 export interface PostFinalsMovementSourceAudit {
+  source: "League Finals page model";
+  sourceSignature: string;
   finalStandingsSourceSignature: string;
-  directMovementSource: "recomputed from canonical final standings";
+  directMovementSource: "League Finals page model";
   cachedDirectMovementIgnored: boolean;
+  signaturesMatch: boolean;
+  mismatchMessage: string | null;
   directMovers: { slot: string; wrestler: string | null; targetLeague: LeagueName }[];
 }
 
@@ -142,6 +147,7 @@ export interface PostFinalsLeagueCompositionInput {
   finalStandings: StandingRow[];
   leagueFinalsMatches: LeagueFinalsMatch[];
   leagueFinalsResults: LeagueFinalsResult[];
+  directMovements: DirectMovement[];
 }
 
 export interface PostFinalsLeagueComposition {
@@ -262,49 +268,21 @@ function sameDirectMovements(a: DirectMovement[], b: DirectMovement[]): boolean 
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-function buildMovementSourceAudit(standings: StandingRow[], recomputedDirectMovements: DirectMovement[], cachedDirectMovements: DirectMovement[]): PostFinalsMovementSourceAudit {
-  const directMoverSlots: Array<{ slot: string; from: LeagueName; rank: number; targetLeague: LeagueName }> = [
-    { slot: "Continental #1", from: "Continental League", rank: 1, targetLeague: "Global League" },
-    { slot: "National #1", from: "National League", rank: 1, targetLeague: "Continental League" },
-    { slot: "Regional #1", from: "Regional League", rank: 1, targetLeague: "National League" },
-    { slot: "Global #12", from: "Global League", rank: 12, targetLeague: "Continental League" },
-    { slot: "Continental #12", from: "Continental League", rank: 12, targetLeague: "National League" },
-    { slot: "National #12", from: "National League", rank: 12, targetLeague: "Regional League" },
-  ];
+function buildMovementSourceAudit(standings: StandingRow[], pageModelDirectMovements: DirectMovement[], cachedDirectMovements: DirectMovement[]): PostFinalsMovementSourceAudit {
   return {
+    source: "League Finals page model",
+    sourceSignature: createLeagueFinalsPageModelSourceSignature(standings),
     finalStandingsSourceSignature: createPostFinalsStandingsSourceSignature(standings),
-    directMovementSource: "recomputed from canonical final standings",
-    cachedDirectMovementIgnored: cachedDirectMovements.length > 0 && !sameDirectMovements(cachedDirectMovements, recomputedDirectMovements),
-    directMovers: directMoverSlots.map((slot) => ({
-      slot: slot.slot,
-      wrestler: standings.find((row) => row.league === slot.from && row.rank === slot.rank)?.wrestler ?? null,
-      targetLeague: slot.targetLeague,
+    directMovementSource: "League Finals page model",
+    cachedDirectMovementIgnored: cachedDirectMovements.length > 0 && !sameDirectMovements(cachedDirectMovements, pageModelDirectMovements),
+    signaturesMatch: createLeagueFinalsPageModelSourceSignature(standings) === createPostFinalsStandingsSourceSignature(standings),
+    mismatchMessage: createLeagueFinalsPageModelSourceSignature(standings) === createPostFinalsStandingsSourceSignature(standings) ? null : "Post-Finals and League Finals model signatures do not match.",
+    directMovers: pageModelDirectMovements.map((movement) => ({
+      slot: `${movement.fromLeague.replace(" League", "")} ${movement.reason === "Direct promotion" ? "#1" : "#12"}`,
+      wrestler: movement.wrestler,
+      targetLeague: movement.toLeague,
     })),
   };
-}
-
-function deriveDirectMovementsFromFinalStandings(standings: StandingRow[]): DirectMovement[] {
-  const rowAt = (league: LeagueName, rank: number) => standings.find((row) => row.league === league && row.rank === rank);
-  const movements: DirectMovement[] = [];
-  for (let index = 1; index < LEAGUE_NAMES.length; index += 1) {
-    const promoted = rowAt(LEAGUE_NAMES[index], 1);
-    if (promoted) movements.push({
-      wrestler: promoted.wrestler,
-      fromLeague: LEAGUE_NAMES[index],
-      toLeague: LEAGUE_NAMES[index - 1],
-      reason: "Direct promotion",
-    });
-  }
-  for (let index = 0; index < LEAGUE_NAMES.length - 1; index += 1) {
-    const relegated = rowAt(LEAGUE_NAMES[index], 12);
-    if (relegated) movements.push({
-      wrestler: relegated.wrestler,
-      fromLeague: LEAGUE_NAMES[index],
-      toLeague: LEAGUE_NAMES[index + 1],
-      reason: "Direct relegation",
-    });
-  }
-  return movements;
 }
 
 function proposedSort(a: PostFinalsAssignment, b: PostFinalsAssignment): number {
@@ -349,12 +327,13 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
   );
   if (unresolvedTies.length) reviewRequired.push(`${unresolvedTies.length} required tiebreaker state(s) remain unresolved.`);
 
-  const directMovements = deriveDirectMovementsFromFinalStandings(input.standings);
+  const directMovements = input.directMovements;
   const movementSourceAudit = buildMovementSourceAudit(input.standings, directMovements, input.directMovements);
   const composition = derivePostFinalsLeagueComposition({
     finalStandings: input.standings,
     leagueFinalsMatches: authoritativeMatches,
     leagueFinalsResults: reconciledResults,
+    directMovements,
   });
   const assignments = composition.assignments;
   const relegationOutcomes = composition.relegationOutcomes;
@@ -507,27 +486,21 @@ export function derivePostFinalsLeagueComposition(input: PostFinalsLeagueComposi
     rulesByWrestler.set(wrestler, rule);
   };
 
-  const rowAt = (league: LeagueName, rank: number) => input.finalStandings.find((row) => row.league === league && row.rank === rank);
-  const directRules: Array<{ from: LeagueName; rank: number; to: LeagueName; reason: DirectMovement["reason"] }> = [
-    { from: "Continental League", rank: 1, to: "Global League", reason: "Direct promotion" },
-    { from: "National League", rank: 1, to: "Continental League", reason: "Direct promotion" },
-    { from: "Regional League", rank: 1, to: "National League", reason: "Direct promotion" },
-    { from: "Global League", rank: 12, to: "Continental League", reason: "Direct relegation" },
-    { from: "Continental League", rank: 12, to: "National League", reason: "Direct relegation" },
-    { from: "National League", rank: 12, to: "Regional League", reason: "Direct relegation" },
-  ];
+  const playoffParticipants = new Set(input.leagueFinalsMatches
+    .filter((candidate) => candidate.kind === "Relegation")
+    .flatMap((match) => [match.wrestlerA, match.wrestlerB])
+    .filter((name): name is string => Boolean(name)));
 
-  for (const direct of directRules) {
-    const row = rowAt(direct.from, direct.rank);
-    if (!row) {
-      compositionErrors.push(`${direct.from} #${direct.rank}: missing final-standing row for ${direct.reason}.`);
+  for (const movement of input.directMovements) {
+    if (playoffParticipants.has(movement.wrestler)) {
+      compositionErrors.push("Post-Finals source mismatch: direct movement and League Finals playoff registry come from different standings snapshots.");
       continue;
     }
-    addRule(row.wrestler, {
-      targetLeague: direct.to,
-      movement: direct.reason === "Direct promotion" ? "Champion/direct promotion" : "Direct relegation",
-      finalsOutcome: direct.reason,
-      source: `${direct.from} #${direct.rank} ${direct.reason}`,
+    addRule(movement.wrestler, {
+      targetLeague: movement.toLeague,
+      movement: movement.reason === "Direct promotion" ? "Champion/direct promotion" : "Direct relegation",
+      finalsOutcome: movement.reason,
+      source: `${movement.fromLeague} ${movement.reason}`,
     });
   }
 

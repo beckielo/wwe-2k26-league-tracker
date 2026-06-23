@@ -68,6 +68,7 @@ export interface LeagueFinalsReview {
   reviewRequired: string[];
   sourceWarnings: string[];
   sourceAudit: LeagueFinalsSourceAuditRow[];
+  sourceSignature: string;
   finalStandingsValid: boolean;
   unresolvedTiebreakerCount: number;
   cardRenderability: {
@@ -97,6 +98,18 @@ function rowAt(standings: StandingRow[], league: LeagueName, rank: number): Stan
 }
 
 const auditRanks = [1, 2, 3, 4, 9, 10, 11, 12];
+
+
+export function createLeagueFinalsPageModelSourceSignature(standings: StandingRow[]): string {
+  return leagueOrder.map((league) => {
+    const rows = standings
+      .filter((row) => row.league === league)
+      .sort((a, b) => a.rank - b.rank)
+      .map((row) => `#${row.rank}:${row.wrestler}`)
+      .join("|");
+    return `${league}[${rows}]`;
+  }).join("::");
+}
 
 function buildSourceAudit(standings: StandingRow[]): LeagueFinalsSourceAuditRow[] {
   return leagueOrder.map((league) => ({
@@ -322,6 +335,7 @@ export function deriveLeagueFinalsFromFinalLiveStandings(input: LeagueFinalsInpu
     nightTwo: canRenderDerivedCards ? [...safeRelegationMatches.filter((match) => match.night === "Night Two"), ...eliteMatches] : [],
     reviewRequired,
     sourceAudit: buildSourceAudit(input.standings),
+    sourceSignature: createLeagueFinalsPageModelSourceSignature(input.standings),
     finalStandingsValid,
     unresolvedTiebreakerCount: unresolvedTies.length,
     cardRenderability: {

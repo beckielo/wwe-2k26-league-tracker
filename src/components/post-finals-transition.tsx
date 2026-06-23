@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo } from "react";
 import { deriveLeagueFinalsReview, normalizeLeagueFinalsResults } from "@/domain/league-finals";
+import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
+import { reconstructActiveSplitLiveStandings } from "@/domain/tracker-state";
 import { derivePostFinalsTransition } from "@/domain/post-finals-transition";
 import { deriveSplitCompletionReview } from "@/domain/split-completion";
 import type { Match, MatchResult, MatchupReferenceRow, SplitName, StandingRow } from "@/domain/types";
@@ -21,22 +23,31 @@ interface Props {
 
 export function PostFinalsTransitionView(props: Props) {
   const { state, updateState, hydrated } = useTrackerState();
+  const activeWorkflowMatches = useMemo(() => getActiveWorkflowMatches(state, props.matches), [props.matches, state]);
+  const finalLiveStandings = useMemo(() => reconstructActiveSplitLiveStandings({
+    previousFinalStandings: props.standings,
+    scheduledMatches: activeWorkflowMatches,
+    masterResults: props.results,
+    localResults: hydrated ? state.confirmedResults : [],
+    split: state.activeWorkflow?.split ?? props.split,
+    completedThroughWeek: props.completedThroughWeek,
+  }).standings, [activeWorkflowMatches, hydrated, props.completedThroughWeek, props.results, props.split, props.standings, state.activeWorkflow?.split, state.confirmedResults]);
   const splitReview = useMemo(() => deriveSplitCompletionReview({
     leagueYear: props.leagueYear,
     split: props.split,
     completedThroughWeek: props.completedThroughWeek,
     standings: props.standings,
-    matches: props.matches,
+    matches: activeWorkflowMatches,
     results: props.results,
     matchupReference: props.matchupReference,
     hasLeagueFinalsTemplate: props.hasLeagueFinalsTemplate,
-  }), [props]);
+  }), [activeWorkflowMatches, props]);
   const finals = useMemo(() => deriveLeagueFinalsReview({
     completedThroughWeek: props.completedThroughWeek,
-    standings: splitReview.finalRegularStandings,
+    standings: finalLiveStandings,
     consequentialTies: splitReview.consequentialTies,
     hasLeagueFinalsTemplate: props.hasLeagueFinalsTemplate,
-  }), [props.completedThroughWeek, props.hasLeagueFinalsTemplate, splitReview]);
+  }), [props.completedThroughWeek, props.hasLeagueFinalsTemplate, splitReview.consequentialTies, finalLiveStandings]);
   const allFinalsMatches = useMemo(() => [...finals.nightOne, ...finals.nightTwo], [finals.nightOne, finals.nightTwo]);
   const normalizedResults = useMemo(() => normalizeLeagueFinalsResults(allFinalsMatches, state.leagueFinalsResults ?? []), [allFinalsMatches, state.leagueFinalsResults]);
   useEffect(() => {
@@ -49,7 +60,7 @@ export function PostFinalsTransitionView(props: Props) {
   }, [hydrated, normalizedResults, state.leagueFinalsResults, updateState]);
   const transition = useMemo(() => derivePostFinalsTransition({
     completedThroughWeek: props.completedThroughWeek,
-    standings: splitReview.finalRegularStandings,
+    standings: finalLiveStandings,
     consequentialTies: splitReview.consequentialTies,
     matches: allFinalsMatches,
     results: state.leagueFinalsResults ?? [],
@@ -58,7 +69,7 @@ export function PostFinalsTransitionView(props: Props) {
     directMovements: finals.directMovements,
     hasAuthoritativeClosingSchedule: props.hasAuthoritativeClosingSchedule,
     manualReviews: state.manualReviews,
-  }), [allFinalsMatches, finals.champions, finals.directMovements, props.completedThroughWeek, props.hasAuthoritativeClosingSchedule, splitReview.consequentialTies, splitReview.finalRegularStandings, state.completedFinalsNights, state.leagueFinalsResults, state.manualReviews]);
+  }), [allFinalsMatches, finals.champions, finals.directMovements, props.completedThroughWeek, props.hasAuthoritativeClosingSchedule, splitReview.consequentialTies, finalLiveStandings, state.completedFinalsNights, state.leagueFinalsResults, state.manualReviews]);
 
   if (!hydrated) return <div className="border border-white/10 p-6 text-slate-400">Loading Post-Finals Transition state…</div>;
 
@@ -98,10 +109,13 @@ export function PostFinalsTransitionView(props: Props) {
       <section className="border border-sky-400/20 bg-sky-400/5 p-6">
         <h2 className="text-xl font-black uppercase">Post-Finals Movement Source Audit</h2>
         <dl className="mt-4 grid gap-2 text-xs sm:grid-cols-2">
-          <div><dt className="font-bold uppercase text-slate-400">Final standings source signature</dt><dd className="break-all text-slate-200">{transition.movementSourceAudit.finalStandingsSourceSignature}</dd></div>
+          <div><dt className="font-bold uppercase text-slate-400">Source</dt><dd>{transition.movementSourceAudit.source}</dd></div>
+          <div><dt className="font-bold uppercase text-slate-400">Source signature</dt><dd className="break-all text-slate-200">{transition.movementSourceAudit.sourceSignature}</dd></div>
           <div><dt className="font-bold uppercase text-slate-400">Direct movement source</dt><dd>{transition.movementSourceAudit.directMovementSource}</dd></div>
+          <div><dt className="font-bold uppercase text-slate-400">Post-Finals and League Finals signatures match</dt><dd>{transition.movementSourceAudit.signaturesMatch ? "yes" : "no"}</dd></div>
           <div><dt className="font-bold uppercase text-slate-400">Cached direct movement ignored</dt><dd>{transition.movementSourceAudit.cachedDirectMovementIgnored ? "yes" : "no"}</dd></div>
         </dl>
+        {transition.movementSourceAudit.mismatchMessage && <p className="mt-3 border border-red-400/30 bg-red-400/10 p-3 text-sm font-bold text-red-200">{transition.movementSourceAudit.mismatchMessage}</p>}
         <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">{transition.movementSourceAudit.directMovers.map((mover) => <div key={mover.slot} className="border border-white/10 p-3"><strong>{mover.slot}</strong><p className="text-slate-400">{mover.wrestler ?? "Missing"} → {mover.targetLeague}</p></div>)}</div>
       </section>
 
