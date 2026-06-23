@@ -115,6 +115,11 @@ export interface PostFinalsTransition {
     }[];
     repairedWinnerCount: number;
     noContestAcceptedCount: number;
+    leagueFinalsPageModelValid: boolean;
+    preFinalsTiebreakerStateIgnoredAfterCompletedFinals: boolean;
+    openingSplitReadinessIgnoredAfterCompletedFinals: boolean;
+    compositionValidationResult: "valid" | "invalid";
+    compositionLeagueSizes: Record<LeagueName, number>;
   };
 }
 
@@ -325,7 +330,6 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
   const unresolvedTies = input.consequentialTies.filter(
     (tie) => tie.status === "Tiebreaker Match Required" || tie.status === "Review Required",
   );
-  if (unresolvedTies.length) reviewRequired.push(`${unresolvedTies.length} required tiebreaker state(s) remain unresolved.`);
 
   const directMovements = input.directMovements;
   const movementSourceAudit = buildMovementSourceAudit(input.standings, directMovements, input.directMovements);
@@ -345,11 +349,18 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
   const openingSplitComplete = input.completedThroughWeek >= 22 && unresolvedTies.length === 0;
   const finalsComplete = openReviews.length === 0 && nightCompletion["Night One"] && nightCompletion["Night Two"]
     && missingResults.length === 0 && invalidResults.length === 0;
-  const compositionValid = finalsComplete && openingSplitComplete && composition.compositionValid
+  const completedFinalsModelValid = finalsComplete && movementSourceAudit.signaturesMatch;
+  const ignorePreFinalsTiebreakers = completedFinalsModelValid && unresolvedTies.length > 0;
+  const ignoreOpeningSplitReadiness = completedFinalsModelValid && !openingSplitComplete;
+  if (unresolvedTies.length && !ignorePreFinalsTiebreakers) {
+    reviewRequired.push(`${unresolvedTies.length} required tiebreaker state(s) remain unresolved.`);
+  }
+  const compositionValid = finalsComplete && composition.compositionValid
     && !reviewRequired.some((item) => item.includes("DQ/unsupported"));
-  const unlocked = openingSplitComplete && finalsComplete && compositionValid;
+  const unlocked = finalsComplete && compositionValid;
 
   const leagueComposition = composition.leagueComposition;
+  const compositionLeagueSizes = Object.fromEntries(LEAGUE_NAMES.map((league) => [league, leagueComposition[league].length])) as Record<LeagueName, number>;
   const proposedOrder = LEAGUE_NAMES.map((league) => ({
     league,
     reviewRequired: true as const,
@@ -448,6 +459,11 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
       resultWinnerReconciliation: resultNormalization.winnerReconciliationDiagnostics,
       repairedWinnerCount: resultNormalization.winnerReconciliationDiagnostics.filter((row) => row.rawSavedWinner !== row.repairedWinner).length,
       noContestAcceptedCount: resultNormalization.noContestAcceptedKeys.length,
+      leagueFinalsPageModelValid: movementSourceAudit.signaturesMatch,
+      preFinalsTiebreakerStateIgnoredAfterCompletedFinals: ignorePreFinalsTiebreakers,
+      openingSplitReadinessIgnoredAfterCompletedFinals: ignoreOpeningSplitReadiness,
+      compositionValidationResult: compositionValid ? "valid" : "invalid",
+      compositionLeagueSizes,
     },
   };
 }

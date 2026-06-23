@@ -82,6 +82,11 @@ export function PostFinalsTransitionView(props: Props) {
         <p>Night Two: <strong>{transition.nightCompletion["Night Two"] ? "Complete" : "Incomplete"}</strong></p>
         <p>League Finals complete: <strong>{transition.finalsComplete ? "Yes" : "No"}</strong></p>
         <p>Post-Finals league composition valid: <strong>{transition.compositionValid ? "Yes" : "No"}</strong></p>
+        <p>League Finals page model valid: <strong>{transition.diagnostics.leagueFinalsPageModelValid ? "Yes" : "No"}</strong></p>
+        <p>Pre-finals tiebreaker state ignored after completed Finals: <strong>{transition.diagnostics.preFinalsTiebreakerStateIgnoredAfterCompletedFinals ? "yes" : "no"}</strong></p>
+        <p>Opening split readiness ignored after completed Finals: <strong>{transition.diagnostics.openingSplitReadinessIgnoredAfterCompletedFinals ? "yes" : "no"}</strong></p>
+        <p>Composition validation result: <strong>{transition.diagnostics.compositionValidationResult}</strong></p>
+        <p>Composition league sizes: <strong>{Object.entries(transition.diagnostics.compositionLeagueSizes).map(([league, count]) => `${league}: ${count}`).join(" · ")}</strong></p>
       </div>
       {transition.missingResults.length > 0 && <div className="mt-4"><strong>Missing League Finals results</strong><ul className="list-disc pl-5 text-sm">{transition.missingResults.map((item) => <li key={item}>{item}</li>)}</ul></div>}
       {transition.invalidResults.length > 0 && <div className="mt-4"><strong>Invalid / ambiguous results</strong><ul className="list-disc pl-5 text-sm">{transition.invalidResults.map((item) => <li key={item}>{item}</li>)}</ul></div>}
