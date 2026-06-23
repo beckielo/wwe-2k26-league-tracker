@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import { sortLegacyProfiles, type LegacyProfile } from "./legacy-commentary";
 import { LEAGUE_NAMES, type LeagueName, type SplitName, type StandingRow, type StreakRecord } from "./types";
+import type { CompletedSplitLegacyCommit } from "./tracker-state";
 
 type Cell = string | number | boolean | null | undefined;
 
@@ -464,6 +465,37 @@ export function applyLegacyHistoryRecords(
     leagueWinsTotal: Math.max(profile.leagueWinsTotal, titleCounts.get(profile.wrestler) ?? 0),
     globalChampionWins: Math.max(profile.globalChampionWins, globalCounts.get(profile.wrestler) ?? 0),
     eliteCupWins: cupCounts.get(profile.wrestler) ?? 0,
+  })));
+}
+
+export function applyCompletedSplitLegacyCommits(
+  profiles: LegacyProfile[],
+  commits: CompletedSplitLegacyCommit[] = [],
+): LegacyProfile[] {
+  const unique = Array.from(new Map(commits.map((commit) => [commit.sourceSignature, commit])).values());
+  if (unique.length === 0) return profiles;
+  const titleCounts = new Map<string, number>();
+  const globalCounts = new Map<string, number>();
+  const cupCounts = new Map<string, number>();
+  const doubleCounts = new Map<string, number>();
+  for (const commit of unique) {
+    for (const record of commit.titleRecords) {
+      titleCounts.set(record.wrestler, (titleCounts.get(record.wrestler) ?? 0) + 1);
+      if (record.league === "Global League") globalCounts.set(record.wrestler, (globalCounts.get(record.wrestler) ?? 0) + 1);
+    }
+    if (commit.eliteCupWinner) {
+      cupCounts.set(commit.eliteCupWinner, (cupCounts.get(commit.eliteCupWinner) ?? 0) + 1);
+      if (commit.titleRecords.some((record) => record.league === "Global League" && record.wrestler === commit.eliteCupWinner)) {
+        doubleCounts.set(commit.eliteCupWinner, (doubleCounts.get(commit.eliteCupWinner) ?? 0) + 1);
+      }
+    }
+  }
+  return sortLegacyProfiles(profiles.map((profile) => ({
+    ...profile,
+    leagueWinsTotal: profile.leagueWinsTotal + (titleCounts.get(profile.wrestler) ?? 0),
+    globalChampionWins: profile.globalChampionWins + (globalCounts.get(profile.wrestler) ?? 0),
+    eliteCupWins: profile.eliteCupWins + (cupCounts.get(profile.wrestler) ?? 0),
+    doubles: profile.doubles + (doubleCounts.get(profile.wrestler) ?? 0),
   })));
 }
 

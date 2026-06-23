@@ -1,5 +1,5 @@
 import { LEAGUE_NAMES, type LeagueName, type Match, type SplitName } from "./types";
-import { recoverPostRegularSeasonWorkflowState, type ActiveWorkflow, type TrackerState } from "./tracker-state";
+import { recoverPostRegularSeasonWorkflowState, type ActiveWorkflow, type CompletedSplitLegacyCommit, type TrackerState } from "./tracker-state";
 import { applyRosterReplacementsToMatches } from "./roster-replacement";
 
 export const SCHEDULE_GENERATOR_VERSION = "1.0.0";
@@ -176,6 +176,7 @@ export interface StartNextSplitInput {
   acceptedSourceSignature: string;
   currentUserWrestler?: string | null;
   startedAt?: string;
+  completedSplitLegacyCommit?: Omit<CompletedSplitLegacyCommit, "sourceSignature" | "committedAt" | "leagueYear" | "split">;
 }
 
 export function getNextSplitIdentity(leagueYear: number, split: SplitName): { leagueYear: number; split: SplitName; yearWeekStart: number } {
@@ -235,6 +236,17 @@ export function startNextSplitFromAcceptedComposition(input: StartNextSplitInput
     activatedAt: input.startedAt ?? new Date().toISOString(),
     userLeague,
   };
+  const completedSplitLegacyCommit: CompletedSplitLegacyCommit | null = input.completedSplitLegacyCommit ? {
+    sourceSignature: accepted.sourceSignature,
+    committedAt: activeWorkflow.activatedAt,
+    leagueYear: input.completedLeagueYear,
+    split: input.completedSplit,
+    ...input.completedSplitLegacyCommit,
+  } : null;
+  const existingCommits = input.state.completedSplitLegacyCommits ?? [];
+  const completedSplitLegacyCommits = completedSplitLegacyCommit && !existingCommits.some((commit) => commit.sourceSignature === completedSplitLegacyCommit.sourceSignature)
+    ? [...existingCommits, completedSplitLegacyCommit]
+    : existingCommits;
   return {
     errors: [],
     state: {
@@ -243,6 +255,7 @@ export function startNextSplitFromAcceptedComposition(input: StartNextSplitInput
       activeWorkflow,
       confirmedResults: [],
       completedWeeks: [],
+      completedSplitLegacyCommits,
       postFinalsTransitionCompleted: {
         completedAt: activeWorkflow.activatedAt,
         sourceSignature: accepted.sourceSignature,

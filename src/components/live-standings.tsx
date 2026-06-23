@@ -73,23 +73,26 @@ function LeagueTable({ league, rows, userLeague, currentUserWrestler, championRo
 export function LiveStandings({ baseline, workbookMatches, workbookResults, meta, sourceFile, completedSplitAudit }: LiveStandingsProps) {
   const { state, hydrated } = useTrackerState();
   const matches = useMemo(() => getActiveWorkflowMatches(state, workbookMatches), [state, workbookMatches]);
-  const selectedUser = useCurrentUser(baseline).currentUser;
-  const previousSplitChampionColorRoles = useMemo(() => getPreviousSplitChampionColorRoles(completedSplitAudit), [completedSplitAudit]);
-  const userLeague = selectedUser?.league ?? meta.userLeague;
+  const previousSplitChampionColorRoles = useMemo(() => getPreviousSplitChampionColorRoles(completedSplitAudit, state.completedSplitLegacyCommits), [completedSplitAudit, state.completedSplitLegacyCommits]);
   const split = state.activeWorkflow?.split ?? meta.currentSplit;
   const splitWeek = state.activeWorkflow?.splitWeek ?? (meta.currentSplit === "Closing Split" ? Math.max(1, meta.currentWeek - 24) : meta.currentWeek);
+  const activeCompletedThroughWeek = state.activeWorkflow ? state.activeWorkflow.yearWeek - (state.activeWorkflow.splitWeek === 1 ? 1 : 0) : (meta.appBaselineCompletedThroughWeek ?? meta.currentWeek);
   const live = useMemo(
     () => reconstructActiveSplitLiveStandings({
       previousFinalStandings: baseline,
+      postFinalsAssignments: state.activeWorkflow ? LEAGUE_NAMES.flatMap((league) => state.acceptedPostFinalsComposition?.rosters[league] ?? []) : undefined,
       scheduledMatches: matches,
       masterResults: workbookResults,
       localResults: hydrated ? state.confirmedResults : [],
       split,
-      completedThroughWeek: meta.appBaselineCompletedThroughWeek ?? meta.currentWeek,
+      completedThroughWeek: activeCompletedThroughWeek,
+      activeLeagueYear: state.activeWorkflow?.leagueYear,
     }),
-    [baseline, hydrated, matches, meta.appBaselineCompletedThroughWeek, meta.currentWeek, state.confirmedResults, split, workbookResults],
+    [activeCompletedThroughWeek, baseline, hydrated, matches, state.acceptedPostFinalsComposition?.rosters, state.activeWorkflow, state.confirmedResults, split, workbookResults],
   );
   const standings = live.standings;
+  const selectedUser = useCurrentUser(live.composition).currentUser;
+  const userLeague = state.activeWorkflow?.userLeague ?? selectedUser?.league ?? meta.userLeague;
   const source = state.activeWorkflow?.scheduleSource ?? `Workbook · ${sourceFile}`;
   const diagnostics = [...live.diagnostics, ...validateActiveSplitStandings(standings, splitWeek)];
   const lastUpdate = state.completedWeeks.at(-1)?.completedAt ?? meta.latestAppWritebackCompletedAt ?? state.activeWorkflow?.activatedAt ?? null;

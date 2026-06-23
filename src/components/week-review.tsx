@@ -464,7 +464,7 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
     userLeague={workflowUserLeague}
     workbookCompletedThroughWeek={workbookCurrentWeek}
     source={sourceFile}
-    promptPreview={<MiniLiveStandingsPreview standings={updatedStandings} split={activeSplit} splitWeek={activeSplitWeek} latestLockedWeek={latestLockedWeek} currentUserWrestler={userWrestler} championRoles={getPreviousSplitChampionColorRoles(completedSplitAudit)} />}
+    promptPreview={<MiniLiveStandingsPreview standings={updatedStandings} split={activeSplit} splitWeek={activeSplitWeek} latestLockedWeek={latestLockedWeek} currentUserWrestler={userWrestler} championRoles={getPreviousSplitChampionColorRoles(completedSplitAudit, state.completedSplitLegacyCommits)} />}
   />
 
   <div className="flex flex-col gap-2 text-xs text-slate-500 sm:flex-row sm:justify-between">

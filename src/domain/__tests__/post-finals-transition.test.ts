@@ -3,6 +3,9 @@ import { resolveCurrentUser } from "../current-user";
 import { buildCanonicalLeagueFinalsRegistry, buildLeagueFinalsMatchIdentity, deriveLeagueFinalsReview, type LeagueFinalsResult } from "../league-finals";
 import { buildNextSplitStandings, createAcceptedPostFinalsCompositionSnapshot, derivePostFinalsTransition } from "../post-finals-transition";
 import { generateSchedule, getNextSplitIdentity, startNextSplitFromAcceptedComposition, validateSchedule } from "../schedule-setup";
+import { reconstructActiveSplitLiveStandings } from "../tracker-state";
+import { applyCompletedSplitLegacyCommits } from "../legacy";
+import { getPreviousSplitChampionColorRoles } from "../previous-split-name-colors";
 import { LEAGUE_NAMES, type StandingRow } from "../types";
 
 const standings: StandingRow[] = LEAGUE_NAMES.flatMap((league) =>
@@ -96,7 +99,7 @@ function phase19pCompletedResults(): LeagueFinalsResult[] {
     "league-finals:night-two:match-3": "Shawn Michaels",
     "league-finals:night-two:match-4": "Gunther",
     "league-finals:night-two:match-5": "Roman Reigns",
-    "league-finals:night-two:match-6": "Gunther",
+    "league-finals:night-two:match-6": "Roman Reigns",
   };
   return phase19pMatches.map((match) => ({
     matchId: match.id,
@@ -702,6 +705,90 @@ describe("Post-Finals movement and composition", () => {
 
   it("Phase 19Y: derives next league-year Opening Split after a completed Closing Split", () => {
     expect(getNextSplitIdentity(2, "Closing Split")).toEqual({ leagueYear: 3, split: "Opening Split", yearWeekStart: 1 });
+  });
+
+  it("Phase 19Z: resets live standings to the accepted next split baseline and does not warn on future weeks", () => {
+    const transition = derivePhase19p();
+    const snapshot = createAcceptedPostFinalsCompositionSnapshot({ transition, leagueYear: 2, split: "Opening Split" });
+    const started = startNextSplitFromAcceptedComposition({
+      state: { version: 1, confirmedResults: [], completedWeeks: [], lastExportedAt: null, lastImportedAt: null, acceptedPostFinalsComposition: snapshot },
+      completedLeagueYear: 2,
+      completedSplit: "Opening Split",
+      acceptedSourceSignature: snapshot.sourceSignature,
+      startedAt: "2026-06-23T00:00:00.000Z",
+    });
+    const live = reconstructActiveSplitLiveStandings({
+      previousFinalStandings: phase19pStandings,
+      postFinalsAssignments: LEAGUE_NAMES.flatMap((league) => snapshot.rosters[league]),
+      scheduledMatches: started.state.acceptedSchedule!.matches.map((match) => ({
+        id: match.id,
+        leagueYear: match.leagueYear,
+        split: match.split,
+        week: match.yearWeek!,
+        roundType: match.leg,
+        league: match.league,
+        showDay: "Montag",
+        matchNumber: 1,
+        wrestlerA: match.wrestlerA,
+        wrestlerB: match.wrestlerB,
+        matchupKey: [match.wrestlerA, match.wrestlerB].sort().join("::"),
+        status: "scheduled",
+        source: { file: "test", sheet: "acceptedSchedule" },
+      })),
+      masterResults: [],
+      localResults: [],
+      split: "Closing Split",
+      completedThroughWeek: 24,
+      activeLeagueYear: 2,
+    });
+    expect(live.standings).toHaveLength(48);
+    expect(live.standings.every((row) => row.matches === 0 && row.wins === 0 && row.draws === 0 && row.losses === 0 && row.points === 0)).toBe(true);
+    expect(live.diagnostics.filter((diagnostic) => /Week 2|Week 22|UI claims Week 22|missing from local\/master/.test(diagnostic))).toEqual([]);
+  });
+
+  it("Phase 19Z: commits completed split legacy facts once and refreshes last champion color roles", () => {
+    const transition = derivePhase19p();
+    const snapshot = createAcceptedPostFinalsCompositionSnapshot({ transition, leagueYear: 2, split: "Opening Split" });
+    const commit = {
+      titleRecords: transition.champions.map((champion) => ({ league: champion.league, wrestler: champion.wrestler })),
+      eliteCupWinner: transition.legacyFacts.find((fact) => fact.label === "Global Elite Cup Winner")?.wrestler ?? null,
+      eliteCupRunnerUp: transition.legacyFacts.find((fact) => fact.label === "Global Elite Cup Runner-up")?.wrestler ?? null,
+    };
+    const first = startNextSplitFromAcceptedComposition({
+      state: { version: 1, confirmedResults: [], completedWeeks: [], lastExportedAt: null, lastImportedAt: null, acceptedPostFinalsComposition: snapshot },
+      completedLeagueYear: 2,
+      completedSplit: "Opening Split",
+      acceptedSourceSignature: snapshot.sourceSignature,
+      completedSplitLegacyCommit: commit,
+    });
+    const second = startNextSplitFromAcceptedComposition({
+      state: first.state,
+      completedLeagueYear: 2,
+      completedSplit: "Opening Split",
+      acceptedSourceSignature: snapshot.sourceSignature,
+      completedSplitLegacyCommit: commit,
+    });
+    expect(first.state.completedSplitLegacyCommits).toHaveLength(1);
+    expect(second.state.completedSplitLegacyCommits).toHaveLength(1);
+    const profiles = applyCompletedSplitLegacyCommits(transition.assignments.map((assignment) => ({
+      wrestler: assignment.wrestler,
+      currentLeague: assignment.newLeague,
+      goatStatusTier: null,
+      leagueWinsTotal: 0,
+      globalChampionWins: 0,
+      eliteCupWins: 0,
+      doubles: 0,
+      invincibleSplits: 0,
+      invincibleHinrunden: 0,
+      invincibleRueckrunden: 0,
+      longestWinStreakOverall: 0,
+      sourceCommentary: null,
+    })), first.state.completedSplitLegacyCommits);
+    expect(profiles.reduce((sum, profile) => sum + profile.leagueWinsTotal, 0)).toBe(4);
+    expect(profiles.reduce((sum, profile) => sum + profile.eliteCupWins, 0)).toBe(1);
+    const roles = getPreviousSplitChampionColorRoles(undefined, first.state.completedSplitLegacyCommits);
+    expect(roles.get("gunther")).toBe("global-champion");
+    expect(roles.get("roman reigns")).toBe("elite-cup");
   });
 });
 

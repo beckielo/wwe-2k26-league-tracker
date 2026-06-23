@@ -59,6 +59,17 @@ export interface TrackerState {
   currentUserWrestler?: string;
   rosterReplacements?: RosterReplacementLogEntry[];
   newRunSetupDraft?: NewRunSetupDraft;
+  completedSplitLegacyCommits?: CompletedSplitLegacyCommit[];
+}
+
+export interface CompletedSplitLegacyCommit {
+  sourceSignature: string;
+  committedAt: string;
+  leagueYear: number;
+  split: SplitName;
+  titleRecords: { league: LeagueName; wrestler: string }[];
+  eliteCupWinner: string | null;
+  eliteCupRunnerUp?: string | null;
 }
 
 export interface AcceptedPostFinalsCompositionSnapshot {
