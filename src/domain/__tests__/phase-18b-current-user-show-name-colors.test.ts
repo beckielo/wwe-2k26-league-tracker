@@ -39,14 +39,29 @@ describe("Phase 18C current user icon and name colors", () => {
     expect(helperSource).not.toContain("name-color-current-user");
   });
 
-  it("keeps the general double-winner rule while applying the temporary Roman/Gunther active display override", () => {
+  it("keeps the general double-winner rule unless a completed split commit supersedes stale audit data", () => {
     const drewRoles = getPreviousSplitChampionColorRoles(audit("Drew McIntyre", "Drew McIntyre"));
     expect(getPreviousSplitNameColorRole({ wrestler: "Drew McIntyre", championRoles: drewRoles })).toBe("double-winner");
 
     const guntherRoles = getPreviousSplitChampionColorRoles(audit("Gunther", "Gunther"));
-    expect(getPreviousSplitNameColorRole({ wrestler: "Roman Reigns", championRoles: guntherRoles })).toBe("elite-cup");
-    expect(getPreviousSplitNameColorRole({ wrestler: "Gunther", championRoles: guntherRoles })).toBe("global-champion");
-    expect(getPreviousSplitNameColorRole({ wrestler: "Gunther", championRoles: guntherRoles })).not.toBe("double-winner");
+    expect(getPreviousSplitNameColorRole({ wrestler: "Gunther", championRoles: guntherRoles })).toBe("double-winner");
+
+    const committedRoles = getPreviousSplitChampionColorRoles(audit("Gunther", "Gunther"), [{
+      sourceSignature: "completed-post-finals-current-fixture",
+      committedAt: "2026-06-23T00:00:00.000Z",
+      leagueYear: 2,
+      split: "Opening Split",
+      titleRecords: [
+        { league: "Global League", wrestler: "Gunther" },
+        { league: "Continental League", wrestler: "Randy Orton" },
+        { league: "National League", wrestler: "LA Knight" },
+        { league: "Regional League", wrestler: "Dragon Lee" },
+      ],
+      eliteCupWinner: "Roman Reigns",
+      eliteCupRunnerUp: "Gunther",
+    }]);
+    expect(getPreviousSplitNameColorRole({ wrestler: "Roman Reigns", championRoles: committedRoles })).toBe("elite-cup");
+    expect(getPreviousSplitNameColorRole({ wrestler: "Gunther", championRoles: committedRoles })).toBe("global-champion");
   });
 
   it("wires the shared wrestler-name helper into the requested UI surfaces only in wrestler cells", () => {

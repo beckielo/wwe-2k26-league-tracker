@@ -113,6 +113,11 @@ export function PostFinalsTransitionView(props: Props) {
       completedSplit: props.split,
       acceptedSourceSignature: transition.movementSourceAudit.sourceSignature,
       currentUserWrestler: state.currentUserWrestler,
+      completedSplitLegacyCommit: {
+        titleRecords: transition.champions.map((champion) => ({ league: champion.league, wrestler: champion.wrestler })),
+        eliteCupWinner: transition.legacyFacts.find((fact) => fact.label === "Global Elite Cup Winner")?.wrestler ?? null,
+        eliteCupRunnerUp: transition.legacyFacts.find((fact) => fact.label === "Global Elite Cup Runner-up")?.wrestler ?? null,
+      },
     });
     if (action.errors.length) {
       setStartMessage({ tone: "error", text: action.errors[0] });

@@ -1,4 +1,5 @@
 import type { LegacyCompletedSplitAudit } from "./legacy";
+import type { CompletedSplitLegacyCommit } from "./tracker-state";
 import type { LeagueName } from "./types";
 
 export type PreviousSplitNameColorRole = "double-winner" | "elite-cup" | "global-champion" | "continental-champion" | "national-champion" | "regional-champion" | "normal";
@@ -24,17 +25,25 @@ function eventRank(record: { leagueYear: number; split: string | { toString(): s
   return record.leagueYear * 10 + splitRank(String(record.split));
 }
 
-function applyTemporaryActiveDisplayOverride(roles: Map<string, PreviousSplitNameColorRole>) {
-  // Temporary display override for current active dataset: Roman Reigns = Elite Cup winner, Gunther = Global Champion. Remove once previous split champion source is corrected.
-  roles.set(key("Roman Reigns"), "elite-cup");
-  roles.set(key("Gunther"), "global-champion");
+function applyCommitRoles(roles: Map<string, PreviousSplitNameColorRole>, commit: CompletedSplitLegacyCommit) {
+  for (const record of commit.titleRecords) {
+    roles.set(key(record.wrestler), leagueChampionRoles[record.league]);
+  }
+  if (commit.eliteCupWinner) {
+    const winnerKey = key(commit.eliteCupWinner);
+    roles.set(winnerKey, roles.get(winnerKey) === "global-champion" ? "double-winner" : "elite-cup");
+  }
 }
 
-export function getPreviousSplitChampionColorRoles(audit?: LegacyCompletedSplitAudit): Map<string, PreviousSplitNameColorRole> {
+export function getPreviousSplitChampionColorRoles(audit?: LegacyCompletedSplitAudit, commits: CompletedSplitLegacyCommit[] = []): Map<string, PreviousSplitNameColorRole> {
   const roles = new Map<string, PreviousSplitNameColorRole>();
+  const latestCommit = [...commits].sort((a, b) => (b.leagueYear * 10 + splitRank(b.split)) - (a.leagueYear * 10 + splitRank(a.split)))[0];
+  if (latestCommit) {
+    applyCommitRoles(roles, latestCommit);
+    return roles;
+  }
   const titleRecords = audit?.leagueTitleRecords ?? [];
   if (titleRecords.length === 0) {
-    applyTemporaryActiveDisplayOverride(roles);
     return roles;
   }
 
@@ -51,8 +60,6 @@ export function getPreviousSplitChampionColorRoles(audit?: LegacyCompletedSplitA
     const winnerKey = key(latestCupRecord.wrestler);
     roles.set(winnerKey, roles.get(winnerKey) === "global-champion" ? "double-winner" : "elite-cup");
   }
-
-  applyTemporaryActiveDisplayOverride(roles);
 
   return roles;
 }

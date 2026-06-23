@@ -11,6 +11,7 @@ import { getRecentForm } from "@/domain/recent-form";
 import { getWorkflowSummary } from "@/domain/week-progression";
 import { getWeekDisplay } from "@/domain/week-display";
 import type { HeadToHeadRecord, LeagueName, Match, MatchResult, StandingRow, TrackerMeta, ValidationIssue } from "@/domain/types";
+import { LEAGUE_NAMES } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { CurrentUserSwitcher, useCurrentUser } from "./current-user-switcher";
 import { ReplaceWrestlerControl } from "./replace-wrestler-control";
@@ -50,7 +51,9 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
     masterResults: props.workbookResults,
     localResults: state.confirmedResults,
     split: state.activeWorkflow?.split ?? props.meta.currentSplit,
-    completedThroughWeek: props.workbookCompletedThroughWeek,
+    completedThroughWeek: state.activeWorkflow ? state.activeWorkflow.yearWeek - (state.activeWorkflow.splitWeek === 1 ? 1 : 0) : props.workbookCompletedThroughWeek,
+    activeLeagueYear: state.activeWorkflow?.leagueYear,
+    postFinalsAssignments: state.activeWorkflow ? LEAGUE_NAMES.flatMap((league) => state.acceptedPostFinalsComposition?.rosters[league] ?? []) : undefined,
     rosterReplacements: state.rosterReplacements ?? [],
   });
   const selectedUser = useCurrentUser(live.composition).currentUser;
@@ -63,7 +66,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
   const display = getWeekDisplay(leagueYear, yearWeek, split);
   const userLeagueRows = live.standings.filter((row) => row.league === userLeague).sort((a, b) => a.rank - b.rank);
   const currentRanks = new Map(userLeagueRows.map((row) => [row.wrestler, row.rank]));
-  const previousSplitChampionColorRoles = getPreviousSplitChampionColorRoles(props.legacySummary.completedSplitAudit);
+  const previousSplitChampionColorRoles = getPreviousSplitChampionColorRoles(props.legacySummary.completedSplitAudit, state.completedSplitLegacyCommits);
   const allKnownMatches = [...props.workbookMatches.filter((match) => !matches.some((active) => active.id === match.id)), ...matches];
   const activeSplit = split ?? props.meta.currentSplit;
   const matchHistory = [
