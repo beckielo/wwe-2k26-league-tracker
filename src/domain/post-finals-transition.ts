@@ -62,6 +62,7 @@ export interface PostFinalsTransition {
   invalidResults: string[];
   champions: { league: LeagueName; wrestler: string }[];
   directMovements: DirectMovement[];
+  movementSourceAudit: PostFinalsMovementSourceAudit;
   relegationOutcomes: RelegationOutcome[];
   assignments: PostFinalsAssignment[];
   leagueComposition: Record<LeagueName, PostFinalsAssignment[]>;
@@ -116,6 +117,14 @@ export interface PostFinalsTransition {
   };
 }
 
+export interface PostFinalsMovementSourceAudit {
+  finalStandingsSourceSignature: string;
+  directMovementSource: "recomputed from canonical final standings";
+  cachedDirectMovementIgnored: boolean;
+  directMovers: { slot: string; wrestler: string | null; targetLeague: LeagueName }[];
+}
+
+
 export interface PostFinalsTransitionInput {
   completedThroughWeek: number;
   standings: StandingRow[];
@@ -133,7 +142,6 @@ export interface PostFinalsLeagueCompositionInput {
   finalStandings: StandingRow[];
   leagueFinalsMatches: LeagueFinalsMatch[];
   leagueFinalsResults: LeagueFinalsResult[];
-  directMovements: DirectMovement[];
 }
 
 export interface PostFinalsLeagueComposition {
@@ -239,6 +247,42 @@ function validateComposition(assignments: PostFinalsAssignment[], standings: Sta
 }
 
 
+export function createPostFinalsStandingsSourceSignature(standings: StandingRow[]): string {
+  return LEAGUE_NAMES.map((league) => {
+    const rows = standings
+      .filter((row) => row.league === league)
+      .sort((a, b) => a.rank - b.rank)
+      .map((row) => `#${row.rank}:${row.wrestler}`)
+      .join("|");
+    return `${league}[${rows}]`;
+  }).join("::");
+}
+
+function sameDirectMovements(a: DirectMovement[], b: DirectMovement[]): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function buildMovementSourceAudit(standings: StandingRow[], recomputedDirectMovements: DirectMovement[], cachedDirectMovements: DirectMovement[]): PostFinalsMovementSourceAudit {
+  const directMoverSlots: Array<{ slot: string; from: LeagueName; rank: number; targetLeague: LeagueName }> = [
+    { slot: "Continental #1", from: "Continental League", rank: 1, targetLeague: "Global League" },
+    { slot: "National #1", from: "National League", rank: 1, targetLeague: "Continental League" },
+    { slot: "Regional #1", from: "Regional League", rank: 1, targetLeague: "National League" },
+    { slot: "Global #12", from: "Global League", rank: 12, targetLeague: "Continental League" },
+    { slot: "Continental #12", from: "Continental League", rank: 12, targetLeague: "National League" },
+    { slot: "National #12", from: "National League", rank: 12, targetLeague: "Regional League" },
+  ];
+  return {
+    finalStandingsSourceSignature: createPostFinalsStandingsSourceSignature(standings),
+    directMovementSource: "recomputed from canonical final standings",
+    cachedDirectMovementIgnored: cachedDirectMovements.length > 0 && !sameDirectMovements(cachedDirectMovements, recomputedDirectMovements),
+    directMovers: directMoverSlots.map((slot) => ({
+      slot: slot.slot,
+      wrestler: standings.find((row) => row.league === slot.from && row.rank === slot.rank)?.wrestler ?? null,
+      targetLeague: slot.targetLeague,
+    })),
+  };
+}
+
 function deriveDirectMovementsFromFinalStandings(standings: StandingRow[]): DirectMovement[] {
   const rowAt = (league: LeagueName, rank: number) => standings.find((row) => row.league === league && row.rank === rank);
   const movements: DirectMovement[] = [];
@@ -306,11 +350,11 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
   if (unresolvedTies.length) reviewRequired.push(`${unresolvedTies.length} required tiebreaker state(s) remain unresolved.`);
 
   const directMovements = deriveDirectMovementsFromFinalStandings(input.standings);
+  const movementSourceAudit = buildMovementSourceAudit(input.standings, directMovements, input.directMovements);
   const composition = derivePostFinalsLeagueComposition({
     finalStandings: input.standings,
     leagueFinalsMatches: authoritativeMatches,
     leagueFinalsResults: reconciledResults,
-    directMovements,
   });
   const assignments = composition.assignments;
   const relegationOutcomes = composition.relegationOutcomes;
@@ -390,6 +434,7 @@ export function derivePostFinalsTransition(input: PostFinalsTransitionInput): Po
     invalidResults,
     champions: input.champions,
     directMovements,
+    movementSourceAudit,
     relegationOutcomes,
     assignments,
     leagueComposition,
@@ -471,12 +516,6 @@ export function derivePostFinalsLeagueComposition(input: PostFinalsLeagueComposi
     { from: "Continental League", rank: 12, to: "National League", reason: "Direct relegation" },
     { from: "National League", rank: 12, to: "Regional League", reason: "Direct relegation" },
   ];
-
-  for (const movement of input.directMovements) {
-    if (!assignmentByWrestler.has(movement.wrestler)) {
-      compositionErrors.push(`${movement.wrestler}: direct movement has no final-standing assignment.`);
-    }
-  }
 
   for (const direct of directRules) {
     const row = rowAt(direct.from, direct.rank);

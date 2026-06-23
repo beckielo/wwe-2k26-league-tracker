@@ -153,8 +153,32 @@ describe("Post-Finals completion gate", () => {
     expect(transition.finalsComplete).toBe(true);
     expect(transition.compositionValid).toBe(true);
     expect(transition.directMovements.map((movement) => movement.wrestler)).not.toContain("Missing Wrestler");
+    expect(transition.movementSourceAudit.directMovementSource).toBe("recomputed from canonical final standings");
+    expect(transition.movementSourceAudit.cachedDirectMovementIgnored).toBe(true);
   });
 
+  it("Phase 19T: exposes canonical direct-mover audit slots from the final standings signature", () => {
+    const transition = derivePhase19p({
+      directMovements: [
+        { wrestler: "Drew McIntyre", fromLeague: "Continental League", toLeague: "Global League", reason: "Direct promotion" },
+        { wrestler: "Shinsuke Nakamura", fromLeague: "National League", toLeague: "Continental League", reason: "Direct promotion" },
+        { wrestler: "Pete Dunne", fromLeague: "Regional League", toLeague: "National League", reason: "Direct promotion" },
+        { wrestler: "The Rock", fromLeague: "Continental League", toLeague: "National League", reason: "Direct relegation" },
+        { wrestler: "Austin Theory", fromLeague: "National League", toLeague: "Regional League", reason: "Direct relegation" },
+      ],
+    });
+
+    expect(transition.movementSourceAudit.cachedDirectMovementIgnored).toBe(true);
+    expect(transition.movementSourceAudit.finalStandingsSourceSignature).toContain("Regional League[#1:Dragon Lee");
+    expect(transition.movementSourceAudit.directMovers).toEqual([
+      { slot: "Continental #1", wrestler: "Randy Orton", targetLeague: "Global League" },
+      { slot: "National #1", wrestler: "LA Knight", targetLeague: "Continental League" },
+      { slot: "Regional #1", wrestler: "Dragon Lee", targetLeague: "National League" },
+      { slot: "Global #12", wrestler: "Triple H", targetLeague: "Continental League" },
+      { slot: "Continental #12", wrestler: "Undertaker", targetLeague: "National League" },
+      { slot: "National #12", wrestler: "Rey Mysterio", targetLeague: "Regional League" },
+    ]);
+  });
 
   it("uses shared registry instead of stale or empty passed matches", () => {
     const transition = derive({ matches: [] });

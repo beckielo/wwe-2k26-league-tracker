@@ -95,6 +95,16 @@ export function PostFinalsTransitionView(props: Props) {
     </section>
 
     {transition.finalsComplete && <>
+      <section className="border border-sky-400/20 bg-sky-400/5 p-6">
+        <h2 className="text-xl font-black uppercase">Post-Finals Movement Source Audit</h2>
+        <dl className="mt-4 grid gap-2 text-xs sm:grid-cols-2">
+          <div><dt className="font-bold uppercase text-slate-400">Final standings source signature</dt><dd className="break-all text-slate-200">{transition.movementSourceAudit.finalStandingsSourceSignature}</dd></div>
+          <div><dt className="font-bold uppercase text-slate-400">Direct movement source</dt><dd>{transition.movementSourceAudit.directMovementSource}</dd></div>
+          <div><dt className="font-bold uppercase text-slate-400">Cached direct movement ignored</dt><dd>{transition.movementSourceAudit.cachedDirectMovementIgnored ? "yes" : "no"}</dd></div>
+        </dl>
+        <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">{transition.movementSourceAudit.directMovers.map((mover) => <div key={mover.slot} className="border border-white/10 p-3"><strong>{mover.slot}</strong><p className="text-slate-400">{mover.wrestler ?? "Missing"} → {mover.targetLeague}</p></div>)}</div>
+      </section>
+
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="border border-white/10 bg-[#111722] p-6">
           <h2 className="text-xl font-black uppercase">Direct movements</h2>
