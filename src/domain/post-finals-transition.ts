@@ -11,7 +11,7 @@ import {
 } from "./league-finals";
 import type { ConsequentialTieReview } from "./split-completion";
 import { LEAGUE_NAMES, type LeagueName, type StandingRow } from "./types";
-import type { ManualReview } from "./tracker-state";
+import type { AcceptedPostFinalsCompositionSnapshot, ManualReview } from "./tracker-state";
 
 export type MovementKind =
   | "Champion/direct promotion"
@@ -161,6 +161,33 @@ export interface PostFinalsLeagueComposition {
   relegationOutcomes: RelegationOutcome[];
   compositionErrors: string[];
   compositionValid: boolean;
+}
+
+export function createAcceptedPostFinalsCompositionSnapshot(input: {
+  transition: PostFinalsTransition;
+  leagueYear: number;
+  split: "Opening Split" | "Closing Split";
+  acceptedAt?: string;
+}): AcceptedPostFinalsCompositionSnapshot {
+  const nextSplit = input.split === "Opening Split" ? "Closing Split" : "Opening Split";
+  const nextLeagueYear = input.split === "Opening Split" ? input.leagueYear : input.leagueYear + 1;
+  return {
+    postFinalsCompositionAccepted: true,
+    leagueYear: input.leagueYear,
+    split: input.split,
+    nextLeagueYear,
+    nextSplit,
+    sourceSignature: input.transition.movementSourceAudit.sourceSignature,
+    rosters: Object.fromEntries(LEAGUE_NAMES.map((league) => [
+      league,
+      [...input.transition.leagueComposition[league]].sort(proposedSort),
+    ])) as Record<LeagueName, PostFinalsAssignment[]>,
+    movementSummary: {
+      directMovements: input.transition.assignments.filter((assignment) => assignment.movement === "Champion/direct promotion" || assignment.movement === "Direct relegation"),
+      playoffMovements: input.transition.assignments.filter((assignment) => ["Promoted", "Relegated", "Retained higher league", "Failed promotion"].includes(assignment.movement)),
+    },
+    acceptedAt: input.acceptedAt ?? new Date().toISOString(),
+  };
 }
 
 function slug(value: string | number | null | undefined): string {

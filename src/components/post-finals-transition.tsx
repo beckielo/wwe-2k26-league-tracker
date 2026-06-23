@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { deriveLeagueFinalsReview, normalizeLeagueFinalsResults } from "@/domain/league-finals";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { reconstructActiveSplitLiveStandings } from "@/domain/tracker-state";
-import { derivePostFinalsTransition } from "@/domain/post-finals-transition";
+import { createAcceptedPostFinalsCompositionSnapshot, derivePostFinalsTransition } from "@/domain/post-finals-transition";
 import { deriveSplitCompletionReview } from "@/domain/split-completion";
 import type { Match, MatchResult, MatchupReferenceRow, SplitName, StandingRow } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
@@ -23,6 +24,7 @@ interface Props {
 
 export function PostFinalsTransitionView(props: Props) {
   const { state, updateState, hydrated } = useTrackerState();
+  const [confirmingAcceptance, setConfirmingAcceptance] = useState(false);
   const activeWorkflowMatches = useMemo(() => getActiveWorkflowMatches(state, props.matches), [props.matches, state]);
   const finalLiveStandings = useMemo(() => reconstructActiveSplitLiveStandings({
     previousFinalStandings: props.standings,
@@ -70,6 +72,25 @@ export function PostFinalsTransitionView(props: Props) {
     hasAuthoritativeClosingSchedule: props.hasAuthoritativeClosingSchedule,
     manualReviews: state.manualReviews,
   }), [allFinalsMatches, finals.champions, finals.directMovements, props.completedThroughWeek, props.hasAuthoritativeClosingSchedule, splitReview.consequentialTies, finalLiveStandings, state.completedFinalsNights, state.leagueFinalsResults, state.manualReviews]);
+  const acceptedComposition = state.acceptedPostFinalsComposition;
+  const accepted = Boolean(acceptedComposition?.postFinalsCompositionAccepted && acceptedComposition.sourceSignature === transition.movementSourceAudit.sourceSignature);
+  const reviewDisabledReason = !transition.finalsComplete
+    ? "Complete League Finals first."
+    : !transition.compositionValid
+      ? "Composition must be valid before review."
+      : null;
+  const acceptComposition = () => {
+    if (reviewDisabledReason || accepted) return;
+    const snapshot = createAcceptedPostFinalsCompositionSnapshot({
+      transition,
+      leagueYear: props.leagueYear,
+      split: props.split,
+    });
+    updateState((current) => current.acceptedPostFinalsComposition?.sourceSignature === snapshot.sourceSignature
+      ? current
+      : { ...current, acceptedPostFinalsComposition: snapshot });
+    setConfirmingAcceptance(false);
+  };
 
   if (!hydrated) return <div className="border border-white/10 p-6 text-slate-400">Loading Post-Finals Transition state…</div>;
 
@@ -110,6 +131,19 @@ export function PostFinalsTransitionView(props: Props) {
       </details>}
     </section>
 
+    {!transition.finalsComplete && <section className="border border-white/10 bg-[#111722] p-6">
+      <h2 className="text-xl font-black uppercase">New league composition preview</h2>
+      <p className="mt-2 text-sm font-bold text-amber-300">Review Required</p>
+      <button
+        type="button"
+        disabled
+        className="mt-4 border border-emerald-300/40 px-4 py-2 text-xs font-black uppercase tracking-[.16em] text-emerald-100 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-slate-500"
+      >
+        Review New League Composition
+      </button>
+      <p className="mt-3 text-sm font-bold text-amber-200" role="status">{reviewDisabledReason}</p>
+    </section>}
+
     {transition.finalsComplete && <>
       <section className="border border-sky-400/20 bg-sky-400/5 p-6">
         <h2 className="text-xl font-black uppercase">Post-Finals Movement Source Audit</h2>
@@ -138,13 +172,27 @@ export function PostFinalsTransitionView(props: Props) {
       <section className="border border-white/10 bg-[#111722] p-6">
         <h2 className="text-xl font-black uppercase">New league composition preview</h2>
         <p className={`mt-2 text-sm font-bold ${transition.compositionValid ? "text-emerald-300" : "text-amber-300"}`}>{transition.compositionValid ? "Post-Finals league composition valid" : "Review Required"}</p>
+        {accepted && <p className="mt-3 text-sm font-black text-emerald-200" role="status">Post-Finals composition accepted</p>}
         <button
           type="button"
-          disabled={!transition.compositionValid}
+          disabled={Boolean(reviewDisabledReason) || accepted}
+          onClick={() => setConfirmingAcceptance(true)}
           className="mt-4 border border-emerald-300/40 px-4 py-2 text-xs font-black uppercase tracking-[.16em] text-emerald-100 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-slate-500"
         >
-          Review New League Composition
+          {accepted ? "Composition Accepted" : "Review New League Composition"}
         </button>
+        {reviewDisabledReason && <p className="mt-3 text-sm font-bold text-amber-200" role="status">{reviewDisabledReason}</p>}
+        {accepted && <Link href="/schedule-setup" className="ml-0 mt-4 inline-flex border border-sky-300/40 px-4 py-2 text-xs font-black uppercase tracking-[.16em] text-sky-100 sm:ml-3">Continue to Schedule Setup</Link>}
+        {confirmingAcceptance && <div role="dialog" aria-modal="true" aria-labelledby="accept-composition-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="max-w-lg border border-emerald-300/40 bg-[#111722] p-6 shadow-2xl">
+            <h3 id="accept-composition-title" className="text-xl font-black uppercase">Accept New League Composition?</h3>
+            <p className="mt-3 text-sm text-slate-300">This will save the reviewed 4x12 post-finals league composition as the roster baseline for the next split setup. The workbook will not be mutated automatically.</p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button type="button" className="bg-red-500 px-4 py-2 font-black uppercase text-white" onClick={acceptComposition}>Accept Composition</button>
+              <button type="button" className="border border-white/20 px-4 py-2 font-bold" onClick={() => setConfirmingAcceptance(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>}
         <div className="mt-5 grid gap-5 xl:grid-cols-4">{transition.proposedOrder.map((group) => <div key={group.league} className="border border-white/10 p-4">
           <h3 className="font-black uppercase">{group.league}</h3>
           <p className="mt-1 text-[10px] font-bold uppercase text-amber-300">Proposed seed order / Review Required</p>

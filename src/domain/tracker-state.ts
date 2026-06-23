@@ -52,11 +52,27 @@ export interface TrackerState {
   leagueFinalsResults?: LeagueFinalsResult[];
   completedFinalsNights?: { night: FinalsNight; completedAt: string }[];
   acceptedSchedule?: AcceptedScheduleSnapshot;
+  acceptedPostFinalsComposition?: AcceptedPostFinalsCompositionSnapshot;
   activeWorkflow?: ActiveWorkflow;
   manualReviews?: ManualReview[];
   currentUserWrestler?: string;
   rosterReplacements?: RosterReplacementLogEntry[];
   newRunSetupDraft?: NewRunSetupDraft;
+}
+
+export interface AcceptedPostFinalsCompositionSnapshot {
+  postFinalsCompositionAccepted: true;
+  leagueYear: number;
+  split: SplitName;
+  nextLeagueYear: number;
+  nextSplit: SplitName;
+  sourceSignature: string;
+  rosters: Record<LeagueName, PostFinalsAssignment[]>;
+  movementSummary: {
+    directMovements: PostFinalsAssignment[];
+    playoffMovements: PostFinalsAssignment[];
+  };
+  acceptedAt: string;
 }
 
 export interface ActiveWorkflow {
