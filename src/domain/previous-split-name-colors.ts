@@ -35,6 +35,34 @@ function applyCommitRoles(roles: Map<string, PreviousSplitNameColorRole>, commit
   }
 }
 
+
+export interface LastCompletedSplitChampionMetadata {
+  leagueYear: number;
+  split: string;
+  sourceSignature: string;
+  globalChampion: string | null;
+  continentalChampion: string | null;
+  nationalChampion: string | null;
+  regionalChampion: string | null;
+  eliteCupWinner: string | null;
+}
+
+export function getLastCompletedSplitChampionMetadata(commits: CompletedSplitLegacyCommit[] = []): LastCompletedSplitChampionMetadata | null {
+  const latestCommit = [...commits].sort((a, b) => (b.leagueYear * 10 + splitRank(b.split)) - (a.leagueYear * 10 + splitRank(a.split)))[0];
+  if (!latestCommit) return null;
+  const champion = (league: LeagueName) => latestCommit.titleRecords.find((record) => record.league === league)?.wrestler ?? null;
+  return {
+    leagueYear: latestCommit.leagueYear,
+    split: latestCommit.split,
+    sourceSignature: latestCommit.sourceSignature,
+    globalChampion: champion("Global League"),
+    continentalChampion: champion("Continental League"),
+    nationalChampion: champion("National League"),
+    regionalChampion: champion("Regional League"),
+    eliteCupWinner: latestCommit.eliteCupWinner ?? null,
+  };
+}
+
 export function getPreviousSplitChampionColorRoles(audit?: LegacyCompletedSplitAudit, commits: CompletedSplitLegacyCommit[] = []): Map<string, PreviousSplitNameColorRole> {
   const roles = new Map<string, PreviousSplitNameColorRole>();
   const latestCommit = [...commits].sort((a, b) => (b.leagueYear * 10 + splitRank(b.split)) - (a.leagueYear * 10 + splitRank(a.split)))[0];
