@@ -169,6 +169,93 @@ export function createAcceptedScheduleSnapshot(input: {
   };
 }
 
+export interface StartNextSplitInput {
+  state: TrackerState;
+  completedLeagueYear: number;
+  completedSplit: SplitName;
+  acceptedSourceSignature: string;
+  currentUserWrestler?: string | null;
+  startedAt?: string;
+}
+
+export function getNextSplitIdentity(leagueYear: number, split: SplitName): { leagueYear: number; split: SplitName; yearWeekStart: number } {
+  if (split === "Opening Split") return { leagueYear, split: "Closing Split", yearWeekStart: 25 };
+  return { leagueYear: leagueYear + 1, split: "Opening Split", yearWeekStart: 1 };
+}
+
+function acceptedCompositionRosters(state: TrackerState): Record<LeagueName, string[]> | null {
+  const accepted = state.acceptedPostFinalsComposition;
+  if (!accepted?.postFinalsCompositionAccepted) return null;
+  return Object.fromEntries(LEAGUE_NAMES.map((league) => [
+    league,
+    accepted.rosters[league].map((row) => row.wrestler),
+  ])) as Record<LeagueName, string[]>;
+}
+
+export function getStartNextSplitStatus(input: Omit<StartNextSplitInput, "startedAt" | "currentUserWrestler">): ScheduleAcceptanceStatus {
+  const accepted = input.state.acceptedPostFinalsComposition;
+  if (!accepted?.postFinalsCompositionAccepted) return { enabled: false, disabledReason: "Accept the valid post-finals composition first." };
+  const target = getNextSplitIdentity(input.completedLeagueYear, input.completedSplit);
+  if (
+    input.state.activeWorkflow?.leagueYear === target.leagueYear
+    && input.state.activeWorkflow?.split === target.split
+    && input.state.activeWorkflow?.splitWeek === 1
+  ) return { enabled: false, disabledReason: "Next Split Active" };
+  if (accepted.sourceSignature !== input.acceptedSourceSignature) return { enabled: false, disabledReason: "Accepted composition is stale. Review and accept the current post-finals composition." };
+  if (accepted.nextLeagueYear !== target.leagueYear || accepted.nextSplit !== target.split) return { enabled: false, disabledReason: "Accepted composition target does not match the next split." };
+  const rosters = acceptedCompositionRosters(input.state);
+  if (!rosters) return { enabled: false, disabledReason: "Accepted composition roster is missing." };
+  const all = LEAGUE_NAMES.flatMap((league) => rosters[league]);
+  if (LEAGUE_NAMES.some((league) => rosters[league].length !== 12) || all.length !== 48 || new Set(all.map((name) => name.toLowerCase())).size !== 48) {
+    return { enabled: false, disabledReason: "Accepted composition must be exactly 4 leagues x 12 unique wrestlers." };
+  }
+  return { enabled: true, disabledReason: null };
+}
+
+export function startNextSplitFromAcceptedComposition(input: StartNextSplitInput): { state: TrackerState; errors: string[] } {
+  const status = getStartNextSplitStatus(input);
+  if (!status.enabled) return { state: input.state, errors: [status.disabledReason ?? "Next split cannot be started."] };
+  const accepted = input.state.acceptedPostFinalsComposition!;
+  const target = getNextSplitIdentity(input.completedLeagueYear, input.completedSplit);
+  const rosters = acceptedCompositionRosters(input.state)!;
+  const seeds = Object.fromEntries(LEAGUE_NAMES.map((league) => [league, rosters[league].map((wrestler, index) => ({ seed: index + 1, wrestler }))])) as ScheduleSetupInput["seeds"];
+  const preview = generateSchedule({ leagueYear: target.leagueYear, split: target.split, yearWeekStart: target.yearWeekStart, seeds, generatedAt: input.startedAt });
+  const validation = validateSchedule(preview, { rosters });
+  if (!validation.valid) return { state: input.state, errors: validation.errors };
+  const acceptedSchedule = createAcceptedScheduleSnapshot({ preview, validation, leagueYear: target.leagueYear, split: target.split, acceptedAt: input.startedAt });
+  const userName = input.currentUserWrestler ?? input.state.currentUserWrestler ?? "";
+  const userLeague = LEAGUE_NAMES.find((league) => rosters[league].some((wrestler) => wrestler.toLowerCase() === userName.toLowerCase())) ?? "Global League";
+  const activeWorkflow: ActiveWorkflow = {
+    leagueYear: target.leagueYear,
+    split: target.split,
+    yearWeek: target.yearWeekStart,
+    splitWeek: 1,
+    scheduleSource: "accepted generated snapshot",
+    acceptedScheduleAt: acceptedSchedule.acceptedAt,
+    activatedAt: input.startedAt ?? new Date().toISOString(),
+    userLeague,
+  };
+  return {
+    errors: [],
+    state: {
+      ...input.state,
+      acceptedSchedule,
+      activeWorkflow,
+      confirmedResults: [],
+      completedWeeks: [],
+      postFinalsTransitionCompleted: {
+        completedAt: activeWorkflow.activatedAt,
+        sourceSignature: accepted.sourceSignature,
+        leagueYear: accepted.leagueYear,
+        split: accepted.split,
+        nextLeagueYear: target.leagueYear,
+        nextSplit: target.split,
+        acceptedScheduleAt: acceptedSchedule.acceptedAt,
+      },
+    },
+  };
+}
+
 
 export interface CompletedRegularSeasonScheduleSetupStatus {
   complete: boolean;

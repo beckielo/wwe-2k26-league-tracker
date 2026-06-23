@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { deriveLeagueFinalsReview, normalizeLeagueFinalsResults } from "@/domain/league-finals";
-import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
+import { getActiveWorkflowMatches, getNextSplitIdentity, getStartNextSplitStatus, startNextSplitFromAcceptedComposition } from "@/domain/schedule-setup";
 import { reconstructActiveSplitLiveStandings } from "@/domain/tracker-state";
 import { createAcceptedPostFinalsCompositionSnapshot, derivePostFinalsTransition } from "@/domain/post-finals-transition";
 import { deriveSplitCompletionReview } from "@/domain/split-completion";
@@ -25,6 +25,8 @@ interface Props {
 export function PostFinalsTransitionView(props: Props) {
   const { state, updateState, hydrated } = useTrackerState();
   const [confirmingAcceptance, setConfirmingAcceptance] = useState(false);
+  const [confirmingStart, setConfirmingStart] = useState(false);
+  const [startMessage, setStartMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const activeWorkflowMatches = useMemo(() => getActiveWorkflowMatches(state, props.matches), [props.matches, state]);
   const finalLiveStandings = useMemo(() => reconstructActiveSplitLiveStandings({
     previousFinalStandings: props.standings,
@@ -73,7 +75,20 @@ export function PostFinalsTransitionView(props: Props) {
     manualReviews: state.manualReviews,
   }), [allFinalsMatches, finals.champions, finals.directMovements, props.completedThroughWeek, props.hasAuthoritativeClosingSchedule, splitReview.consequentialTies, finalLiveStandings, state.completedFinalsNights, state.leagueFinalsResults, state.manualReviews]);
   const acceptedComposition = state.acceptedPostFinalsComposition;
-  const accepted = Boolean(acceptedComposition?.postFinalsCompositionAccepted && acceptedComposition.sourceSignature === transition.movementSourceAudit.sourceSignature);
+  const targetSplitIdentity = getNextSplitIdentity(props.leagueYear, props.split);
+  const nextSplitWorkflowActive = Boolean(
+    state.activeWorkflow?.leagueYear === targetSplitIdentity.leagueYear
+    && state.activeWorkflow?.split === targetSplitIdentity.split
+    && state.activeWorkflow?.splitWeek === 1,
+  );
+  const accepted = Boolean(acceptedComposition?.postFinalsCompositionAccepted && (acceptedComposition.sourceSignature === transition.movementSourceAudit.sourceSignature || nextSplitWorkflowActive));
+  const startStatus = getStartNextSplitStatus({
+    state,
+    completedLeagueYear: props.leagueYear,
+    completedSplit: props.split,
+    acceptedSourceSignature: transition.movementSourceAudit.sourceSignature,
+  });
+  const nextSplitActive = nextSplitWorkflowActive || startStatus.disabledReason === "Next Split Active";
   const reviewDisabledReason = !transition.finalsComplete
     ? "Complete League Finals first."
     : !transition.compositionValid
@@ -90,6 +105,24 @@ export function PostFinalsTransitionView(props: Props) {
       ? current
       : { ...current, acceptedPostFinalsComposition: snapshot });
     setConfirmingAcceptance(false);
+  };
+  const startNextSplit = () => {
+    const action = startNextSplitFromAcceptedComposition({
+      state,
+      completedLeagueYear: props.leagueYear,
+      completedSplit: props.split,
+      acceptedSourceSignature: transition.movementSourceAudit.sourceSignature,
+      currentUserWrestler: state.currentUserWrestler,
+    });
+    if (action.errors.length) {
+      setStartMessage({ tone: "error", text: action.errors[0] });
+      setConfirmingStart(false);
+      return;
+    }
+    updateState(() => action.state);
+    setStartMessage({ tone: "success", text: "Next split started. Returning to dashboard…" });
+    setConfirmingStart(false);
+    if (process.env.NODE_ENV !== "test") window.location.assign("/");
   };
 
   if (!hydrated) return <div className="border border-white/10 p-6 text-slate-400">Loading Post-Finals Transition state…</div>;
@@ -182,7 +215,29 @@ export function PostFinalsTransitionView(props: Props) {
           {accepted ? "Composition Accepted" : "Review New League Composition"}
         </button>
         {reviewDisabledReason && <p className="mt-3 text-sm font-bold text-amber-200" role="status">{reviewDisabledReason}</p>}
-        {accepted && <Link href="/schedule-setup" className="ml-0 mt-4 inline-flex border border-sky-300/40 px-4 py-2 text-xs font-black uppercase tracking-[.16em] text-sky-100 sm:ml-3">Continue to Schedule Setup</Link>}
+        {accepted && <div className="mt-4 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            disabled={!startStatus.enabled}
+            onClick={() => setConfirmingStart(true)}
+            className="bg-red-500 px-4 py-2 text-xs font-black uppercase tracking-[.16em] text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {nextSplitActive ? "Next Split Active" : "Start Next Split"}
+          </button>
+          {nextSplitActive && <Link href="/" className="border border-sky-300/40 px-4 py-2 text-xs font-black uppercase tracking-[.16em] text-sky-100">Open Dashboard</Link>}
+          {!nextSplitActive && startStatus.disabledReason && <p className="text-sm font-bold text-amber-200" role="status">{startStatus.disabledReason}</p>}
+        </div>}
+        {startMessage && <p role={startMessage.tone === "error" ? "alert" : "status"} className={`mt-3 text-sm font-bold ${startMessage.tone === "error" ? "text-amber-200" : "text-emerald-200"}`}>{startMessage.text}</p>}
+        {confirmingStart && <div role="dialog" aria-modal="true" aria-labelledby="start-next-split-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="max-w-lg border border-red-300/40 bg-[#111722] p-6 shadow-2xl">
+            <h3 id="start-next-split-title" className="text-xl font-black uppercase">Start Next Split?</h3>
+            <p className="mt-3 text-sm text-slate-300">This will activate the accepted post-finals 4x12 league composition as the next split baseline and generate the regular-season schedule. The workbook will not be mutated automatically.</p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button type="button" className="bg-red-500 px-4 py-2 font-black uppercase text-white" onClick={startNextSplit}>Start Next Split</button>
+              <button type="button" className="border border-white/20 px-4 py-2 font-bold" onClick={() => setConfirmingStart(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>}
         {confirmingAcceptance && <div role="dialog" aria-modal="true" aria-labelledby="accept-composition-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="max-w-lg border border-emerald-300/40 bg-[#111722] p-6 shadow-2xl">
             <h3 id="accept-composition-title" className="text-xl font-black uppercase">Accept New League Composition?</h3>

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolveCurrentUser } from "../current-user";
 import { buildCanonicalLeagueFinalsRegistry, buildLeagueFinalsMatchIdentity, deriveLeagueFinalsReview, type LeagueFinalsResult } from "../league-finals";
 import { buildNextSplitStandings, createAcceptedPostFinalsCompositionSnapshot, derivePostFinalsTransition } from "../post-finals-transition";
-import { generateSchedule, validateSchedule } from "../schedule-setup";
+import { generateSchedule, getNextSplitIdentity, startNextSplitFromAcceptedComposition, validateSchedule } from "../schedule-setup";
 import { LEAGUE_NAMES, type StandingRow } from "../types";
 
 const standings: StandingRow[] = LEAGUE_NAMES.flatMap((league) =>
@@ -655,6 +655,53 @@ describe("Post-Finals movement and composition", () => {
     expect(snapshot).not.toHaveProperty("matches");
     expect(snapshot).not.toHaveProperty("workbookMutations");
     expect(transition.week25Generated).toBe(false);
+  });
+
+  it("Phase 19Y: directly starts the next split from an accepted post-finals composition without import data or workbook mutation", () => {
+    const transition = derivePhase19p();
+    const snapshot = createAcceptedPostFinalsCompositionSnapshot({
+      transition,
+      leagueYear: 2,
+      split: "Opening Split",
+      acceptedAt: "2026-06-23T00:00:00.000Z",
+    });
+    const result = startNextSplitFromAcceptedComposition({
+      state: {
+        version: 1,
+        confirmedResults: [{ league: "National League", week: 25, matchId: "old", wrestlerA: "Old A", wrestlerB: "Old B", resultType: "Winner", winner: "Old A", source: "Manual", confirmedAt: "2026-06-23T00:00:00.000Z" }],
+        completedWeeks: [{ week: 25, completedAt: "2026-06-23T00:00:00.000Z" }],
+        lastExportedAt: null,
+        lastImportedAt: null,
+        acceptedPostFinalsComposition: snapshot,
+        currentUserWrestler: "Carmelo Hayes",
+      },
+      completedLeagueYear: 2,
+      completedSplit: "Opening Split",
+      acceptedSourceSignature: snapshot.sourceSignature,
+      startedAt: "2026-06-23T00:00:00.000Z",
+    });
+
+    expect(result.errors).toEqual([]);
+    expect(result.state.acceptedSchedule?.source).toBe("Generated");
+    expect(result.state.acceptedSchedule?.importerVersion).toBeUndefined();
+    expect(result.state.acceptedSchedule).not.toHaveProperty("workbookMutations");
+    expect(result.state.acceptedSchedule?.matches).toHaveLength(528);
+    expect(new Set(result.state.acceptedSchedule?.matches.map((match) => match.splitWeek))).toHaveLength(22);
+    for (const league of LEAGUE_NAMES) {
+      for (let week = 1; week <= 22; week += 1) {
+        const matchesForWeek = result.state.acceptedSchedule!.matches.filter((match) => match.league === league && match.splitWeek === week);
+        expect(matchesForWeek).toHaveLength(6);
+        expect(new Set(matchesForWeek.flatMap((match) => [match.wrestlerA, match.wrestlerB]))).toHaveLength(12);
+      }
+    }
+    expect(result.state.activeWorkflow).toMatchObject({ leagueYear: 2, split: "Closing Split", yearWeek: 25, splitWeek: 1, userLeague: "National League" });
+    expect(result.state.confirmedResults).toEqual([]);
+    expect(result.state.completedWeeks).toEqual([]);
+    expect(result.state.postFinalsTransitionCompleted).toMatchObject({ nextLeagueYear: 2, nextSplit: "Closing Split" });
+  });
+
+  it("Phase 19Y: derives next league-year Opening Split after a completed Closing Split", () => {
+    expect(getNextSplitIdentity(2, "Closing Split")).toEqual({ leagueYear: 3, split: "Opening Split", yearWeekStart: 1 });
   });
 });
 

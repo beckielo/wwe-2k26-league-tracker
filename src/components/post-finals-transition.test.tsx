@@ -113,7 +113,7 @@ describe("PostFinalsTransitionView composition acceptance", () => {
     });
     fireEvent.click(await screen.findByRole("button", { name: "Review New League Composition" }));
     fireEvent.click(screen.getByRole("button", { name: "Accept Composition" }));
-    await waitFor(() => expect(screen.getByRole("link", { name: "Continue to Schedule Setup" })).toHaveAttribute("href", "/schedule-setup"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Start Next Split" })).toBeInTheDocument());
     const stored = JSON.parse(window.localStorage.getItem(TRACKER_STATE_STORAGE_KEY) ?? "{}") as TrackerState;
     transition.unmount();
 
@@ -162,7 +162,6 @@ describe("PostFinalsTransitionView composition acceptance", () => {
   });
 
   it("generates from the accepted post-finals roster and explicitly starts Closing Split Week 1", async () => {
-    const acceptedState = createEmptyTrackerState();
     renderTransition({
       leagueFinalsResults: completedFinalsResults(),
       completedFinalsNights: [
@@ -176,14 +175,12 @@ describe("PostFinalsTransitionView composition acceptance", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Review New League Composition" }));
     fireEvent.click(screen.getByRole("button", { name: "Accept Composition" }));
     await waitFor(() => expect(screen.getByText("Post-Finals composition accepted")).toBeInTheDocument());
-    const accepted = (JSON.parse(window.localStorage.getItem(TRACKER_STATE_STORAGE_KEY) ?? "{}") as TrackerState).acceptedPostFinalsComposition;
-    cleanup();
-    window.localStorage.setItem(TRACKER_STATE_STORAGE_KEY, JSON.stringify({ ...acceptedState, acceptedPostFinalsComposition: accepted, leagueFinalsResults: completedFinalsResults(), completedFinalsNights: [{ night: "Night One", completedAt: "2026-06-23T00:00:00.000Z" }, { night: "Night Two", completedAt: "2026-06-23T00:00:00.000Z" }], currentUserWrestler: "National 3", confirmedResults: [{ league: "National League", week: 25, matchId: "old", wrestlerA: "Old A", wrestlerB: "Old B", resultType: "Winner", winner: "Old A", source: "Manual", confirmedAt: "2026-06-23T00:00:00.000Z" }], completedWeeks: [{ week: 25, completedAt: "2026-06-23T00:00:00.000Z" }] }));
-    render(<TrackerStateProvider><ScheduleSetupView completedThroughWeek={22} leagueYear={2} split="Opening Split" standings={standings} matches={[]} results={[]} matchupReference={[]} hasLeagueFinalsTemplate userWrestler="National 3" userLeague="National League" /></TrackerStateProvider>);
-    fireEvent.click(await screen.findByRole("button", { name: "Generate Closing Split Schedule" }));
-    expect(await screen.findByText("Generated · 528 matches")).toBeInTheDocument();
-    expect(screen.getByText("Validation · Valid")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Accept Schedule And Start Closing Split" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start Next Split" }));
+    expect(screen.getByRole("dialog", { name: "Start Next Split?" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect((JSON.parse(window.localStorage.getItem(TRACKER_STATE_STORAGE_KEY) ?? "{}") as TrackerState).activeWorkflow).toBeUndefined();
+    fireEvent.click(screen.getByRole("button", { name: "Start Next Split" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Start Next Split" }).at(-1)!);
     await waitFor(() => {
       const stored = JSON.parse(window.localStorage.getItem(TRACKER_STATE_STORAGE_KEY) ?? "{}") as TrackerState;
       expect(stored.acceptedSchedule?.matches).toHaveLength(528);
@@ -193,6 +190,25 @@ describe("PostFinalsTransitionView composition acceptance", () => {
       expect(stored.confirmedResults).toHaveLength(0);
       expect(stored.completedWeeks).toHaveLength(0);
       expect(stored.leagueFinalsResults).toHaveLength(finalsMatches.length);
+      expect(stored.postFinalsTransitionCompleted).toMatchObject({ nextLeagueYear: 2, nextSplit: "Closing Split" });
     });
+  });
+
+  it("does not silently regenerate after the next split is already active", async () => {
+    renderTransition({
+      leagueFinalsResults: completedFinalsResults(),
+      completedFinalsNights: [
+        { night: "Night One", completedAt: "2026-06-23T00:00:00.000Z" },
+        { night: "Night Two", completedAt: "2026-06-23T00:00:00.000Z" },
+      ],
+      currentUserWrestler: "National 3",
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "Review New League Composition" }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept Composition" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Start Next Split" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Start Next Split" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Start Next Split" }).at(-1)!);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Next Split Active" })).toBeDisabled());
+    expect(screen.getByRole("link", { name: "Open Dashboard" })).toHaveAttribute("href", "/");
   });
 });
