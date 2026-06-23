@@ -70,6 +70,10 @@ export interface CompletedSplitLegacyCommit {
   titleRecords: { league: LeagueName; wrestler: string }[];
   eliteCupWinner: string | null;
   eliteCupRunnerUp?: string | null;
+  directPromotions?: { wrestler: string; from: LeagueName; to: LeagueName }[];
+  directRelegations?: { wrestler: string; from: LeagueName; to: LeagueName }[];
+  relegationPlayoffWinners?: { wrestler: string; matchId?: string }[];
+  relegationPlayoffLosers?: { wrestler: string; matchId?: string }[];
 }
 
 export interface AcceptedPostFinalsCompositionSnapshot {

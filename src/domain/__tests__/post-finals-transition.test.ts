@@ -5,7 +5,7 @@ import { buildNextSplitStandings, createAcceptedPostFinalsCompositionSnapshot, d
 import { generateSchedule, getNextSplitIdentity, startNextSplitFromAcceptedComposition, validateSchedule } from "../schedule-setup";
 import { reconstructActiveSplitLiveStandings } from "../tracker-state";
 import { applyCompletedSplitLegacyCommits } from "../legacy";
-import { getPreviousSplitChampionColorRoles } from "../previous-split-name-colors";
+import { getLastCompletedSplitChampionMetadata, getPreviousSplitChampionColorRoles } from "../previous-split-name-colors";
 import { LEAGUE_NAMES, type StandingRow } from "../types";
 
 const standings: StandingRow[] = LEAGUE_NAMES.flatMap((league) =>
@@ -770,25 +770,66 @@ describe("Post-Finals movement and composition", () => {
     });
     expect(first.state.completedSplitLegacyCommits).toHaveLength(1);
     expect(second.state.completedSplitLegacyCommits).toHaveLength(1);
-    const profiles = applyCompletedSplitLegacyCommits(transition.assignments.map((assignment) => ({
+    const baseProfiles = transition.assignments.map((assignment, index) => ({
       wrestler: assignment.wrestler,
       currentLeague: assignment.newLeague,
       goatStatusTier: null,
-      leagueWinsTotal: 0,
+      leagueWinsTotal: index < 8 ? 1 : 0,
       globalChampionWins: 0,
-      eliteCupWins: 0,
+      eliteCupWins: index < 2 ? 1 : 0,
       doubles: 0,
       invincibleSplits: 0,
       invincibleHinrunden: 0,
       invincibleRueckrunden: 0,
       longestWinStreakOverall: 0,
       sourceCommentary: null,
-    })), first.state.completedSplitLegacyCommits);
-    expect(profiles.reduce((sum, profile) => sum + profile.leagueWinsTotal, 0)).toBe(4);
-    expect(profiles.reduce((sum, profile) => sum + profile.eliteCupWins, 0)).toBe(1);
+    }));
+    const profiles = applyCompletedSplitLegacyCommits(baseProfiles, first.state.completedSplitLegacyCommits);
+    const reloadedProfiles = applyCompletedSplitLegacyCommits(baseProfiles, first.state.completedSplitLegacyCommits);
+    expect(first.state.completedSplitLegacyCommits?.[0]).toMatchObject({
+      leagueYear: 2,
+      split: "Opening Split",
+      titleRecords: [
+        { league: "Global League", wrestler: "Gunther" },
+        { league: "Continental League", wrestler: "Randy Orton" },
+        { league: "National League", wrestler: "LA Knight" },
+        { league: "Regional League", wrestler: "Dragon Lee" },
+      ],
+      eliteCupWinner: "Roman Reigns",
+      eliteCupRunnerUp: "Gunther",
+    });
+    expect(first.state.completedSplitLegacyCommits?.[0].directPromotions?.map((movement) => movement.wrestler)).toEqual(["Randy Orton", "LA Knight", "Dragon Lee"]);
+    expect(first.state.completedSplitLegacyCommits?.[0].directRelegations?.length).toBeGreaterThan(0);
+    expect(first.state.completedSplitLegacyCommits?.[0].relegationPlayoffWinners?.length).toBeGreaterThan(0);
+    expect(first.state.completedSplitLegacyCommits?.[0].relegationPlayoffLosers?.length).toBeGreaterThan(0);
+    expect(baseProfiles.reduce((sum, profile) => sum + profile.leagueWinsTotal, 0)).toBe(8);
+    expect(baseProfiles.reduce((sum, profile) => sum + profile.eliteCupWins, 0)).toBe(2);
+    expect(profiles.reduce((sum, profile) => sum + profile.leagueWinsTotal, 0)).toBe(12);
+    expect(profiles.reduce((sum, profile) => sum + profile.eliteCupWins, 0)).toBe(3);
+    expect(reloadedProfiles.reduce((sum, profile) => sum + profile.leagueWinsTotal, 0)).toBe(12);
+    expect(reloadedProfiles.reduce((sum, profile) => sum + profile.eliteCupWins, 0)).toBe(3);
+    const zeroBaseProfiles = baseProfiles.map((profile) => ({ ...profile, leagueWinsTotal: 0, globalChampionWins: 0, eliteCupWins: 0 }));
+    const creditedProfiles = applyCompletedSplitLegacyCommits(zeroBaseProfiles, first.state.completedSplitLegacyCommits);
+    expect(creditedProfiles.find((profile) => profile.wrestler === "Gunther")).toMatchObject({ leagueWinsTotal: 1, globalChampionWins: 1, eliteCupWins: 0 });
+    expect(creditedProfiles.find((profile) => profile.wrestler === "Randy Orton")).toMatchObject({ leagueWinsTotal: 1 });
+    expect(creditedProfiles.find((profile) => profile.wrestler === "LA Knight")).toMatchObject({ leagueWinsTotal: 1 });
+    expect(creditedProfiles.find((profile) => profile.wrestler === "Dragon Lee")).toMatchObject({ leagueWinsTotal: 1 });
+    expect(creditedProfiles.find((profile) => profile.wrestler === "Roman Reigns")).toMatchObject({ eliteCupWins: 1 });
+    const metadata = getLastCompletedSplitChampionMetadata(first.state.completedSplitLegacyCommits);
+    expect(metadata).toMatchObject({
+      globalChampion: "Gunther",
+      continentalChampion: "Randy Orton",
+      nationalChampion: "LA Knight",
+      regionalChampion: "Dragon Lee",
+      eliteCupWinner: "Roman Reigns",
+    });
     const roles = getPreviousSplitChampionColorRoles(undefined, first.state.completedSplitLegacyCommits);
     expect(roles.get("gunther")).toBe("global-champion");
+    expect(roles.get("gunther")).not.toBe("double-winner");
     expect(roles.get("roman reigns")).toBe("elite-cup");
+    expect(roles.get("randy orton")).toBe("continental-champion");
+    expect(roles.get("la knight")).toBe("national-champion");
+    expect(roles.get("dragon lee")).toBe("regional-champion");
   });
 });
 

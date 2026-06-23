@@ -236,12 +236,28 @@ export function startNextSplitFromAcceptedComposition(input: StartNextSplitInput
     activatedAt: input.startedAt ?? new Date().toISOString(),
     userLeague,
   };
+  const directPromotions = accepted.movementSummary.directMovements
+    .filter((assignment) => assignment.movement === "Champion/direct promotion")
+    .map((assignment) => ({ wrestler: assignment.wrestler, from: assignment.priorLeague, to: assignment.newLeague }));
+  const directRelegations = accepted.movementSummary.directMovements
+    .filter((assignment) => assignment.movement === "Direct relegation")
+    .map((assignment) => ({ wrestler: assignment.wrestler, from: assignment.priorLeague, to: assignment.newLeague }));
+  const relegationPlayoffWinners = accepted.movementSummary.playoffMovements
+    .filter((assignment) => assignment.movement === "Promoted" || assignment.movement === "Retained higher league")
+    .map((assignment) => ({ wrestler: assignment.wrestler }));
+  const relegationPlayoffLosers = accepted.movementSummary.playoffMovements
+    .filter((assignment) => assignment.movement === "Relegated" || assignment.movement === "Failed promotion")
+    .map((assignment) => ({ wrestler: assignment.wrestler }));
   const completedSplitLegacyCommit: CompletedSplitLegacyCommit | null = input.completedSplitLegacyCommit ? {
     sourceSignature: accepted.sourceSignature,
     committedAt: activeWorkflow.activatedAt,
     leagueYear: input.completedLeagueYear,
     split: input.completedSplit,
     ...input.completedSplitLegacyCommit,
+    directPromotions,
+    directRelegations,
+    relegationPlayoffWinners,
+    relegationPlayoffLosers,
   } : null;
   const existingCommits = input.state.completedSplitLegacyCommits ?? [];
   const completedSplitLegacyCommits = completedSplitLegacyCommit && !existingCommits.some((commit) => commit.sourceSignature === completedSplitLegacyCommit.sourceSignature)
