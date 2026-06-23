@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolveCurrentUser } from "../current-user";
 import { buildCanonicalLeagueFinalsRegistry, buildLeagueFinalsMatchIdentity, deriveLeagueFinalsReview, type LeagueFinalsResult } from "../league-finals";
-import { buildNextSplitStandings, derivePostFinalsTransition } from "../post-finals-transition";
+import { buildNextSplitStandings, createAcceptedPostFinalsCompositionSnapshot, derivePostFinalsTransition } from "../post-finals-transition";
 import { generateSchedule, validateSchedule } from "../schedule-setup";
 import { LEAGUE_NAMES, type StandingRow } from "../types";
 
@@ -635,6 +635,26 @@ describe("Post-Finals movement and composition", () => {
     const transition = derive({ standings: invalidStandings });
     expect(transition.unlocked).toBe(false);
     expect(transition.compositionErrors.join(" ")).toContain("Duplicate wrestler");
+  });
+
+  it("Phase 19W: creates an accepted browser-local composition snapshot without fixtures or workbook mutation", () => {
+    const transition = derivePhase19p();
+    const snapshot = createAcceptedPostFinalsCompositionSnapshot({
+      transition,
+      leagueYear: 2,
+      split: "Opening Split",
+      acceptedAt: "2026-06-23T00:00:00.000Z",
+    });
+
+    expect(snapshot.postFinalsCompositionAccepted).toBe(true);
+    expect(snapshot.nextLeagueYear).toBe(2);
+    expect(snapshot.nextSplit).toBe("Closing Split");
+    expect(snapshot.sourceSignature).toBe(transition.movementSourceAudit.sourceSignature);
+    expect(LEAGUE_NAMES.map((league) => snapshot.rosters[league].length)).toEqual([12, 12, 12, 12]);
+    expect(new Set(LEAGUE_NAMES.flatMap((league) => snapshot.rosters[league].map((row) => row.wrestler))).size).toBe(48);
+    expect(snapshot).not.toHaveProperty("matches");
+    expect(snapshot).not.toHaveProperty("workbookMutations");
+    expect(transition.week25Generated).toBe(false);
   });
 });
 
