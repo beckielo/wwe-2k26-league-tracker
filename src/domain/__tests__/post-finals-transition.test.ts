@@ -137,7 +137,7 @@ describe("Post-Finals completion gate", () => {
     expect(derive()).toMatchObject({ unlocked: true, finalsComplete: true, compositionValid: true });
   });
 
-  it("ignores stale passed direct movements and derives them from final standings", () => {
+  it("guards against stale passed direct movements that conflict with the League Finals page model registry", () => {
     const transition = derive({
       directMovements: [
         ...finals.directMovements,
@@ -151,24 +151,16 @@ describe("Post-Finals completion gate", () => {
     });
 
     expect(transition.finalsComplete).toBe(true);
-    expect(transition.compositionValid).toBe(true);
-    expect(transition.directMovements.map((movement) => movement.wrestler)).not.toContain("Missing Wrestler");
-    expect(transition.movementSourceAudit.directMovementSource).toBe("recomputed from canonical final standings");
-    expect(transition.movementSourceAudit.cachedDirectMovementIgnored).toBe(true);
+    expect(transition.compositionValid).toBe(false);
+    expect(transition.compositionErrors.join(" ")).toContain("has no final-standing assignment");
+    expect(transition.movementSourceAudit.directMovementSource).toBe("League Finals page model");
   });
 
-  it("Phase 19T: exposes canonical direct-mover audit slots from the final standings signature", () => {
-    const transition = derivePhase19p({
-      directMovements: [
-        { wrestler: "Drew McIntyre", fromLeague: "Continental League", toLeague: "Global League", reason: "Direct promotion" },
-        { wrestler: "Shinsuke Nakamura", fromLeague: "National League", toLeague: "Continental League", reason: "Direct promotion" },
-        { wrestler: "Pete Dunne", fromLeague: "Regional League", toLeague: "National League", reason: "Direct promotion" },
-        { wrestler: "The Rock", fromLeague: "Continental League", toLeague: "National League", reason: "Direct relegation" },
-        { wrestler: "Austin Theory", fromLeague: "National League", toLeague: "Regional League", reason: "Direct relegation" },
-      ],
-    });
+  it("Phase 19U: exposes League Finals page model direct-mover audit slots", () => {
+    const transition = derivePhase19p();
 
-    expect(transition.movementSourceAudit.cachedDirectMovementIgnored).toBe(true);
+    expect(transition.movementSourceAudit.source).toBe("League Finals page model");
+    expect(transition.movementSourceAudit.directMovementSource).toBe("League Finals page model");
     expect(transition.movementSourceAudit.finalStandingsSourceSignature).toContain("Regional League[#1:Dragon Lee");
     expect(transition.movementSourceAudit.directMovers).toEqual([
       { slot: "Continental #1", wrestler: "Randy Orton", targetLeague: "Global League" },
@@ -479,15 +471,7 @@ describe("Post-Finals movement and composition", () => {
   });
 
   it("Phase 19S: uses the same final standings source for direct movements as the League Finals registry", () => {
-    const transition = derivePhase19p({
-      directMovements: [
-        { wrestler: "Drew McIntyre", fromLeague: "Continental League", toLeague: "Global League", reason: "Direct promotion" },
-        { wrestler: "Shinsuke Nakamura", fromLeague: "National League", toLeague: "Continental League", reason: "Direct promotion" },
-        { wrestler: "Pete Dunne", fromLeague: "Regional League", toLeague: "National League", reason: "Direct promotion" },
-        { wrestler: "The Rock", fromLeague: "Continental League", toLeague: "National League", reason: "Direct relegation" },
-        { wrestler: "Austin Theory", fromLeague: "National League", toLeague: "Regional League", reason: "Direct relegation" },
-      ],
-    });
+    const transition = derivePhase19p();
 
     expect(transition.directMovements).toEqual([
       { wrestler: "Randy Orton", fromLeague: "Continental League", toLeague: "Global League", reason: "Direct promotion" },
