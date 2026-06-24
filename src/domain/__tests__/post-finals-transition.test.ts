@@ -3,9 +3,10 @@ import { resolveCurrentUser } from "../current-user";
 import { buildCanonicalLeagueFinalsRegistry, buildLeagueFinalsMatchIdentity, deriveLeagueFinalsReview, type LeagueFinalsResult } from "../league-finals";
 import { buildNextSplitStandings, createAcceptedPostFinalsCompositionSnapshot, derivePostFinalsTransition } from "../post-finals-transition";
 import { generateSchedule, getNextSplitIdentity, startNextSplitFromAcceptedComposition, validateSchedule } from "../schedule-setup";
-import { reconstructActiveSplitLiveStandings } from "../tracker-state";
+import { reconstructActiveSplitLiveStandings, type TrackerState } from "../tracker-state";
 import { applyCompletedSplitLegacyCommits } from "../legacy";
-import { getLastCompletedSplitChampionMetadata, getPreviousSplitChampionColorRoles } from "../previous-split-name-colors";
+import { getLastCompletedAchievementMetadata, getLastCompletedSplitChampionMetadata, getPreviousSplitChampionColorRoles } from "../previous-split-name-colors";
+import { getCompletedSplitReconciliationDiagnostics, reconcileCompletedSplitHistory } from "../completed-split-reconciliation";
 import { LEAGUE_NAMES, type StandingRow } from "../types";
 
 const standings: StandingRow[] = LEAGUE_NAMES.flatMap((league) =>
@@ -831,6 +832,100 @@ describe("Post-Finals movement and composition", () => {
     expect(roles.get("la knight")).toBe("national-champion");
     expect(roles.get("dragon lee")).toBe("regional-champion");
   });
+
+  it("Phase 19AB: retroactively commits missing completed split history after the next split is already active", () => {
+    const transition = derivePhase19p();
+    const snapshot = createAcceptedPostFinalsCompositionSnapshot({ transition, leagueYear: 2, split: "Opening Split" });
+    const active = startNextSplitFromAcceptedComposition({
+      state: {
+        version: 1,
+        confirmedResults: [],
+        completedWeeks: [],
+        lastExportedAt: null,
+        lastImportedAt: null,
+        leagueFinalsResults: phase19pCompletedResults(),
+        completedFinalsNights: [{ night: "Night One", completedAt: "2026-06-22T00:00:00.000Z" }, { night: "Night Two", completedAt: "2026-06-22T00:00:00.000Z" }],
+        acceptedPostFinalsComposition: snapshot,
+      },
+      completedLeagueYear: 2,
+      completedSplit: "Opening Split",
+      acceptedSourceSignature: snapshot.sourceSignature,
+      completedSplitLegacyCommit: undefined,
+    });
+    expect(active.errors).toEqual([]);
+    expect(active.state.activeWorkflow).toMatchObject({ leagueYear: 2, split: "Closing Split", splitWeek: 1 });
+    expect(active.state.completedSplitLegacyCommits).toEqual([]);
+
+    const reconciled = reconcileCompletedSplitHistory(active.state as TrackerState, "2026-06-23T00:00:00.000Z");
+    const repeated = reconcileCompletedSplitHistory(reconciled, "2026-06-23T00:00:01.000Z");
+    expect(reconciled.completedSplitLegacyCommits).toHaveLength(1);
+    expect(repeated.completedSplitLegacyCommits).toHaveLength(1);
+    expect(repeated.activeWorkflow).toEqual(active.state.activeWorkflow);
+    expect(repeated.leagueFinalsResults).toEqual(active.state.leagueFinalsResults);
+    expect(repeated.postFinalsTransitionCompleted).toEqual(active.state.postFinalsTransitionCompleted);
+
+    const commit = reconciled.completedSplitLegacyCommits?.[0];
+    expect(commit?.sourceSignature).toContain("completed-split:2:Opening Split");
+    expect(commit).toMatchObject({
+      leagueYear: 2,
+      split: "Opening Split",
+      titleRecords: [
+        { league: "Global League", wrestler: "Gunther" },
+        { league: "Continental League", wrestler: "Randy Orton" },
+        { league: "National League", wrestler: "LA Knight" },
+        { league: "Regional League", wrestler: "Dragon Lee" },
+      ],
+      eliteCupWinner: "Roman Reigns",
+      eliteCupRunnerUp: "Gunther",
+    });
+
+    const baseProfiles = transition.assignments.map((assignment, index) => ({
+      wrestler: assignment.wrestler,
+      currentLeague: assignment.newLeague,
+      goatStatusTier: null,
+      leagueWinsTotal: index < 8 ? 1 : 0,
+      globalChampionWins: 0,
+      eliteCupWins: index < 2 ? 1 : 0,
+      doubles: 0,
+      invincibleSplits: 0,
+      invincibleHinrunden: 0,
+      invincibleRueckrunden: 0,
+      longestWinStreakOverall: 0,
+      sourceCommentary: null,
+    }));
+    const merged = applyCompletedSplitLegacyCommits(baseProfiles, reconciled.completedSplitLegacyCommits);
+    expect(baseProfiles.reduce((sum, profile) => sum + profile.leagueWinsTotal, 0)).toBe(8);
+    expect(baseProfiles.reduce((sum, profile) => sum + profile.eliteCupWins, 0)).toBe(2);
+    expect(merged.reduce((sum, profile) => sum + profile.leagueWinsTotal, 0)).toBe(12);
+    expect(merged.reduce((sum, profile) => sum + profile.eliteCupWins, 0)).toBe(3);
+
+    const staleDoubleWinnerState: TrackerState = { ...reconciled, completedSplitLegacyCommits: [{ ...commit!, sourceSignature: "old", leagueYear: 1, eliteCupWinner: "Gunther" }, commit!] };
+    const metadata = getLastCompletedAchievementMetadata(staleDoubleWinnerState.completedSplitLegacyCommits);
+    expect(metadata).toMatchObject({
+      globalChampion: "Gunther",
+      continentalChampion: "Randy Orton",
+      nationalChampion: "LA Knight",
+      regionalChampion: "Dragon Lee",
+      eliteCupWinner: "Roman Reigns",
+      eliteCupRunnerUp: "Gunther",
+    });
+    const roles = getPreviousSplitChampionColorRoles(undefined, staleDoubleWinnerState.completedSplitLegacyCommits);
+    expect(roles.get("gunther")).toBe("global-champion");
+    expect(roles.get("randy orton")).toBe("continental-champion");
+    expect(roles.get("la knight")).toBe("national-champion");
+    expect(roles.get("dragon lee")).toBe("regional-champion");
+    expect(roles.get("roman reigns")).toBe("elite-cup");
+    expect(roles.get("gunther")).not.toBe("double-winner");
+
+    expect(getCompletedSplitReconciliationDiagnostics(reconciled)).toMatchObject({
+      committedOverlayExists: true,
+      leagueTitleOverlayCount: 4,
+      eliteCupOverlayCount: 1,
+      lastCompletedGlobalChampion: "Gunther",
+      lastCompletedEliteCupWinner: "Roman Reigns",
+    });
+  });
+
 });
 
 describe("Ordering, readiness, and legacy boundaries", () => {

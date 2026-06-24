@@ -10,6 +10,7 @@ import {
   recoverPostRegularSeasonWorkflowState,
   type TrackerState,
 } from "@/domain/tracker-state";
+import { reconcileCompletedSplitHistory } from "@/domain/completed-split-reconciliation";
 import type { LeagueName, Match } from "@/domain/types";
 
 interface TrackerStateContextValue {
@@ -35,9 +36,9 @@ export function TrackerStateProvider({ children }: { children: ReactNode }) {
         try {
           const parsed = JSON.parse(stored) as TrackerState;
           if (parsed.version === 1) {
-            const recovered = recoverPostRegularSeasonWorkflowState(parsed);
+            const recovered = reconcileCompletedSplitHistory(recoverPostRegularSeasonWorkflowState(parsed));
             setState(recovered);
-            if (recovered !== parsed) window.localStorage.setItem(TRACKER_STATE_STORAGE_KEY, JSON.stringify(recovered));
+            if (JSON.stringify(recovered) !== JSON.stringify(parsed)) window.localStorage.setItem(TRACKER_STATE_STORAGE_KEY, JSON.stringify(recovered));
           }
         } catch {
           window.localStorage.removeItem(TRACKER_STATE_STORAGE_KEY);
@@ -49,8 +50,9 @@ export function TrackerStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const persist = useCallback((next: TrackerState) => {
-    setState(next);
-    window.localStorage.setItem(TRACKER_STATE_STORAGE_KEY, JSON.stringify(next));
+    const reconciled = reconcileCompletedSplitHistory(next);
+    setState(reconciled);
+    window.localStorage.setItem(TRACKER_STATE_STORAGE_KEY, JSON.stringify(reconciled));
   }, []);
 
   const value = useMemo<TrackerStateContextValue>(() => ({

@@ -45,6 +45,7 @@ export interface LastCompletedSplitChampionMetadata {
   nationalChampion: string | null;
   regionalChampion: string | null;
   eliteCupWinner: string | null;
+  eliteCupRunnerUp: string | null;
 }
 
 export function getLastCompletedSplitChampionMetadata(commits: CompletedSplitLegacyCommit[] = []): LastCompletedSplitChampionMetadata | null {
@@ -60,7 +61,12 @@ export function getLastCompletedSplitChampionMetadata(commits: CompletedSplitLeg
     nationalChampion: champion("National League"),
     regionalChampion: champion("Regional League"),
     eliteCupWinner: latestCommit.eliteCupWinner ?? null,
+    eliteCupRunnerUp: latestCommit.eliteCupRunnerUp ?? null,
   };
+}
+
+export function getLastCompletedAchievementMetadata(commits: CompletedSplitLegacyCommit[] = []): LastCompletedSplitChampionMetadata | null {
+  return getLastCompletedSplitChampionMetadata(commits);
 }
 
 export function getPreviousSplitChampionColorRoles(audit?: LegacyCompletedSplitAudit, commits: CompletedSplitLegacyCommit[] = []): Map<string, PreviousSplitNameColorRole> {
