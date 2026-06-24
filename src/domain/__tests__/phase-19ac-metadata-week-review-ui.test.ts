@@ -59,14 +59,18 @@ describe("Phase 19AC final metadata and week review UI cleanup", () => {
     expect(getPreviousSplitNameColorRole({ wrestler: "Randy Orton", championRoles: roles })).toBe("continental-champion");
   });
 
-  it("defines a Continental-theme silver-blue Champion token that is not normal white or generic silver", () => {
-    expect(cssSource).toContain("--achievement-continental-champion:#B7C7DB");
+  it("defines a Continental Champion blue token that is not normal white, gray, or generic silver", () => {
+    expect(cssSource).toContain("--achievement-continental-champion:#3B82F6");
     expect(cssSource).toContain("--league-continental:#83b9dc");
     expect(cssSource).toContain(".wrestler-name-with-role.name-color-continental-champion{color:var(--achievement-continental-champion)}");
     expect(cssSource).toContain(".dashboard-show-name-content.name-color-continental-champion{color:var(--achievement-continental-champion)}");
     expect(cssSource).toContain(".wrestler-name-with-role.name-color-normal{color:#fff}");
     expect(cssSource).not.toContain("name-color-continental-champion{color:silver}");
     expect(cssSource).not.toContain("name-color-continental-champion{color:#C0C0C0}");
+    expect(cssSource).not.toContain("--achievement-continental-champion:#B7C7DB");
+    expect(cssSource).not.toContain("name-color-continental-champion{color:#fff}");
+    expect(cssSource).not.toContain("name-color-continental-champion{color:gray}");
+    expect(cssSource).not.toContain("name-color-continental-champion{color:grey}");
   });
 
   it("builds newly started split mini standings from active roster order with zero results and no previous/finals points", () => {
