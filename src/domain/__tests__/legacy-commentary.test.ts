@@ -152,7 +152,7 @@ describe("Phase 10.7 legacy table integration", () => {
     expect(source("src/components/dashboard-control-center.tsx")).toContain('href="/legacy"');
     expect(source("src/components/dashboard-control-center.tsx")).toContain("Open Legacy Table");
     expect(source("src/components/dashboard-control-center.tsx")).toContain("GOAT / Legacy Rankings");
-    expect(source("src/components/dashboard-control-center.tsx")).toContain("Career Archive");
+    expect(source("src/components/dashboard-control-center.tsx")).not.toContain("Career Archive · honours, streaks and invincible runs");
     expect(source("src/components/dashboard-control-center.tsx")).toContain("Current legacy leader");
     expect(source("src/components/app-shell.tsx")).toContain('["Legacy", "/legacy"');
     expect(source("src/components/app-shell.tsx")).toContain('["History", "/history"');

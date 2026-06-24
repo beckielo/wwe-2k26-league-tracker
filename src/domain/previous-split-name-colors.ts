@@ -11,6 +11,15 @@ const leagueChampionRoles: Record<LeagueName, PreviousSplitNameColorRole> = {
   "Regional League": "regional-champion",
 };
 
+function normalizeLeagueName(value: string): LeagueName | null {
+  const normalized = key(value).replace(/ league$/, "");
+  if (normalized === "global") return "Global League";
+  if (normalized === "continental") return "Continental League";
+  if (normalized === "national") return "National League";
+  if (normalized === "regional") return "Regional League";
+  return null;
+}
+
 function key(value: string): string {
   return value.trim().replace(/\s+/g, " ").toLowerCase();
 }
@@ -27,7 +36,9 @@ function eventRank(record: { leagueYear: number; split: string | { toString(): s
 
 function applyCommitRoles(roles: Map<string, PreviousSplitNameColorRole>, commit: CompletedSplitLegacyCommit) {
   for (const record of commit.titleRecords) {
-    roles.set(key(record.wrestler), leagueChampionRoles[record.league]);
+    const league = normalizeLeagueName(record.league);
+    if (!league) continue;
+    roles.set(key(record.wrestler), leagueChampionRoles[league]);
   }
   if (commit.eliteCupWinner) {
     const winnerKey = key(commit.eliteCupWinner);
@@ -51,7 +62,7 @@ export interface LastCompletedSplitChampionMetadata {
 export function getLastCompletedSplitChampionMetadata(commits: CompletedSplitLegacyCommit[] = []): LastCompletedSplitChampionMetadata | null {
   const latestCommit = [...commits].sort((a, b) => (b.leagueYear * 10 + splitRank(b.split)) - (a.leagueYear * 10 + splitRank(a.split)))[0];
   if (!latestCommit) return null;
-  const champion = (league: LeagueName) => latestCommit.titleRecords.find((record) => record.league === league)?.wrestler ?? null;
+  const champion = (league: LeagueName) => latestCommit.titleRecords.find((record) => normalizeLeagueName(record.league) === league)?.wrestler ?? null;
   return {
     leagueYear: latestCommit.leagueYear,
     split: latestCommit.split,
@@ -84,7 +95,9 @@ export function getPreviousSplitChampionColorRoles(audit?: LegacyCompletedSplitA
   const latestTitleRank = Math.max(...titleRecords.map(eventRank));
   const latestTitleRecords = titleRecords.filter((record) => eventRank(record) === latestTitleRank);
   for (const record of latestTitleRecords) {
-    roles.set(key(record.wrestler), leagueChampionRoles[record.league]);
+    const league = normalizeLeagueName(record.league);
+    if (!league) continue;
+    roles.set(key(record.wrestler), leagueChampionRoles[league]);
   }
 
   const latestCupRecord = (audit?.eliteCupRecords ?? [])
