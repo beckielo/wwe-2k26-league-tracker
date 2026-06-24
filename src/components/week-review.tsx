@@ -79,13 +79,17 @@ const activeSplitWeek = activeSplit === "Closing Split" ? Math.max(1, miniStandi
 const splitReviewCompletedThroughWeek = activeSplit === "Closing Split" ? activeSplitWeek : Math.max(workbookCurrentWeek, latestLockedWeek ?? 0);
 const liveStandings = reconstructActiveSplitLiveStandings({
 previousFinalStandings: baselineStandings,
+postFinalsAssignments: state.acceptedPostFinalsComposition ? LEAGUE_NAMES.flatMap((league) => state.acceptedPostFinalsComposition?.rosters[league] ?? []) : undefined,
 scheduledMatches: workflowMatches,
 masterResults: workbookResults,
 localResults: state.confirmedResults.filter((result) => result.week <= miniStandingsCompletedThroughWeek),
 split: activeSplit,
 completedThroughWeek: miniStandingsCompletedThroughWeek,
+activeLeagueYear: state.activeWorkflow?.leagueYear,
+rosterReplacements: state.rosterReplacements,
+newRunSetupDraft: state.newRunSetupDraft,
 });
-const updatedStandings = liveStandings.standings;
+const updatedStandings = buildWeekReviewMiniStandingsRows(liveStandings.standings);
 const localMatchResults = state.confirmedResults.map((result): MatchResult => {
 const match = workflowMatches.find((candidate) => candidate.id === result.matchId);
 const loser = result.resultType === "Winner" && result.winner && match
@@ -487,6 +491,13 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
 );
 }
 
+
+export function buildWeekReviewMiniStandingsRows(standings: StandingRow[]): StandingRow[] {
+  return LEAGUE_NAMES.flatMap((league) => standings
+    .filter((row) => row.league === league)
+    .sort((a, b) => (a.matches + b.matches + a.points + b.points === 0 ? (a.seed - b.seed) || (a.rank - b.rank) : (a.rank - b.rank)))
+    .map((row, index) => ({ ...row, rank: index + 1 })));
+}
 
 function MiniLiveStandingsPreview({
 standings,

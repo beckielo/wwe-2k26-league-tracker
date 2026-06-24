@@ -123,11 +123,10 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
 
     <InteractivePanel href="/legacy" className="legacy-quick-link league-global">
       <span className="legacy-quick-rank" aria-hidden>Ⅰ</span>
-      <span className="legacy-quick-copy"><small>GOAT / Legacy Rankings</small><strong>Open Legacy Table</strong><em>Career Archive · honours, streaks and invincible runs</em></span>
+      <span className="legacy-quick-copy"><small>GOAT / Legacy Rankings</small><strong>Open Legacy Table</strong></span>
       <span className="legacy-quick-teaser">
         <small>Current legacy leader</small>
         <strong>{props.legacySummary.leader ?? "Archive pending"}</strong>
-        <em>{props.legacySummary.leagueWinners} league title records · {props.legacySummary.eliteCupWinners} Elite Cup records</em>
       </span>
     </InteractivePanel>
 
