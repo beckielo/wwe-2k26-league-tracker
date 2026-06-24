@@ -26,7 +26,7 @@ const currentFixtureCommit: CompletedSplitLegacyCommit = {
   eliteCupRunnerUp: "Gunther",
 };
 
-describe("Phase 19AD Continental Champion silver name color", () => {
+describe("Phase 19AE Continental Champion theme name color", () => {
   it("normalizes latest completed metadata including the Continental Champion fixture", () => {
     expect(getLastCompletedAchievementMetadata([currentFixtureCommit])).toMatchObject({
       globalChampion: "Gunther",
@@ -50,7 +50,7 @@ describe("Phase 19AD Continental Champion silver name color", () => {
     expect(getPreviousSplitNameColorRole({ wrestler: "Gunther", championRoles: roles })).not.toBe("double-winner");
   });
 
-  it("renders only Randy Orton's wrestler name with the shared silver class instead of the default class", () => {
+  it("renders only Randy Orton's wrestler name with the shared Continental-theme silver-blue class instead of the default class", () => {
     const roles = getPreviousSplitChampionColorRoles(undefined, [currentFixtureCommit]);
     render(<WrestlerNameWithRole wrestler="Randy Orton" championRoles={roles} />);
 
@@ -58,8 +58,14 @@ describe("Phase 19AD Continental Champion silver name color", () => {
     const wrapper = renderedName.closest(".wrestler-name-with-role");
     expect(wrapper?.classList.contains("name-color-continental-champion")).toBe(true);
     expect(wrapper?.classList.contains("name-color-normal")).toBe(false);
-    expect(cssSource).toContain(".wrestler-name-with-role.name-color-continental-champion{color:#d5dde8}");
+    expect(cssSource).toContain("--achievement-continental-champion:#B7C7DB");
+    expect(cssSource).toContain("--league-continental:#83b9dc");
+    expect(cssSource).toContain(".wrestler-name-with-role.name-color-continental-champion{color:var(--achievement-continental-champion)}");
+    expect(cssSource).toContain(".dashboard-show-name-content.name-color-continental-champion{color:var(--achievement-continental-champion)}");
     expect(cssSource).toContain(".wrestler-name-with-role.name-color-normal{color:#fff}");
+    expect(cssSource).not.toContain("name-color-continental-champion{color:silver}");
+    expect(cssSource).not.toContain("name-color-continental-champion{color:#C0C0C0}");
+    expect(cssSource).not.toContain("name-color-continental-champion{color:#fff}");
   });
 
   it("keeps the corrected shared color helper wired into all existing wrestler-name surfaces", () => {
