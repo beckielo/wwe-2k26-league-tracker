@@ -52,17 +52,21 @@ describe("Phase 19AC final metadata and week review UI cleanup", () => {
     expect(getPreviousSplitNameColorRole({ wrestler: "Gunther", championRoles: roles })).not.toBe("double-winner");
   });
 
-  it("accepts compact league-name metadata so Continental still maps Randy Orton to silver", () => {
+  it("accepts compact league-name metadata so Continental still maps Randy Orton to the Continental Champion role", () => {
     const compactCommit = { ...latestCompletedCommit, titleRecords: latestCompletedCommit.titleRecords.map((record) => record.league === "Continental League" ? { ...record, league: "Continental" as never } : record) };
     const roles = getPreviousSplitChampionColorRoles(undefined, [compactCommit]);
     expect(getLastCompletedSplitChampionMetadata([compactCommit])?.continentalChampion).toBe("Randy Orton");
     expect(getPreviousSplitNameColorRole({ wrestler: "Randy Orton", championRoles: roles })).toBe("continental-champion");
   });
 
-  it("defines a silver Continental Champion name class that is not the normal white class", () => {
-    expect(cssSource).toContain(".wrestler-name-with-role.name-color-continental-champion{color:#d5dde8}");
-    expect(cssSource).toContain(".dashboard-show-name-content.name-color-continental-champion{color:#d5dde8}");
+  it("defines a Continental-theme silver-blue Champion token that is not normal white or generic silver", () => {
+    expect(cssSource).toContain("--achievement-continental-champion:#B7C7DB");
+    expect(cssSource).toContain("--league-continental:#83b9dc");
+    expect(cssSource).toContain(".wrestler-name-with-role.name-color-continental-champion{color:var(--achievement-continental-champion)}");
+    expect(cssSource).toContain(".dashboard-show-name-content.name-color-continental-champion{color:var(--achievement-continental-champion)}");
     expect(cssSource).toContain(".wrestler-name-with-role.name-color-normal{color:#fff}");
+    expect(cssSource).not.toContain("name-color-continental-champion{color:silver}");
+    expect(cssSource).not.toContain("name-color-continental-champion{color:#C0C0C0}");
   });
 
   it("builds newly started split mini standings from active roster order with zero results and no previous/finals points", () => {
