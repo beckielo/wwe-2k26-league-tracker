@@ -1,6 +1,7 @@
 import { LEAGUE_NAMES, type LeagueName, type Match, type SplitName } from "./types";
 import { recoverPostRegularSeasonWorkflowState, type ActiveWorkflow, type CompletedSplitLegacyCommit, type TrackerState } from "./tracker-state";
 import { applyRosterReplacementsToMatches } from "./roster-replacement";
+import { refreshLastCompletedAchievementMetadata } from "./completed-split-reconciliation";
 
 export const SCHEDULE_GENERATOR_VERSION = "1.0.0";
 export const SCHEDULE_IMPORTER_VERSION = "1.0.0";
@@ -263,26 +264,24 @@ export function startNextSplitFromAcceptedComposition(input: StartNextSplitInput
   const completedSplitLegacyCommits = completedSplitLegacyCommit && !existingCommits.some((commit) => commit.sourceSignature === completedSplitLegacyCommit.sourceSignature)
     ? [...existingCommits, completedSplitLegacyCommit]
     : existingCommits;
-  return {
-    errors: [],
-    state: {
-      ...input.state,
-      acceptedSchedule,
-      activeWorkflow,
-      confirmedResults: [],
-      completedWeeks: [],
-      completedSplitLegacyCommits,
-      postFinalsTransitionCompleted: {
-        completedAt: activeWorkflow.activatedAt,
-        sourceSignature: accepted.sourceSignature,
-        leagueYear: accepted.leagueYear,
-        split: accepted.split,
-        nextLeagueYear: target.leagueYear,
-        nextSplit: target.split,
-        acceptedScheduleAt: acceptedSchedule.acceptedAt,
-      },
+  const nextState = refreshLastCompletedAchievementMetadata({
+    ...input.state,
+    acceptedSchedule,
+    activeWorkflow,
+    confirmedResults: [],
+    completedWeeks: [],
+    completedSplitLegacyCommits,
+    postFinalsTransitionCompleted: {
+      completedAt: activeWorkflow.activatedAt,
+      sourceSignature: accepted.sourceSignature,
+      leagueYear: accepted.leagueYear,
+      split: accepted.split,
+      nextLeagueYear: target.leagueYear,
+      nextSplit: target.split,
+      acceptedScheduleAt: acceptedSchedule.acceptedAt,
     },
-  };
+  });
+  return { errors: [], state: nextState };
 }
 
 

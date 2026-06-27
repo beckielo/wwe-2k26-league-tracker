@@ -1,6 +1,7 @@
 import type { LeagueFinalsResult } from "./league-finals";
 import { LEAGUE_NAMES } from "./types";
 import type { CompletedSplitLegacyCommit, TrackerState } from "./tracker-state";
+import { createChampionMetadataAudit, getLastCompletedAchievementMetadata } from "./previous-split-name-colors";
 
 function slug(value: string | null | undefined): string {
   return `${value ?? ""}`.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -85,12 +86,21 @@ export function buildCompletedSplitLegacyCommitFromState(state: TrackerState, co
 
 export function reconcileCompletedSplitHistory(state: TrackerState, committedAt?: string): TrackerState {
   const commit = buildCompletedSplitLegacyCommitFromState(state, committedAt);
-  if (!commit) return state;
+  if (!commit) return refreshLastCompletedAchievementMetadata(state);
   const existing = state.completedSplitLegacyCommits ?? [];
   const alreadyCommitted = existing.some((candidate) => candidate.sourceSignature === commit.sourceSignature)
     || existing.some((candidate) => candidate.leagueYear === commit.leagueYear && candidate.split === commit.split && candidate.titleRecords.length === 4 && candidate.eliteCupWinner === commit.eliteCupWinner);
-  if (alreadyCommitted) return state;
-  return { ...state, completedSplitLegacyCommits: [...existing, commit] };
+  if (alreadyCommitted) return refreshLastCompletedAchievementMetadata(state);
+  return refreshLastCompletedAchievementMetadata({ ...state, completedSplitLegacyCommits: [...existing, commit] });
+}
+
+export function refreshLastCompletedAchievementMetadata(state: TrackerState): TrackerState {
+  const latest = getLastCompletedAchievementMetadata(state);
+  const audit = createChampionMetadataAudit(state);
+  if (!latest) return { ...state, lastCompletedAchievementMetadata: null, championMetadataAudit: audit };
+  const currentSignature = state.lastCompletedAchievementMetadata?.completedSplitSignature ?? state.lastCompletedAchievementMetadata?.sourceSignature ?? null;
+  if (currentSignature === latest.completedSplitSignature && state.championMetadataAudit?.latestCompletedSplitSignature === latest.completedSplitSignature) return state;
+  return { ...state, lastCompletedAchievementMetadata: latest, championMetadataAudit: audit };
 }
 
 export function getCompletedSplitReconciliationDiagnostics(state: TrackerState) {

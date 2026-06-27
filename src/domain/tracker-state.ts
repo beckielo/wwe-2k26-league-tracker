@@ -5,6 +5,7 @@ import type { FinalsNight, LeagueFinalsResult } from "./league-finals";
 import type { AcceptedScheduleSnapshot } from "./schedule-setup";
 import type { PostFinalsAssignment } from "./post-finals-transition";
 import { applyRosterReplacementsToMatches, applyRosterReplacementsToStandings, type RosterReplacementLogEntry } from "./roster-replacement";
+import type { LastCompletedSplitChampionMetadata } from "./previous-split-name-colors";
 
 export type ConfirmedResultType = "Winner" | "Draw" | "No Contest";
 export type ConfirmedResultSource = "Manual" | "Simulation";
@@ -60,6 +61,8 @@ export interface TrackerState {
   rosterReplacements?: RosterReplacementLogEntry[];
   newRunSetupDraft?: NewRunSetupDraft;
   completedSplitLegacyCommits?: CompletedSplitLegacyCommit[];
+  lastCompletedAchievementMetadata?: LastCompletedSplitChampionMetadata | null;
+  championMetadataAudit?: import("./previous-split-name-colors").ChampionMetadataAudit;
 }
 
 export interface CompletedSplitLegacyCommit {
@@ -67,7 +70,7 @@ export interface CompletedSplitLegacyCommit {
   committedAt: string;
   leagueYear: number;
   split: SplitName;
-  titleRecords: { league: LeagueName; wrestler: string }[];
+  titleRecords: { league: string; wrestler: string }[];
   eliteCupWinner: string | null;
   eliteCupRunnerUp?: string | null;
   directPromotions?: { wrestler: string; from: LeagueName; to: LeagueName }[];
