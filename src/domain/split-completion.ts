@@ -94,17 +94,18 @@ function headToHeadRecords(matches: Match[], results: MatchResult[]) {
 export function deriveSplitCompletionReview(input: SplitCompletionInput): SplitCompletionReview {
   const completedRegularSplitWeek = Math.min(input.completedThroughWeek, 22);
   const regularPhaseComplete = input.completedThroughWeek >= 22;
+  const matchSplitWeek = (match: Match) => input.split === "Closing Split" ? match.week - 24 : match.week;
   const splitMatches = input.matches.filter((match) =>
     match.leagueYear === input.leagueYear
     && match.split === input.split
-    && match.week <= 22,
+    && matchSplitWeek(match) <= 22,
   );
   const splitMatchIds = new Set(splitMatches.map((match) => match.id));
   const splitResults = input.results.filter((result) => splitMatchIds.has(result.matchId));
   const week23Matches = input.matches.some((match) =>
     match.leagueYear === input.leagueYear
     && match.split === input.split
-    && match.week === 23
+    && matchSplitWeek(match) === 23
     && match.roundType === "Tiebreaker",
   );
   const week23Reference = input.matchupReference.some((row) =>
@@ -137,7 +138,9 @@ export function deriveSplitCompletionReview(input: SplitCompletionInput): SplitC
     );
   }
   if (input.completedThroughWeek >= 24) {
-    sourceWarnings.push("The Opening Split ends at Week 24. Week 25 belongs to the Closing Split and is not invented here.");
+    sourceWarnings.push(input.split === "Opening Split"
+      ? "The Opening Split ends at Week 24. Week 25 belongs to the Closing Split and is not invented here."
+      : "The Closing Split is complete through its Finals week. The next League Year is not invented here.");
   }
 
   const standings = [...input.standings].sort(

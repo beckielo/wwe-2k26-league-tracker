@@ -6,6 +6,11 @@ import * as XLSX from "xlsx";
 import { validateTrackerData } from "@/domain/validation";
 import { buildCurrentStandingsFromScheduleComposition, buildLeaguesFromStandings, validateCurrentLeagueComposition } from "@/domain/current-league-composition";
 import { parseAppWorkbookBaseline } from "@/domain/app-workbook-baseline";
+import {
+  buildWorkflowContextBaseline,
+  createAppWorkbookContextCandidate,
+  createDashboardContextCandidate,
+} from "@/domain/workflow-context";
 import { ACCEPTED_SCHEDULE_SHEET } from "@/domain/workbook-writeback";
 import { MANUAL_LEGACY_COMPLETED_SPLIT_SOURCE } from "@/domain/legacy-manual-corrections";
 import { auditLegacyCompletedSplitSources, applyLegacyHistoryRecords, applyManualEliteCupDisplayPatch, enrichLegacyProfilesFromCurrentMaster, enrichLegacyProfilesWithCompletedSplitChampions, extractCompletedEliteCupRecordsFromFinalStandings, extractCompletedSplitTitleRecordsFromFinalStandings, legacyProfileEliteCupRecords, parseLegacyTracker, summarizeLegacyProfiles, type LegacyTableData } from "@/domain/legacy";
@@ -408,9 +413,31 @@ export function loadTrackerData(): TrackerData {
     sourceLabel: text(row.Source),
     status: text(row["Status / Use"]),
   }));
-  const appBaseline = parseAppWorkbookBaseline(workbook, matches, workbookStandings);
-  const baselineStandings = appBaseline.standings ?? workbookStandings;
-  const appMatchResults: MatchResult[] = appBaseline.confirmedResults.map((result) => {
+  const appBaseline = parseAppWorkbookBaseline(workbook, matches);
+  const dashboardContext = createDashboardContextCandidate({
+    leagueYear,
+    split: currentSplit,
+    completedThroughYearWeek: currentWeek,
+    schedule: workbookMatches,
+    standings: workbookStandings,
+  });
+  const appContext = createAppWorkbookContextCandidate({
+    latestWriteback: appBaseline.latestWriteback,
+    schedule: matches,
+    standings: appBaseline.standings,
+    results: appBaseline.confirmedResults,
+  });
+  const useAppCheckpoint = Boolean(appContext?.valid);
+  const authoritativeMatches = useAppCheckpoint ? matches : workbookMatches;
+  const workflowContext = buildWorkflowContextBaseline({
+    dashboard: dashboardContext,
+    appWorkbook: appContext,
+    dashboardSchedule: authoritativeMatches,
+  });
+  const selectedContext = useAppCheckpoint ? appContext! : dashboardContext;
+  const baselineStandings = useAppCheckpoint ? appBaseline.standings! : workbookStandings;
+  const acceptedAppResults = useAppCheckpoint ? appBaseline.confirmedResults : [];
+  const appMatchResults: MatchResult[] = acceptedAppResults.map((result) => {
     const match = matchById.get(result.matchId);
     const loser = result.resultType === "Winner" && result.winner && match
       ? (result.winner === match.wrestlerA ? match.wrestlerB : match.wrestlerA)
@@ -432,11 +459,11 @@ export function loadTrackerData(): TrackerData {
   ];
   const currentCompositionStandings = buildCurrentStandingsFromScheduleComposition(
     baselineStandings,
-    matches,
+    authoritativeMatches,
     workbookBackedResults,
-    currentSplit,
+    selectedContext.split,
   );
-  const standings = currentCompositionStandings ?? baselineStandings;
+  const standings = useAppCheckpoint ? baselineStandings : (currentCompositionStandings ?? baselineStandings);
   const activeLeagues = currentCompositionStandings ? buildLeaguesFromStandings(standings, leagues) : leagues;
 
   const dataWithoutIssues: Omit<TrackerData, "validationIssues"> = {
@@ -448,7 +475,7 @@ export function loadTrackerData(): TrackerData {
       currentWeek,
       latestAppWritebackWeek: appBaseline.latestAppWritebackWeek,
       latestAppWritebackCompletedAt: appBaseline.latestAppWritebackCompletedAt,
-      appBaselineCompletedThroughWeek: Math.max(currentWeek, appBaseline.latestAppWritebackWeek ?? currentWeek),
+      appBaselineCompletedThroughWeek: selectedContext.completedThroughYearWeek,
       usesAppWritebackSheets: appBaseline.hasWritebackSheets,
       currentStatus,
       userLeague: league(dashboard.get("User-Liga")),
@@ -461,21 +488,22 @@ export function loadTrackerData(): TrackerData {
     ],
     weeks,
     leagues: activeLeagues,
-    matches,
+    matches: authoritativeMatches,
     results: workbookBackedResults,
-    appWritebackResults: appBaseline.confirmedResults,
+    appWritebackResults: acceptedAppResults,
     standings,
     headToHead,
     streaks,
     matchupReference,
     hasLeagueFinalsTemplate: Boolean(workbook.Sheets.PPV_Template_Layout),
+    workflowContext,
   };
 
   return {
     ...dataWithoutIssues,
     validationIssues: [
       ...validateTrackerData(dataWithoutIssues),
-      ...validateCurrentLeagueComposition(standings, matches, currentSplit),
+      ...validateCurrentLeagueComposition(standings, authoritativeMatches, selectedContext.split),
       ...workbookWarnings(workbook, sourceFile),
       ...appBaseline.validationIssues.map((issue) => ({
         ...issue,

@@ -2,6 +2,9 @@
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 import { TrackerStateProvider } from "@/state/tracker-state-provider";
+import { loadTrackerData } from "@/data/workbook";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "WWE 2K26 League Control",
@@ -14,10 +17,11 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const data = loadTrackerData();
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <TrackerStateProvider>
+        <TrackerStateProvider workflowContext={data.workflowContext}>
           <AppShell>{children}</AppShell>
         </TrackerStateProvider>
       </body>

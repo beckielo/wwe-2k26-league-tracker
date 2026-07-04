@@ -139,6 +139,19 @@ function baselineWorkbook(): Uint8Array {
   return XLSX.write(workbook, { type: "array", bookType: "xlsx" });
 }
 
+function contextDashboardWorkbook(): Uint8Array {
+  const workbook = XLSX.utils.book_new();
+  const dashboard = XLSX.utils.aoa_to_sheet([
+    ["WWE 2K26 Liga-System", "League Year 2 â€“ Opening Split"],
+    ["Aktueller Stand", "Woche 13 abgeschlossen"],
+    ["Ligaphase", "Opening Split Woche 13 abgeschlossen"],
+    ["Dateistand", "LY2 Opening Split Week 13 abgeschlossen"],
+  ]);
+  dashboard.B1.s = { fill: { patternType: "solid", fgColor: { rgb: "FF112233" } } };
+  XLSX.utils.book_append_sheet(workbook, dashboard, "Dashboard");
+  return XLSX.write(workbook, { type: "array", bookType: "xlsx", cellStyles: true });
+}
+
 function generate(pkg = closePackage()) {
   return createWorkbookWriteback(
     { workbook: baselineWorkbook(), sourceFile: "source.xlsx", schedule },
@@ -219,6 +232,27 @@ describe("safe workbook writeback", () => {
     ]);
   });
 
+  it("synchronizes existing Dashboard context cells without changing its structure or style", () => {
+    const result = createWorkbookWriteback(
+      { workbook: contextDashboardWorkbook(), sourceFile: "source.xlsx", schedule },
+      closePackage(),
+      "2026-06-13T13:00:00.000Z",
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const workbook = XLSX.read(result.workbook, { type: "array", cellStyles: true });
+    expect(workbook.SheetNames).toEqual(expect.arrayContaining(["Dashboard", RESULTS_SHEET, STANDINGS_SHEET, LOG_SHEET]));
+    const dashboardRows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets.Dashboard, { header: 1, raw: true });
+    expect(String(dashboardRows[0][1])).toContain("League Year 2");
+    expect(String(dashboardRows[0][1])).toContain("Opening Split");
+    expect(dashboardRows.slice(1)).toEqual([
+      ["Aktueller Stand", "Woche 14 abgeschlossen"],
+      ["Ligaphase", "Opening Split Woche 14 abgeschlossen"],
+      ["Dateistand", "LY2 Opening Split Week 14 abgeschlossen"],
+    ]);
+    expect(workbook.Sheets.Dashboard.B1.s).toBeTruthy();
+  });
+
   it("writes the accepted Closing Split schedule snapshot for Year Weeks 25-46", () => {
     expect(closingMatches.filter((match) => match.week === 25)).toHaveLength(24);
     const result = createWorkbookWriteback(
@@ -236,6 +270,7 @@ describe("safe workbook writeback", () => {
     for (const league of leagues) expect(rows.filter((row) => row.yearWeek === 25 && row.league === league)).toHaveLength(6);
     expect(rows[0]).toMatchObject({ split: "Closing Split", leagueYear: 2, scheduleSource: "accepted generated snapshot" });
     expect(new Set(rows.filter((row) => row.yearWeek === 25).map((row) => row.matchId))).toEqual(new Set(closingWeek25Results.map((result) => result.matchId)));
+    expect(result.filename).toBe("WWE_2K26_Liga_System_LY2_Closing_W25_abgeschlossen.xlsx");
   });
 
   it("rejects Closing Split writeback when no accepted schedule exists or result ids do not match", () => {

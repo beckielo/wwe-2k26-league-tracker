@@ -41,8 +41,6 @@ allMatches,
 baselineStandings,
 workbookResults,
 matchupReference,
-leagueYear,
-split,
 hasLeagueFinalsTemplate,
 userLeague,
 workbookCurrentWeek,
@@ -52,13 +50,13 @@ sourceFile,
 userWrestler,
 completedSplitAudit,
 }: WeekReviewProps) {
-const { state, replaceState, exportState, importState, resetState, hydrated } =
+const { state, authority, replaceState, exportState, importState, resetState, hydrated } =
 useTrackerState();
 
 const [messages, setMessages] = useState<string[]>([]);
 const importInput = useRef<HTMLInputElement>(null);
 const workflowMatches = getActiveWorkflowMatches(state, allMatches);
-const workflowBaseline = state.activeWorkflow ? (state.activeWorkflow.split === "Closing Split" ? 24 : 0) : workbookCurrentWeek;
+const workflowBaseline = authority.completedThroughYearWeek;
 const workflowUserLeague = state.activeWorkflow?.userLeague ?? userLeague;
 
 const summary = getWorkflowSummary(
@@ -71,10 +69,12 @@ workflowUserLeague,
 const week = summary.activeWeek;
 const progress = summary.progress;
 
-const latestLockedWeek = summary.latestLockedWeek;
+const latestLockedWeek = authority.activeSource === "local"
+  ? authority.completedThroughYearWeek
+  : summary.latestLockedWeek;
 
-const activeSplit = state.activeWorkflow?.split ?? split;
-const miniStandingsCompletedThroughWeek = latestLockedWeek ?? workbookCurrentWeek;
+const activeSplit = authority.split;
+const miniStandingsCompletedThroughWeek = authority.completedThroughYearWeek;
 const activeSplitWeek = activeSplit === "Closing Split" ? Math.max(1, miniStandingsCompletedThroughWeek - 24) : miniStandingsCompletedThroughWeek;
 const splitReviewCompletedThroughWeek = activeSplit === "Closing Split" ? activeSplitWeek : Math.max(workbookCurrentWeek, latestLockedWeek ?? 0);
 const liveStandings = reconstructActiveSplitLiveStandings({
@@ -107,11 +107,11 @@ source: { file: "browser-local tracker state", sheet: "confirmedResults" },
 });
 const localResultIds = new Set(localMatchResults.map((result) => result.matchId));
 const splitReview = deriveSplitCompletionReview({
-leagueYear,
+leagueYear: authority.leagueYear,
 split: activeSplit,
 completedThroughWeek: splitReviewCompletedThroughWeek,
 standings: updatedStandings,
-matches: allMatches,
+matches: workflowMatches,
 results: [
 ...workbookResults.filter((result) => !localResultIds.has(result.matchId)),
 ...localMatchResults,

@@ -7,7 +7,7 @@ import { getActiveWorkflowMatches, getNextSplitIdentity, getStartNextSplitStatus
 import { reconstructActiveSplitLiveStandings } from "@/domain/tracker-state";
 import { createAcceptedPostFinalsCompositionSnapshot, derivePostFinalsTransition } from "@/domain/post-finals-transition";
 import { deriveSplitCompletionReview } from "@/domain/split-completion";
-import type { Match, MatchResult, MatchupReferenceRow, SplitName, StandingRow } from "@/domain/types";
+import { LEAGUE_NAMES, type Match, type MatchResult, type MatchupReferenceRow, type SplitName, type StandingRow } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
 
 interface Props {
@@ -23,35 +23,73 @@ interface Props {
 }
 
 export function PostFinalsTransitionView(props: Props) {
-  const { state, updateState, hydrated } = useTrackerState();
+  const { state, authority, updateState, hydrated } = useTrackerState();
   const [confirmingAcceptance, setConfirmingAcceptance] = useState(false);
   const [confirmingStart, setConfirmingStart] = useState(false);
   const [startMessage, setStartMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const hasProvidedAuthority = authority.sourceSignature !== "workflow-default";
+  const completedTransition = state.postFinalsTransitionCompleted;
+  const authorityRepresentsActivatedSuccessor = Boolean(
+    completedTransition
+    && state.activeWorkflow?.leagueYear === completedTransition.nextLeagueYear
+    && state.activeWorkflow?.split === completedTransition.nextSplit,
+  );
+  const contextLeagueYear = authorityRepresentsActivatedSuccessor
+    ? completedTransition!.leagueYear
+    : hasProvidedAuthority ? authority.leagueYear : props.leagueYear;
+  const contextSplit = authorityRepresentsActivatedSuccessor
+    ? completedTransition!.split
+    : hasProvidedAuthority ? authority.split : props.split;
+  const contextCompletedThroughYearWeek = authorityRepresentsActivatedSuccessor
+    ? (completedTransition!.split === "Closing Split" ? 46 : 22)
+    : hasProvidedAuthority ? authority.completedThroughYearWeek : props.completedThroughWeek;
   const activeWorkflowMatches = useMemo(() => getActiveWorkflowMatches(state, props.matches), [props.matches, state]);
+  const completedSplitWeek = contextSplit === "Closing Split"
+    ? Math.max(0, contextCompletedThroughYearWeek - 24)
+    : contextCompletedThroughYearWeek;
   const finalLiveStandings = useMemo(() => reconstructActiveSplitLiveStandings({
     previousFinalStandings: props.standings,
+    postFinalsAssignments: state.activeWorkflow ? LEAGUE_NAMES.flatMap((league) => state.acceptedPostFinalsComposition?.rosters[league] ?? []) : undefined,
     scheduledMatches: activeWorkflowMatches,
     masterResults: props.results,
     localResults: hydrated ? state.confirmedResults : [],
-    split: state.activeWorkflow?.split ?? props.split,
-    completedThroughWeek: props.completedThroughWeek,
-  }).standings, [activeWorkflowMatches, hydrated, props.completedThroughWeek, props.results, props.split, props.standings, state.activeWorkflow?.split, state.confirmedResults]);
+    split: contextSplit,
+    completedThroughWeek: contextCompletedThroughYearWeek,
+    activeLeagueYear: contextLeagueYear,
+    rosterReplacements: state.rosterReplacements,
+  }).standings, [activeWorkflowMatches, contextCompletedThroughYearWeek, contextLeagueYear, contextSplit, hydrated, props.results, props.standings, state.acceptedPostFinalsComposition?.rosters, state.activeWorkflow, state.confirmedResults, state.rosterReplacements]);
+  const localResults = useMemo(() => state.confirmedResults.map((result): MatchResult => {
+    const match = activeWorkflowMatches.find((candidate) => candidate.id === result.matchId);
+    const loser = result.resultType === "Winner" && result.winner && match
+      ? (result.winner === match.wrestlerA ? match.wrestlerB : match.wrestlerA)
+      : null;
+    return {
+      matchId: result.matchId,
+      outcome: result.resultType === "Winner" ? "decisive" : result.resultType === "Draw" ? "draw" : "no-contest",
+      winner: result.winner,
+      loser,
+      resultSource: result.source,
+      notes: null,
+      source: { file: "browser-local tracker state", sheet: "confirmedResults" },
+    };
+  }), [activeWorkflowMatches, state.confirmedResults]);
+  const localResultIds = useMemo(() => new Set(localResults.map((result) => result.matchId)), [localResults]);
   const splitReview = useMemo(() => deriveSplitCompletionReview({
-    leagueYear: props.leagueYear,
-    split: props.split,
-    completedThroughWeek: props.completedThroughWeek,
-    standings: props.standings,
+    leagueYear: contextLeagueYear,
+    split: contextSplit,
+    completedThroughWeek: completedSplitWeek,
+    standings: finalLiveStandings,
     matches: activeWorkflowMatches,
-    results: props.results,
+    results: [...props.results.filter((result) => !localResultIds.has(result.matchId)), ...localResults],
     matchupReference: props.matchupReference,
     hasLeagueFinalsTemplate: props.hasLeagueFinalsTemplate,
-  }), [activeWorkflowMatches, props]);
+  }), [activeWorkflowMatches, completedSplitWeek, contextLeagueYear, contextSplit, finalLiveStandings, localResultIds, localResults, props.hasLeagueFinalsTemplate, props.matchupReference, props.results]);
   const finals = useMemo(() => deriveLeagueFinalsReview({
-    completedThroughWeek: props.completedThroughWeek,
+    completedThroughWeek: completedSplitWeek,
     standings: finalLiveStandings,
     consequentialTies: splitReview.consequentialTies,
     hasLeagueFinalsTemplate: props.hasLeagueFinalsTemplate,
-  }), [props.completedThroughWeek, props.hasLeagueFinalsTemplate, splitReview.consequentialTies, finalLiveStandings]);
+  }), [completedSplitWeek, props.hasLeagueFinalsTemplate, splitReview.consequentialTies, finalLiveStandings]);
   const allFinalsMatches = useMemo(() => [...finals.nightOne, ...finals.nightTwo], [finals.nightOne, finals.nightTwo]);
   const normalizedResults = useMemo(() => normalizeLeagueFinalsResults(allFinalsMatches, state.leagueFinalsResults ?? []), [allFinalsMatches, state.leagueFinalsResults]);
   useEffect(() => {
@@ -63,7 +101,7 @@ export function PostFinalsTransitionView(props: Props) {
     updateState((current) => ({ ...current, leagueFinalsResults: normalizedResults.results }));
   }, [hydrated, normalizedResults, state.leagueFinalsResults, updateState]);
   const transition = useMemo(() => derivePostFinalsTransition({
-    completedThroughWeek: props.completedThroughWeek,
+    completedThroughWeek: completedSplitWeek,
     standings: finalLiveStandings,
     consequentialTies: splitReview.consequentialTies,
     matches: allFinalsMatches,
@@ -73,9 +111,9 @@ export function PostFinalsTransitionView(props: Props) {
     directMovements: finals.directMovements,
     hasAuthoritativeClosingSchedule: props.hasAuthoritativeClosingSchedule,
     manualReviews: state.manualReviews,
-  }), [allFinalsMatches, finals.champions, finals.directMovements, props.completedThroughWeek, props.hasAuthoritativeClosingSchedule, splitReview.consequentialTies, finalLiveStandings, state.completedFinalsNights, state.leagueFinalsResults, state.manualReviews]);
+  }), [allFinalsMatches, completedSplitWeek, finals.champions, finals.directMovements, props.hasAuthoritativeClosingSchedule, splitReview.consequentialTies, finalLiveStandings, state.completedFinalsNights, state.leagueFinalsResults, state.manualReviews]);
   const acceptedComposition = state.acceptedPostFinalsComposition;
-  const targetSplitIdentity = getNextSplitIdentity(props.leagueYear, props.split);
+  const targetSplitIdentity = getNextSplitIdentity(contextLeagueYear, contextSplit);
   const nextSplitWorkflowActive = Boolean(
     state.activeWorkflow?.leagueYear === targetSplitIdentity.leagueYear
     && state.activeWorkflow?.split === targetSplitIdentity.split
@@ -84,22 +122,29 @@ export function PostFinalsTransitionView(props: Props) {
   const accepted = Boolean(acceptedComposition?.postFinalsCompositionAccepted && (acceptedComposition.sourceSignature === transition.movementSourceAudit.sourceSignature || nextSplitWorkflowActive));
   const startStatus = getStartNextSplitStatus({
     state,
-    completedLeagueYear: props.leagueYear,
-    completedSplit: props.split,
+    completedLeagueYear: contextLeagueYear,
+    completedSplit: contextSplit,
     acceptedSourceSignature: transition.movementSourceAudit.sourceSignature,
   });
   const nextSplitActive = nextSplitWorkflowActive || startStatus.disabledReason === "Next Split Active";
-  const reviewDisabledReason = !transition.finalsComplete
+  const contextDisabledReason = hasProvidedAuthority && !authorityRepresentsActivatedSuccessor && (authority.confidence === "conflicted"
+    || authority.finalsReadiness === "stale"
+    || authority.finalsReadiness === "invalid"
+    || completedSplitWeek < 22)
+    ? `Workflow context ${authority.sourceSignature} is not valid for Finals transition.`
+    : null;
+  const reviewDisabledReason = contextDisabledReason
+    ?? (!transition.finalsComplete
     ? "Complete League Finals first."
     : !transition.compositionValid
       ? "Composition must be valid before review."
-      : null;
+      : null);
   const acceptComposition = () => {
     if (reviewDisabledReason || accepted) return;
     const snapshot = createAcceptedPostFinalsCompositionSnapshot({
       transition,
-      leagueYear: props.leagueYear,
-      split: props.split,
+      leagueYear: contextLeagueYear,
+      split: contextSplit,
     });
     updateState((current) => current.acceptedPostFinalsComposition?.sourceSignature === snapshot.sourceSignature
       ? current
@@ -109,8 +154,8 @@ export function PostFinalsTransitionView(props: Props) {
   const startNextSplit = () => {
     const action = startNextSplitFromAcceptedComposition({
       state,
-      completedLeagueYear: props.leagueYear,
-      completedSplit: props.split,
+      completedLeagueYear: contextLeagueYear,
+      completedSplit: contextSplit,
       acceptedSourceSignature: transition.movementSourceAudit.sourceSignature,
       currentUserWrestler: state.currentUserWrestler,
       completedSplitLegacyCommit: {

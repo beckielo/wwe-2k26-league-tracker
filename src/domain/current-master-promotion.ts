@@ -123,7 +123,7 @@ export function promoteCurrentMaster(
     return { ok: false, errors: validationErrors };
   }
 
-  const targetName = `[${CURRENT_MASTER_MARKER}] WWE_2K26_Liga_System_LY2_Opening_W${closePackage.week}_abgeschlossen.xlsx`;
+  const targetName = `[${CURRENT_MASTER_MARKER}] ${writeback.filename}`;
   const oldPath = path.join(sourceDir, sourceName);
   const targetPath = path.join(sourceDir, targetName);
   const backupFilename = backupName(sourceName, closePackage.week);

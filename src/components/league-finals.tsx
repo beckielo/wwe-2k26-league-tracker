@@ -16,7 +16,7 @@ import {
 import { closeManualReview, markManualReview, reconstructActiveSplitLiveStandings } from "@/domain/tracker-state";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { deriveSplitCompletionReview } from "@/domain/split-completion";
-import type { Match, MatchResult, MatchupReferenceRow, SplitName, StandingRow } from "@/domain/types";
+import { LEAGUE_NAMES, type Match, type MatchResult, type MatchupReferenceRow, type SplitName, type StandingRow } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { EventBrandPanel } from "./brand-assets";
 
@@ -108,36 +108,69 @@ function MatchCard({
 }
 
 export function LeagueFinals(props: LeagueFinalsProps) {
-  const { state, updateState, hydrated } = useTrackerState();
+  const { state, authority, updateState, hydrated } = useTrackerState();
   const [messages, setMessages] = useState<string[]>([]);
+  const hasProvidedAuthority = authority.sourceSignature !== "workflow-default";
+  const contextLeagueYear = hasProvidedAuthority ? authority.leagueYear : props.leagueYear;
+  const contextSplit = hasProvidedAuthority ? authority.split : props.split;
+  const contextCompletedThroughYearWeek = hasProvidedAuthority ? authority.completedThroughYearWeek : props.completedThroughWeek;
   const activeWorkflowMatches = useMemo(() => getActiveWorkflowMatches(state, props.matches), [props.matches, state]);
+  const completedSplitWeek = contextSplit === "Closing Split"
+    ? Math.max(0, contextCompletedThroughYearWeek - 24)
+    : contextCompletedThroughYearWeek;
   const finalLiveStandings = useMemo(() => reconstructActiveSplitLiveStandings({
     previousFinalStandings: props.standings,
+    postFinalsAssignments: state.activeWorkflow ? LEAGUE_NAMES.flatMap((league) => state.acceptedPostFinalsComposition?.rosters[league] ?? []) : undefined,
     scheduledMatches: activeWorkflowMatches,
     masterResults: props.results,
     localResults: hydrated ? state.confirmedResults : [],
-    split: state.activeWorkflow?.split ?? props.split,
-    completedThroughWeek: props.completedThroughWeek,
-  }).standings, [activeWorkflowMatches, hydrated, props.completedThroughWeek, props.results, props.split, props.standings, state.activeWorkflow?.split, state.confirmedResults]);
+    split: contextSplit,
+    completedThroughWeek: contextCompletedThroughYearWeek,
+    activeLeagueYear: contextLeagueYear,
+    rosterReplacements: state.rosterReplacements,
+  }).standings, [activeWorkflowMatches, contextCompletedThroughYearWeek, contextLeagueYear, contextSplit, hydrated, props.results, props.standings, state.acceptedPostFinalsComposition?.rosters, state.activeWorkflow, state.confirmedResults, state.rosterReplacements]);
+  const localResults = useMemo(() => state.confirmedResults.map((result): MatchResult => {
+    const match = activeWorkflowMatches.find((candidate) => candidate.id === result.matchId);
+    const loser = result.resultType === "Winner" && result.winner && match
+      ? (result.winner === match.wrestlerA ? match.wrestlerB : match.wrestlerA)
+      : null;
+    return {
+      matchId: result.matchId,
+      outcome: result.resultType === "Winner" ? "decisive" : result.resultType === "Draw" ? "draw" : "no-contest",
+      winner: result.winner,
+      loser,
+      resultSource: result.source,
+      notes: null,
+      source: { file: "browser-local tracker state", sheet: "confirmedResults" },
+    };
+  }), [activeWorkflowMatches, state.confirmedResults]);
+  const localResultIds = useMemo(() => new Set(localResults.map((result) => result.matchId)), [localResults]);
   const splitReview = useMemo(() => deriveSplitCompletionReview({
-    leagueYear: props.leagueYear,
-    split: props.split,
-    completedThroughWeek: props.completedThroughWeek,
-    standings: props.standings,
+    leagueYear: contextLeagueYear,
+    split: contextSplit,
+    completedThroughWeek: completedSplitWeek,
+    standings: finalLiveStandings,
     matches: activeWorkflowMatches,
-    results: props.results,
+    results: [...props.results.filter((result) => !localResultIds.has(result.matchId)), ...localResults],
     matchupReference: props.matchupReference,
     hasLeagueFinalsTemplate: props.hasLeagueFinalsTemplate,
-  }), [activeWorkflowMatches, props]);
+  }), [activeWorkflowMatches, completedSplitWeek, contextLeagueYear, contextSplit, finalLiveStandings, localResultIds, localResults, props.hasLeagueFinalsTemplate, props.matchupReference, props.results]);
   const review = useMemo(() => deriveLeagueFinalsFromFinalLiveStandings({
-    completedThroughWeek: props.completedThroughWeek,
+    completedThroughWeek: completedSplitWeek,
     standings: finalLiveStandings,
     consequentialTies: splitReview.consequentialTies,
     hasLeagueFinalsTemplate: props.hasLeagueFinalsTemplate,
-  }), [finalLiveStandings, props.completedThroughWeek, props.hasLeagueFinalsTemplate, splitReview.consequentialTies]);
+  }), [completedSplitWeek, finalLiveStandings, props.hasLeagueFinalsTemplate, splitReview.consequentialTies]);
+  const contextBlocked = hasProvidedAuthority && (authority.confidence === "conflicted"
+    || authority.finalsReadiness === "stale"
+    || authority.finalsReadiness === "invalid"
+    || completedSplitWeek < 22);
+  const contextBlockReason = contextBlocked
+    ? `League Finals blocked: ${authority.split} context ${authority.sourceSignature} is ${authority.finalsReadiness} at Split Week ${completedSplitWeek}.`
+    : null;
   const rawFinalsResults = useMemo(() => state.leagueFinalsResults ?? [], [state.leagueFinalsResults]);
   const completedNights = useMemo(() => state.completedFinalsNights ?? [], [state.completedFinalsNights]);
-  const cardsRenderable = review.nightOne.length === 6 && review.nightTwo.length === 6;
+  const cardsRenderable = !contextBlocked && review.nightOne.length === 6 && review.nightTwo.length === 6;
   const allCardMatches = useMemo(() => [...review.nightOne, ...review.nightTwo], [review.nightOne, review.nightTwo]);
   const finalsResults = useMemo(() => sanitizeLeagueFinalsResults(allCardMatches, rawFinalsResults), [allCardMatches, rawFinalsResults]);
 
@@ -205,9 +238,19 @@ export function LeagueFinals(props: LeagueFinalsProps) {
 
   return <div className="space-y-8">
     <section className="grid gap-px border border-white/10 bg-white/10 md:grid-cols-3">
-      <div className="bg-[#111722] p-5"><p className="text-xs uppercase text-slate-500">Regular season</p><strong className="mt-2 block text-xl text-emerald-300">Complete through Week 22</strong></div>
-      <div className="bg-[#111722] p-5"><p className="text-xs uppercase text-slate-500">Tiebreaker Review</p><strong className="mt-2 block text-xl">{splitReview.consequentialTies.length ? `${splitReview.consequentialTies.length} reviewed` : "No unresolved matches"}</strong></div>
-      <div className="bg-[#111722] p-5"><p className="text-xs uppercase text-slate-500">League Finals readiness</p><strong className={`mt-2 block text-xl ${review.ready ? "text-emerald-300" : "text-amber-300"}`}>{review.readinessLabel}</strong></div>
+      <div className="bg-[#111722] p-5">
+        <p className="text-xs uppercase text-slate-500">Regular season</p>
+        <strong className={`mt-2 block text-xl ${completedSplitWeek >= 22 ? "text-emerald-300" : "text-amber-300"}`}>
+          {completedSplitWeek >= 22 ? "Complete through Week 22" : `Incomplete · Week ${completedSplitWeek} of 22`}
+        </strong>
+      </div>
+      <div className="bg-[#111722] p-5">
+        <p className="text-xs uppercase text-slate-500">Tiebreaker Review</p>
+        <strong className="mt-2 block text-xl">
+          {completedSplitWeek < 22 ? "Not reached" : splitReview.consequentialTies.length ? `${splitReview.consequentialTies.length} reviewed` : "No unresolved matches"}
+        </strong>
+      </div>
+      <div className="bg-[#111722] p-5"><p className="text-xs uppercase text-slate-500">League Finals readiness</p><strong className={`mt-2 block text-xl ${review.ready && !contextBlocked ? "text-emerald-300" : "text-amber-300"}`}>{contextBlocked ? "Blocked by context authority" : review.readinessLabel}</strong></div>
     </section>
 
 
@@ -223,8 +266,8 @@ export function LeagueFinals(props: LeagueFinalsProps) {
       </div>
     </section>
 
-    {(messages.length > 0 || review.readinessReasons.length > 0) && <div className="border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-200">
-      {[...messages, ...review.readinessReasons].map((message) => <p key={message}>{message}</p>)}
+    {(messages.length > 0 || review.readinessReasons.length > 0 || contextBlockReason) && <div className="border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-200">
+      {[...messages, ...review.readinessReasons, ...(contextBlockReason ? [contextBlockReason] : [])].map((message) => <p key={message}>{message}</p>)}
     </div>}
 
     {!review.ready && review.readinessReasons.includes("League Finals source standings are invalid or stale.") && <section className="border border-red-400/30 bg-red-400/10 p-6 text-red-100"><h2 className="font-black uppercase">League Finals source standings are invalid or stale.</h2><p className="mt-2 text-sm">Card generation is blocked so stale finals data cannot be displayed.</p></section>}

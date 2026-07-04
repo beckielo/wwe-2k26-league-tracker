@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { ManualReviewBanner } from "./manual-review-banner";
 import { LeagueIcon, type LeagueIconName } from "./league-icon";
+import { useTrackerState } from "@/state/tracker-state-provider";
 
 type NavigationItem = {
   label: string;
@@ -99,6 +100,13 @@ function NavigationLink({
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const currentTitle = routeTitles[pathname] ?? "League Control";
+  const { authority, hydrated, state } = useTrackerState();
+  const sourceLabel = authority.activeSource === "local"
+    ? "Validated local session"
+    : authority.activeSource === "app-workbook"
+      ? "Validated app checkpoint"
+      : "Workbook fallback";
+  const userLeague = state.activeWorkflow?.userLeague ?? "National League";
 
   return (
     <div className="sports-shell">
@@ -138,10 +146,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <div className="sidebar-context">
           <span>Current league</span>
-          <strong>National League</strong>
+          <strong>{userLeague}</strong>
           <small>
             <i />
-            Workbook connected
+            {sourceLabel}
           </small>
         </div>
       </aside>
@@ -153,27 +161,32 @@ export function AppShell({ children }: { children: ReactNode }) {
             <strong>{currentTitle}</strong>
           </div>
           <div className="context-actions">
-            <span className="context-season">League Year 2</span>
+            <span className="context-season">
+              League Year {authority.leagueYear} · {authority.split.replace(" Split", "")} W{authority.splitWeek}
+            </span>
             <span className="context-source">
               <i />
-              Workbook connected
+              {sourceLabel}
             </span>
-            <span className="context-user" aria-label="Current user Beckielo, National League">
+            <span className="context-user" aria-label={`Current user Beckielo, ${userLeague}`}>
               <b>B</b>
               <span>
                 <strong>Beckielo</strong>
-                <small>National League</small>
+                <small>{userLeague}</small>
               </span>
             </span>
           </div>
         </header>
 
-        <ManualReviewBanner />
+        {hydrated && <WorkflowContextNotice />}
+        {hydrated && <ManualReviewBanner />}
         <main id="main-content" className="app-main">
-          {children}
+          {hydrated
+            ? children
+            : <div className="authority-loading" role="status">Validating workflow context…</div>}
         </main>
         <footer className="app-footer">
-          <span>Workbook authoritative</span>
+          <span>{sourceLabel}</span>
           <span>Explicit actions only · No guessed fixtures</span>
         </footer>
       </div>
@@ -200,5 +213,39 @@ export function AppShell({ children }: { children: ReactNode }) {
         </details>
       </nav>
     </div>
+  );
+}
+
+function WorkflowContextNotice() {
+  const { authority } = useTrackerState();
+  if (authority.conflicts.length === 0 && authority.confidence === "high") return null;
+  const blocking = authority.conflicts.filter((entry) => entry.severity === "error");
+  const lead = blocking[0] ?? authority.conflicts[0];
+  const authorityLabel = authority.activeSource === "local"
+    ? "Validated local session"
+    : authority.activeSource === "app-workbook"
+      ? "Validated app checkpoint"
+      : "Workbook fallback";
+
+  return (
+    <section className={`workflow-authority-notice confidence-${authority.confidence}`} aria-label="Workflow context authority">
+      <div>
+        <span>Context authority</span>
+        <strong>{authorityLabel}</strong>
+        <small>Confidence: {authority.confidence} · {authority.sourceSignature}</small>
+      </div>
+      {lead && <p>{lead.message} {lead.recommendedAction}</p>}
+      {authority.conflicts.length > 0 && (
+        <details>
+          <summary>{authority.conflicts.length} context notice{authority.conflicts.length === 1 ? "" : "s"}</summary>
+          <ul>{authority.conflicts.map((entry) => (
+            <li key={`${entry.code}:${entry.message}`}>
+              <strong>{entry.code}</strong>
+              <span>{entry.message}</span>
+            </li>
+          ))}</ul>
+        </details>
+      )}
+    </section>
   );
 }

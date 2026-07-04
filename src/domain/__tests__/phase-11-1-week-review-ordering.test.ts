@@ -24,8 +24,9 @@ describe("Phase 11.1 Week Review ordering and mini standings", () => {
     expect(weekReview.indexOf("<PromoteCurrentMaster")).toBeLessThan(weekReview.indexOf("promptPreview={<MiniLiveStandingsPreview"));
   });
 
-  it("always renders mini standings from the Live Standings source through the latest locked or workbook week", () => {
-    expect(weekReview).toContain("const miniStandingsCompletedThroughWeek = latestLockedWeek ?? workbookCurrentWeek");
+  it("always renders mini standings from the shared workflow authority through its completed week", () => {
+    expect(weekReview).toContain("const miniStandingsCompletedThroughWeek = authority.completedThroughYearWeek");
+    expect(weekReview).toContain("const activeSplit = authority.split");
     expect(weekReview).toContain("reconstructActiveSplitLiveStandings");
     expect(weekReview).toContain("localResults: state.confirmedResults.filter((result) => result.week <= miniStandingsCompletedThroughWeek)");
     expect(weekReview).toContain("completedThroughWeek: miniStandingsCompletedThroughWeek");

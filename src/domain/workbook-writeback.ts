@@ -151,6 +151,31 @@ function replaceSheet(workbook: XLSX.WorkBook, name: string, rows: unknown[][]):
   if (!workbook.SheetNames.includes(name)) workbook.SheetNames.push(name);
 }
 
+function synchronizeDashboardContext(workbook: XLSX.WorkBook, context: Pick<Match, "leagueYear" | "split" | "week">): void {
+  const dashboard = workbook.Sheets.Dashboard;
+  if (!dashboard) return;
+  const rows = XLSX.utils.sheet_to_json<unknown[]>(dashboard, { header: 1, defval: "", raw: true });
+  const splitWeek = context.split === "Closing Split" ? context.week - 24 : context.week;
+  const replacements = new Map<string, string>([
+    ["WWE 2K26 Liga-System", `League Year ${context.leagueYear} – ${context.split}`],
+    ["Aktueller Stand", `Woche ${context.week} abgeschlossen`],
+    ["Ligaphase", `${context.split} Woche ${splitWeek} abgeschlossen`],
+    ["Dateistand", `LY${context.leagueYear} ${context.split} Week ${splitWeek} abgeschlossen`],
+  ]);
+  for (const [index, row] of rows.entries()) {
+    const key = String(row[0] ?? "").trim();
+    const replacement = replacements.get(key);
+    if (!replacement) continue;
+    const address = XLSX.utils.encode_cell({ r: index, c: 1 });
+    dashboard[address] = { ...dashboard[address], t: "s", v: replacement, w: replacement };
+  }
+}
+
+function contextFilename(context: Pick<Match, "leagueYear" | "split" | "week">): string {
+  const splitLabel = context.split.replace(" Split", "");
+  return `WWE_2K26_Liga_System_LY${context.leagueYear}_${splitLabel}_W${context.week}_abgeschlossen.xlsx`;
+}
+
 export function createWorkbookWriteback(
   baseline: WorkbookWritebackBaseline,
   closePackage: WeeklyClosePackage,
@@ -160,12 +185,15 @@ export function createWorkbookWriteback(
   if (!validTimestamp(generatedAt)) errors.push("generatedAt is invalid.");
   if (errors.length) return { ok: false, errors };
 
-  const workbook = XLSX.read(baseline.workbook, { type: "array", cellDates: false });
+  const workbook = XLSX.read(baseline.workbook, { type: "array", cellDates: false, cellStyles: true });
   const acceptedMatches = closePackage.acceptedSchedule?.validation.valid ? acceptedScheduleMatches(closePackage.acceptedSchedule) : [];
   const authoritySchedule = acceptedMatches.length > 0
     ? [...baseline.schedule.filter((match) => !acceptedMatches.some((accepted) => accepted.id === match.id)), ...acceptedMatches]
     : baseline.schedule;
   const matchById = new Map(authoritySchedule.map((match) => [match.id, match]));
+  const contextMatch = authoritySchedule.find((match) => match.week === closePackage.week);
+  if (!contextMatch) return { ok: false, errors: [`Week ${closePackage.week} has no authoritative context match.`] };
+  synchronizeDashboardContext(workbook, contextMatch);
   replaceSheet(workbook, RESULTS_SHEET, [
     RESULT_HEADERS,
     ...closePackage.results.map((result) => [
@@ -253,7 +281,7 @@ export function createWorkbookWriteback(
   const output = XLSX.write(workbook, { type: "array", bookType: "xlsx" });
   return {
     ok: true,
-    filename: `WWE_2K26_Liga_System_LY2_Opening_W${closePackage.week}_abgeschlossen.xlsx`,
+    filename: contextFilename(contextMatch),
     workbook: output,
     metadata: {
       week: closePackage.week,

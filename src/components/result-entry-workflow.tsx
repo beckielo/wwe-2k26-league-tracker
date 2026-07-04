@@ -29,7 +29,7 @@ userLeague,
 userWrestler,
 standings,
 }: ResultEntryWorkflowProps) {
-const { state, hydrated } = useTrackerState();
+const { state, authority, hydrated } = useTrackerState();
 const selectedUser = useCurrentUser(standings).currentUser;
 
 if (!hydrated) {
@@ -39,8 +39,8 @@ Loading local tracker state… </div>
 }
 
 const workflowMatches = getActiveWorkflowMatches(state, matches);
-const workflowBaseline = state.activeWorkflow ? (state.activeWorkflow.split === "Closing Split" ? 24 : 0) : workbookCurrentWeek;
-const workflowUserLeague = selectedUser?.league ?? userLeague;
+const workflowBaseline = authority.completedThroughYearWeek;
+const workflowUserLeague = state.activeWorkflow?.userLeague ?? selectedUser?.league ?? userLeague;
 const workflowUserWrestler = selectedUser?.wrestler ?? userWrestler;
 const summary = getWorkflowSummary(
 state,
@@ -71,7 +71,7 @@ const userConfirmed = summary.userLeagueProgress?.confirmed ?? 0;
 const userMissing =
 summary.userLeagueProgress?.missing ?? userMatches.length;
 const userShowComplete = userMissing === 0;
-const display = getWeekDisplay(state.activeWorkflow?.leagueYear ?? 2, week, state.activeWorkflow?.split);
+const display = getWeekDisplay(authority.leagueYear, week, authority.split);
 
 return (
 <> <div className="mb-8"> <WorkflowSummaryBanner

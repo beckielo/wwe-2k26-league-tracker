@@ -42,33 +42,33 @@ interface DashboardControlCenterProps {
 }
 
 export function DashboardControlCenter(props: DashboardControlCenterProps) {
-  const { state, hydrated } = useTrackerState();
+  const { state, authority, hydrated } = useTrackerState();
   const matches = getActiveWorkflowMatches(state, props.workbookMatches);
-  const workflowBaseline = state.activeWorkflow ? (state.activeWorkflow.split === "Closing Split" ? 24 : 0) : props.workbookCompletedThroughWeek;
+  const workflowBaseline = authority.completedThroughYearWeek;
   const live = reconstructActiveSplitLiveStandings({
     previousFinalStandings: props.baselineStandings,
     scheduledMatches: matches,
     masterResults: props.workbookResults,
     localResults: state.confirmedResults,
-    split: state.activeWorkflow?.split ?? props.meta.currentSplit,
-    completedThroughWeek: state.activeWorkflow ? state.activeWorkflow.yearWeek - (state.activeWorkflow.splitWeek === 1 ? 1 : 0) : props.workbookCompletedThroughWeek,
-    activeLeagueYear: state.activeWorkflow?.leagueYear,
+    split: authority.split,
+    completedThroughWeek: authority.completedThroughYearWeek,
+    activeLeagueYear: authority.leagueYear,
     postFinalsAssignments: state.activeWorkflow ? LEAGUE_NAMES.flatMap((league) => state.acceptedPostFinalsComposition?.rosters[league] ?? []) : undefined,
     rosterReplacements: state.rosterReplacements ?? [],
   });
   const selectedUser = useCurrentUser(live.composition).currentUser;
   const selectedUserLeague = selectedUser?.league ?? props.userLeague;
   const summary = getWorkflowSummary(state, matches, workflowBaseline, selectedUserLeague);
-  const yearWeek = summary.activeWeek ?? state.activeWorkflow?.yearWeek ?? props.workbookCompletedThroughWeek + 1;
-  const leagueYear = state.activeWorkflow?.leagueYear ?? props.leagueYear;
-  const split = state.activeWorkflow?.split;
+  const yearWeek = summary.activeWeek ?? authority.activeYearWeek;
+  const leagueYear = authority.leagueYear;
+  const split = authority.split;
   const userLeague = selectedUserLeague;
   const display = getWeekDisplay(leagueYear, yearWeek, split);
   const userLeagueRows = live.standings.filter((row) => row.league === userLeague).sort((a, b) => a.rank - b.rank);
   const currentRanks = new Map(userLeagueRows.map((row) => [row.wrestler, row.rank]));
   const previousSplitChampionColorRoles = getPreviousSplitChampionColorRoles(props.legacySummary.completedSplitAudit, state.completedSplitLegacyCommits);
   const allKnownMatches = [...props.workbookMatches.filter((match) => !matches.some((active) => active.id === match.id)), ...matches];
-  const activeSplit = split ?? props.meta.currentSplit;
+  const activeSplit = split;
   const matchHistory = [
     ...buildHistoricalResultsFromHeadToHead(props.workbookHeadToHead, leagueYear, activeSplit),
     ...buildHistoricalResults(allKnownMatches, props.workbookResults, state.confirmedResults),
@@ -167,7 +167,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
     </div>
     <SocialFeed comments={socialFeed} />
     <p className="dashboard-diagnostics-note">Source Warnings remain available in review workflows · Non-blocking · details contained.</p>
-    <ReplaceWrestlerControl activeRoster={live.composition} matches={matches} leagueYear={leagueYear} split={split ?? props.meta.currentSplit} week={yearWeek} />
+    <ReplaceWrestlerControl activeRoster={live.composition} matches={matches} leagueYear={leagueYear} split={split} week={yearWeek} />
     <NewRunSetupWizard meta={props.meta} />
   </>;
 }

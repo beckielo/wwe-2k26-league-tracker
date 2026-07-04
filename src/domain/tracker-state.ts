@@ -48,6 +48,7 @@ export interface TrackerState {
   version: 1;
   confirmedResults: ConfirmedResult[];
   completedWeeks: CompletedWeek[];
+  workflowContextCheckpoint?: LocalWorkflowContextCheckpoint;
   lastExportedAt: string | null;
   lastImportedAt: string | null;
   leagueFinalsResults?: LeagueFinalsResult[];
@@ -63,6 +64,13 @@ export interface TrackerState {
   completedSplitLegacyCommits?: CompletedSplitLegacyCommit[];
   lastCompletedAchievementMetadata?: LastCompletedSplitChampionMetadata | null;
   championMetadataAudit?: import("./previous-split-name-colors").ChampionMetadataAudit;
+}
+
+export interface LocalWorkflowContextCheckpoint {
+  scope: "user-workflow";
+  baselineSourceSignature: string;
+  acceptedScheduleSignature: string | null;
+  signedAt: string;
 }
 
 export interface CompletedSplitLegacyCommit {

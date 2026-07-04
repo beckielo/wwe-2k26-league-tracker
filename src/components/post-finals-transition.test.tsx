@@ -191,6 +191,10 @@ describe("PostFinalsTransitionView composition acceptance", () => {
       expect(stored.completedWeeks).toHaveLength(0);
       expect(stored.leagueFinalsResults).toHaveLength(finalsMatches.length);
       expect(stored.postFinalsTransitionCompleted).toMatchObject({ nextLeagueYear: 2, nextSplit: "Closing Split" });
+      expect(stored.workflowContextCheckpoint).toMatchObject({
+        scope: "user-workflow",
+        acceptedScheduleSignature: expect.stringMatching(/^workflow-/),
+      });
     });
   });
 

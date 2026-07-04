@@ -163,5 +163,6 @@ export interface TrackerData {
   streaks: StreakRecord[];
   matchupReference: MatchupReferenceRow[];
   hasLeagueFinalsTemplate: boolean;
+  workflowContext: import("./workflow-context").WorkflowContextBaseline;
   validationIssues: ValidationIssue[];
 }

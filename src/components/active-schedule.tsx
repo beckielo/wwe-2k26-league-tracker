@@ -6,7 +6,6 @@ import { LEAGUE_NAMES, type Match } from "@/domain/types";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { getWeekDisplay } from "@/domain/week-display";
-import { detectActiveWeek } from "@/domain/week-progression";
 import { LeagueBrandMark, LeagueDecorativeArt } from "./brand-assets";
 import { WeekMatchPreview } from "./week-match-preview";
 
@@ -17,18 +16,21 @@ const SHOW_LABELS = {
   "Global League": "Friday",
 } as const;
 
-export function ActiveSchedule({ workbookMatches, workbookCurrentWeek }: { workbookMatches: Match[]; workbookCurrentWeek: number }) {
-  const { state, hydrated } = useTrackerState();
+export function ActiveSchedule({ workbookMatches }: { workbookMatches: Match[]; workbookCurrentWeek: number }) {
+  const { state, authority, hydrated } = useTrackerState();
   const [filter, setFilter] = useState<"all" | "open" | "completed">("all");
 
   if (!hydrated) return <p className="text-slate-500">Loading active schedule…</p>;
 
-  const active = Boolean(state.activeWorkflow);
+  const active = authority.activeSource !== "workbook-dashboard";
   const matches = getActiveWorkflowMatches(state, workbookMatches);
-  const workflowBaseline = active ? (state.activeWorkflow?.split === "Closing Split" ? 24 : 0) : workbookCurrentWeek;
-  const week = detectActiveWeek(state, matches, workflowBaseline).activeWeek ?? state.activeWorkflow?.yearWeek ?? workbookCurrentWeek + 1;
-  const display = getWeekDisplay(state.activeWorkflow?.leagueYear ?? 2, week, state.activeWorkflow?.split);
-  const weekMatches = matches.filter((match) => match.week === week);
+  const week = authority.activeYearWeek;
+  const display = getWeekDisplay(authority.leagueYear, week, authority.split);
+  const weekMatches = matches.filter((match) => (
+    match.leagueYear === authority.leagueYear
+    && match.split === authority.split
+    && match.week === week
+  ));
   const visibleMatches = weekMatches.filter((match) => (
     filter === "all" ||
     (filter === "open" && match.status === "scheduled") ||
@@ -41,7 +43,7 @@ export function ActiveSchedule({ workbookMatches, workbookCurrentWeek }: { workb
         <div>
           <strong>{display.primary} Card</strong>
           <span>{display.secondary}</span>
-          <small>{active ? state.activeWorkflow?.scheduleSource : "Matchup_Reference"}</small>
+          <small>{authority.scheduleSource}</small>
         </div>
         <div className="schedule-status-filters" aria-label="Match status filter">
           {([
@@ -65,7 +67,7 @@ export function ActiveSchedule({ workbookMatches, workbookCurrentWeek }: { workb
 
       <WeekMatchPreview
         matches={visibleMatches}
-        sourceLabel={active ? state.activeWorkflow?.scheduleSource ?? "Accepted schedule snapshot" : "Matchup_Reference"}
+        sourceLabel={authority.scheduleSource}
       />
 
       <div className="schedule-league-grid">

@@ -857,6 +857,96 @@ textarea:focus-visible {
   font-size: 9px;
 }
 
+.workflow-authority-notice {
+  display: grid;
+  grid-template-columns: minmax(210px, .7fr) minmax(260px, 1.3fr) auto;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid rgba(244, 191, 82, .24);
+  background: rgba(98, 68, 12, .18);
+  padding: 10px clamp(18px, 2.25vw, 36px);
+  color: #f6dfaa;
+  font-size: 11px;
+}
+
+.workflow-authority-notice.confidence-conflicted {
+  border-color: rgba(248, 113, 113, .3);
+  background: rgba(127, 29, 29, .2);
+  color: #fecaca;
+}
+
+.workflow-authority-notice > div,
+.workflow-authority-notice details li {
+  display: grid;
+  gap: 2px;
+}
+
+.workflow-authority-notice > div > span,
+.workflow-authority-notice summary {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.workflow-authority-notice small {
+  color: var(--v2-muted);
+  font-size: 9px;
+}
+
+.workflow-authority-notice > p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.workflow-authority-notice details {
+  position: relative;
+}
+
+.workflow-authority-notice summary {
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.workflow-authority-notice details ul {
+  position: absolute;
+  z-index: 45;
+  top: calc(100% + 12px);
+  right: 0;
+  width: min(520px, 86vw);
+  max-height: 320px;
+  margin: 0;
+  overflow: auto;
+  border: 1px solid var(--v2-line-strong);
+  border-radius: var(--v2-radius-sm);
+  background: #0b111b;
+  padding: 12px;
+  box-shadow: var(--v2-shadow-lg);
+  list-style: none;
+}
+
+.workflow-authority-notice details li + li {
+  margin-top: 10px;
+  border-top: 1px solid var(--v2-line);
+  padding-top: 10px;
+}
+
+.workflow-authority-notice details li span {
+  color: #c3ccd8;
+  line-height: 1.45;
+}
+
+.authority-loading {
+  min-height: 320px;
+  display: grid;
+  place-items: center;
+  color: var(--v2-muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
 .app-main {
   width: min(1640px, 100%);
   margin: 0 auto;
@@ -1883,6 +1973,14 @@ button.bg-red-500:hover {
     padding-left: 0;
   }
 
+  .workflow-authority-notice {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .workflow-authority-notice > p {
+    grid-column: 1 / -1;
+  }
+
   .mobile-bottom-nav {
     position: fixed;
     z-index: 50;
@@ -2034,6 +2132,21 @@ button.bg-red-500:hover {
   .context-user > b {
     width: 36px;
     height: 36px;
+  }
+
+  .workflow-authority-notice {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px 14px;
+  }
+
+  .workflow-authority-notice > p {
+    grid-column: auto;
+  }
+
+  .workflow-authority-notice details ul {
+    right: auto;
+    left: 0;
   }
 
   .app-main {
