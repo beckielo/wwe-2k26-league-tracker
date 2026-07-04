@@ -79,6 +79,10 @@ const display = getWeekDisplay(state.activeWorkflow?.leagueYear ?? 2, week, stat
 const eligibleLeagues = [
 ...new Set(simulation.candidates.map((candidate) => candidate.match.league)),
 ];
+const missingNonUserMatches = summary.nonUserLeagueProgress.reduce(
+  (total, league) => total + league.missing,
+  0,
+);
 
 return (
 <> <div className="mb-8"> <WorkflowSummaryBanner
@@ -98,7 +102,10 @@ return (
       label="Open simulation matches"
       value={simulation.candidates.length}
       detail={
-        eligibleLeagues.join(" · ") || "All non-user matches confirmed"
+        eligibleLeagues.join(" · ")
+          || (missingNonUserMatches
+            ? `${missingNonUserMatches} matches need prediction inputs`
+            : "All non-user matches confirmed")
       }
     />
     <Stat
@@ -148,11 +155,12 @@ return (
   {simulation.candidates.length === 0 ? (
     <div className="border border-white/10 bg-[#111722] p-10 text-center">
       <h2 className="text-2xl font-black uppercase">
-        Simulation card complete
+        {missingNonUserMatches ? "Prediction candidates unavailable" : "Simulation card complete"}
       </h2>
       <p className="mt-2 text-slate-500">
-        No open authoritative non-user matchups remain for {display.primary}.
-        Continue to Week Review.
+        {missingNonUserMatches
+          ? `${missingNonUserMatches} authoritative non-user matches remain open, but no eligible weighted prediction candidate is available. Review the schedule and matchup reference before confirming results.`
+          : `No open authoritative non-user matchups remain for ${display.primary}. Continue to Week Review.`}
       </p>
     </div>
   ) : (

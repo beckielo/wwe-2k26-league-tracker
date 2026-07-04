@@ -172,10 +172,31 @@ Loading local tracker state… </div>
 }
 
 return ( <form onSubmit={submit} className="grid gap-5 p-6">
-{weekLocked && ( <div className="border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-200">
+  {weekLocked && ( <div className="border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-200">
 Week {selected?.week} is complete and locked. Unlock it from Week
 Review before editing. </div>
 )}
+
+  <div className="result-match-selector" aria-label="Authoritative card matches">
+    {matches.map((match) => {
+      const confirmed = state.confirmedResults.find((result) => result.matchId === match.id);
+      return (
+        <button
+          type="button"
+          key={match.id}
+          className={match.id === matchId ? "active" : ""}
+          aria-pressed={match.id === matchId}
+          onClick={() => chooseMatch(match.id)}
+        >
+          <span>{String(match.matchNumber).padStart(2, "0")}</span>
+          <strong>{match.wrestlerA}<i>vs</i>{match.wrestlerB}</strong>
+          <small className={confirmed ? "confirmed" : "open"}>
+            {confirmed ? "Confirmed" : "Open"}
+          </small>
+        </button>
+      );
+    })}
+  </div>
 
   <div>
     <label

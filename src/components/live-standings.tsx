@@ -67,6 +67,35 @@ function LeagueTable({ league, rows, userLeague, currentUserWrestler, championRo
         })}</tbody>
       </table>
     </div>
+    <div className="live-mobile-standings">
+      {rows.map((row) => {
+        const zone = placementZone(row.rank, league);
+        return (
+          <article key={row.wrestler} className={`live-mobile-standing placement-${zone}`}>
+            <span className="rank-badge">{row.rank}</span>
+            <div className="live-mobile-standing-name">
+              <strong>
+                <WrestlerNameWithRole
+                  wrestler={row.wrestler}
+                  currentUserWrestler={currentUserWrestler}
+                  championRoles={championRoles}
+                />
+              </strong>
+              <small>Seed {row.seed}</small>
+            </div>
+            <div className="live-mobile-standing-record">
+              <span>{row.matches} played</span>
+              <strong>{row.wins}-{row.draws}-{row.losses}</strong>
+            </div>
+            <div className="live-mobile-standing-points">
+              <strong>{row.points}</strong>
+              <small>Pts</small>
+            </div>
+            <span className="zone-pill">{placementLabel(league, row.rank)}</span>
+          </article>
+        );
+      })}
+    </div>
   </section>;
 }
 
@@ -112,13 +141,21 @@ export function LiveStandings({ baseline, workbookMatches, workbookResults, meta
       <div><dt>Competition</dt><dd>League Year {state.activeWorkflow?.leagueYear ?? meta.leagueYear}</dd></div>
       <div><dt>Current window</dt><dd>{split} · Split Week {splitWeek}</dd></div>
       <div><dt>Table source</dt><dd>{source}</dd></div>
-      <div><dt>Last lock / update</dt><dd>{lastUpdate ? new Date(lastUpdate).toLocaleString() : `Workbook through Week ${meta.currentWeek}`}</dd></div>
+      <div><dt>Last lock / update</dt><dd>{lastUpdate ? `${new Date(lastUpdate).toISOString().slice(0, 16).replace("T", " ")} UTC` : `Workbook through Week ${meta.currentWeek}`}</dd></div>
     </dl>
 
-    {diagnostics.length > 0 && <section className="source-warning" role="alert">
-      <strong>Active split standings source warning</strong>
-      <ul>{diagnostics.map((diagnostic) => <li key={diagnostic}>{diagnostic}</li>)}</ul>
-    </section>}
+    {diagnostics.length > 0 && <details className="source-warning">
+      <summary>
+        <span>
+          <strong>Source diagnostics</strong>
+          <small>{diagnostics.length} workbook/local-state notice{diagnostics.length === 1 ? "" : "s"}</small>
+        </span>
+        <b>Review details</b>
+      </summary>
+      <div role="alert">
+        <ul>{diagnostics.map((diagnostic) => <li key={diagnostic}>{diagnostic}</li>)}</ul>
+      </div>
+    </details>}
 
     <section className="rank-zone-legend" aria-label="Position color legend">
       <div><LeagueIcon name="belt" /><span><strong>Position zones</strong><small>Tinted rows and rank plates show competitive status.</small></span></div>

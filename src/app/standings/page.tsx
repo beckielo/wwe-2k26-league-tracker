@@ -1,6 +1,6 @@
+import Link from "next/link";
 import { PageHeader, Panel } from "@/components/ui";
 import { loadTrackerData } from "@/data/workbook";
-import Link from "next/link";
 import { LEAGUE_NAMES } from "@/domain/types";
 
 function zoneClass(rank: number) {
@@ -11,28 +11,97 @@ function zoneClass(rank: number) {
   return "border-l-transparent";
 }
 
+function compactZoneStatus(status: string) {
+  return [...new Set(status.split("·").map((part) => part.trim()).filter(Boolean))].join(" · ");
+}
+
 export const dynamic = "force-dynamic";
 
 export default function StandingsPage() {
   const data = loadTrackerData();
-  return <>
-    <PageHeader
-      eyebrow={`Through Week ${data.meta.currentWeek}`}
-      title="All Standings"
-      description="Records and points are imported from Standings_Current and reconciled against the completed schedule results. Zone labels are source values and remain provisional until clinching is explicitly encoded."
-      aside={<Link href="/live-standings" className="action-button action-primary">Open Live Table</Link>}
-    />
-    <div className="space-y-8">
-      {LEAGUE_NAMES.map((league) => {
-        const rows = data.standings.filter((row) => row.league === league).sort((a,b) => a.rank-b.rank);
-        return <Panel key={league}>
-          <div className="flex items-end justify-between border-b border-white/10 p-5"><div><p className="text-[10px] font-bold uppercase tracking-[.2em] text-red-400">12-wrestler division</p><h2 className="mt-1 text-2xl font-black uppercase">{league}</h2></div><p className="text-xs text-slate-500">P W D L · 3/1/0 points</p></div>
-          <div className="overflow-x-auto"><table className="w-full min-w-[850px] border-collapse text-sm">
-            <thead className="bg-white/[.025] text-[10px] uppercase tracking-[.14em] text-slate-500"><tr><th className="px-4 py-3 text-left">#</th><th className="px-4 py-3 text-left">Wrestler</th><th className="px-3 py-3">Seed</th><th className="px-3 py-3">P</th><th className="px-3 py-3">W</th><th className="px-3 py-3">D</th><th className="px-3 py-3">L</th><th className="px-3 py-3">Pts</th><th className="px-4 py-3 text-left">Current zone</th></tr></thead>
-            <tbody className="divide-y divide-white/10">{rows.map((row) => <tr key={row.wrestler} className={`border-l-2 ${zoneClass(row.rank)} hover:bg-white/[.025]`}><td className="px-4 py-3 font-black text-slate-500">{row.rank}</td><td className="px-4 py-3 font-bold">{row.wrestler}</td><td className="px-3 py-3 text-center text-slate-500">{row.seed}</td><td className="px-3 py-3 text-center">{row.matches}</td><td className="px-3 py-3 text-center">{row.wins}</td><td className="px-3 py-3 text-center">{row.draws}</td><td className="px-3 py-3 text-center">{row.losses}</td><td className="px-3 py-3 text-center text-lg font-black">{row.points}</td><td className="px-4 py-3 text-xs text-slate-400">{row.status}</td></tr>)}</tbody>
-          </table></div>
-        </Panel>;
-      })}
-    </div>
-  </>;
+
+  return (
+    <>
+      <PageHeader
+        eyebrow={`Through Week ${data.meta.currentWeek}`}
+        title="All Standings"
+        description="Records and points are imported from Standings_Current and reconciled against the completed schedule results. Zone labels are source values and remain provisional until clinching is explicitly encoded."
+        aside={<Link href="/live-standings" className="action-button action-primary">Open Live Table</Link>}
+      />
+
+      <div className="standings-detail-grid">
+        {LEAGUE_NAMES.map((league) => {
+          const rows = data.standings
+            .filter((row) => row.league === league)
+            .sort((a, b) => a.rank - b.rank);
+
+          return (
+            <Panel key={league} className="detailed-standings-panel">
+              <div className="detailed-standings-heading">
+                <div>
+                  <p>12-wrestler division</p>
+                  <h2>{league}</h2>
+                </div>
+                <span>P W D L · 3/1/0 points</span>
+              </div>
+
+              <div className="detailed-table-wrap">
+                <table className="detailed-standings-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Wrestler</th>
+                      <th>Seed</th>
+                      <th>P</th>
+                      <th>W</th>
+                      <th>D</th>
+                      <th>L</th>
+                      <th>Pts</th>
+                      <th>Current zone</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row) => (
+                      <tr key={row.wrestler} className={`border-l-2 ${zoneClass(row.rank)}`}>
+                        <td>{row.rank}</td>
+                        <td><strong>{row.wrestler}</strong></td>
+                        <td>{row.seed}</td>
+                        <td>{row.matches}</td>
+                        <td>{row.wins}</td>
+                        <td>{row.draws}</td>
+                        <td>{row.losses}</td>
+                        <td><strong>{row.points}</strong></td>
+                        <td title={row.status}>{compactZoneStatus(row.status)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="detailed-mobile-standings">
+                {rows.map((row) => (
+                  <article key={row.wrestler} className={`detailed-mobile-standing ${zoneClass(row.rank)}`}>
+                    <b>{row.rank}</b>
+                    <span>
+                      <strong>{row.wrestler}</strong>
+                      <small>Seed {row.seed}</small>
+                    </span>
+                    <span>
+                      <strong>{row.wins}-{row.draws}-{row.losses}</strong>
+                      <small>{row.matches} played</small>
+                    </span>
+                    <span>
+                      <strong>{row.points}</strong>
+                      <small>Pts</small>
+                    </span>
+                    <em title={row.status}>{compactZoneStatus(row.status)}</em>
+                  </article>
+                ))}
+              </div>
+            </Panel>
+          );
+        })}
+      </div>
+    </>
+  );
 }

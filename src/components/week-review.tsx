@@ -291,11 +291,16 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
         <p className="text-xs text-slate-500">
           Multi-man ties are ranked by longest winning streak first. Aggregate head-to-head mini-tables are not used; head-to-head is allowed only for a remaining clean two-wrestler subgroup.
         </p>
-        {splitReview.sourceWarnings.map((warning) => (
-          <div key={warning} className="border-l-2 border-amber-400 bg-amber-400/5 p-4 text-sm text-amber-200">
-            Source warning: {warning}
-          </div>
-        ))}
+        {splitReview.sourceWarnings.length > 0 && (
+          <details className="review-diagnostics">
+            <summary>{splitReview.sourceWarnings.length} source warning{splitReview.sourceWarnings.length === 1 ? "" : "s"}</summary>
+            <div>
+              {splitReview.sourceWarnings.map((warning) => (
+                <p key={warning}>Source warning: {warning}</p>
+              ))}
+            </div>
+          </details>
+        )}
         <p className="text-xs text-slate-500">
           Week 24 League Finals may follow tiebreaker review, but this phase does not generate its card or assume Global Elite Cup semifinal seeding.
         </p>

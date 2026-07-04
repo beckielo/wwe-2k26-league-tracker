@@ -21,6 +21,24 @@ describe("Phase 10.5 UI wiring", () => {
     expect(source("src/components/app-shell.tsx")).toContain('["Live Standings", "/live-standings"');
   });
 
+  it("keeps analysis and management routes internal while mobile More exposes only core competition workflows", () => {
+    const shell = source("src/components/app-shell.tsx");
+    expect(shell).toContain("const internalNavigationGroups");
+    expect(shell).toContain("internalOnly: true");
+    expect(shell).toContain("const mobileMoreItems");
+    expect(shell).toContain(".slice(4)");
+    expect(shell).toContain("{navigationGroups.map");
+    expect(shell).not.toContain("{internalNavigationGroups.map");
+  });
+
+  it("does not show a full schedule validation error wall before validation is requested", () => {
+    const scheduleSetup = source("src/components/schedule-setup.tsx");
+    expect(scheduleSetup).toContain("validationAttempted");
+    expect(scheduleSetup).toContain("{validationAttempted && <section");
+    expect(scheduleSetup).toContain("validation issues · Review details");
+    expect(scheduleSetup).toContain("<details");
+  });
+
   it("defines league classes plus enabled, pressed, hover, and disabled button states", () => {
     const css = source("src/app/globals.css");
     for (const league of ["global", "continental", "national", "regional"]) {
