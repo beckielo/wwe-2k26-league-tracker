@@ -51,7 +51,8 @@ function Probe() {
     <output>
       {hydrated ? "hydrated" : "pending"}|{authority.activeSource}|{authority.split}|
       {state.activeWorkflow ? "local-workflow-visible" : "local-workflow-hidden"}|
-      {authority.conflicts.map((entry) => entry.code).join(",")}
+      {authority.confidence}|blocking:{authority.blockingConflicts.length}|
+      diagnostics:{authority.diagnosticNotices.map((entry) => entry.code).join(",")}
     </output>
   );
 }
@@ -79,6 +80,7 @@ describe("TrackerStateProvider workflow authority hydration", () => {
     render(<TrackerStateProvider workflowContext={workflowContext}><Probe /></TrackerStateProvider>);
     await waitFor(() => expect(screen.getByText(/hydrated\|app-workbook\|Closing Split/)).toBeInTheDocument());
     expect(screen.getByText(/local-workflow-hidden/)).toBeInTheDocument();
+    expect(screen.getByText(/high\|blocking:0/)).toBeInTheDocument();
     expect(screen.getByText(/LOCAL_SCHEDULE_INVALID/)).toBeInTheDocument();
   });
 

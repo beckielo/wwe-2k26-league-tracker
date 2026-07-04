@@ -62,6 +62,9 @@ export interface WorkflowContextBaseline {
 export interface WorkflowContextAuthority extends Omit<WorkflowContextCandidate, "valid"> {
   activeSource: WorkflowContextSource;
   localStateAccepted: boolean;
+  blockingConflicts: WorkflowContextConflict[];
+  diagnosticNotices: WorkflowContextConflict[];
+  rejectedSources: WorkflowContextSource[];
 }
 
 export interface AppWorkbookContextInput {
@@ -592,6 +595,35 @@ function selectedWorkbookCandidate(baseline: WorkflowContextBaseline): WorkflowC
     : baseline.dashboard;
 }
 
+function rejectedLocalDiagnostic(
+  entry: WorkflowContextConflict,
+  selected: WorkflowContextCandidate,
+): WorkflowContextConflict {
+  if (entry.code === "LOCAL_CONTEXT_UNSIGNED") {
+    return conflict(
+      entry.code,
+      `Old browser session state was ignored. The app is using the validated ${selected.split.replace(" Split", "")} checkpoint.`,
+      ["local"],
+      "No action is required.",
+      "warning",
+    );
+  }
+  return {
+    ...entry,
+    severity: "warning",
+    sources: ["local"],
+    recommendedAction: "No action is required. The rejected browser state is excluded from the active workflow.",
+  };
+}
+
+function rejectedWorkbookDiagnostic(entry: WorkflowContextConflict): WorkflowContextConflict {
+  return {
+    ...entry,
+    severity: "warning",
+    sources: ["app-workbook"],
+  };
+}
+
 export function resolveWorkflowContextAuthority(
   baseline: WorkflowContextBaseline,
   state: TrackerState,
@@ -600,22 +632,49 @@ export function resolveWorkflowContextAuthority(
   const workbookCandidate = selectedWorkbookCandidate(baseline);
   const local = hydrated ? createLocalContextCandidate(state, baseline) : null;
   const selected = local?.valid ? local : workbookCandidate;
-  const rejectedLocalConflicts = local && !local.valid ? local.conflicts : [];
-  const conflicts = [
-    ...baseline.conflicts,
-    ...workbookCandidate.conflicts,
+  const selectedConflicts = selected.source === "local"
+    ? local?.conflicts ?? []
+    : workbookCandidate.conflicts;
+  const rejectedLocalConflicts = local && !local.valid
+    ? local.conflicts.map((entry) => rejectedLocalDiagnostic(entry, selected))
+    : [];
+  const rejectedWorkbookConflicts = workbookCandidate.source === "workbook-dashboard"
+    ? baseline.conflicts.map(rejectedWorkbookDiagnostic)
+    : [];
+  const supportingWorkbookNotices = selected.source === "local"
+    ? workbookCandidate.conflicts.filter((entry) => entry.severity === "warning")
+    : [];
+  const blockingConflicts = selectedConflicts.filter((entry) => (
+    entry.severity === "error" && entry.sources.includes(selected.source)
+  ));
+  const diagnosticNotices = [
+    ...selectedConflicts.filter((entry) => !blockingConflicts.includes(entry)),
+    ...supportingWorkbookNotices,
     ...rejectedLocalConflicts,
-    ...(local?.valid ? local.conflicts : []),
+    ...rejectedWorkbookConflicts,
   ];
-  const uniqueConflicts = [...new Map(conflicts.map((entry) => [`${entry.code}:${entry.message}`, entry])).values()];
+  const uniqueBlockingConflicts = [...new Map(
+    blockingConflicts.map((entry) => [`${entry.code}:${entry.message}`, entry]),
+  ).values()];
+  const uniqueDiagnosticNotices = [...new Map(
+    diagnosticNotices.map((entry) => [`${entry.code}:${entry.message}`, entry]),
+  ).values()];
+  const conflicts = [...uniqueBlockingConflicts, ...uniqueDiagnosticNotices];
+  const rejectedSources = [
+    ...(local && !local.valid ? ["local" as const] : []),
+    ...(workbookCandidate.source === "workbook-dashboard" && baseline.appWorkbook
+      ? ["app-workbook" as const]
+      : []),
+  ];
   return {
     ...selected,
     activeSource: selected.source,
     localStateAccepted: selected.source === "local",
-    confidence: uniqueConflicts.some((entry) => entry.severity === "error" && entry.sources.includes(selected.source))
-      ? "conflicted"
-      : selected.confidence,
-    conflicts: uniqueConflicts.sort((a, b) => (
+    confidence: uniqueBlockingConflicts.length > 0 ? "conflicted" : selected.confidence,
+    blockingConflicts: uniqueBlockingConflicts,
+    diagnosticNotices: uniqueDiagnosticNotices,
+    rejectedSources: [...new Set(rejectedSources)],
+    conflicts: conflicts.sort((a, b) => (
       SOURCE_PRIORITY[b.sources[0]] - SOURCE_PRIORITY[a.sources[0]]
       || a.code.localeCompare(b.code)
     )),

@@ -160,9 +160,12 @@ describe("workflow context authority", () => {
     const authority = resolveWorkflowContextAuthority(baseline(), activeLocalState(24), true);
     expect(authority.activeSource).toBe("app-workbook");
     expect(authority.completedThroughYearWeek).toBe(36);
-    expect(authority.conflicts).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: "LOCAL_STATE_STALE", severity: "error" }),
+    expect(authority.confidence).toBe("high");
+    expect(authority.blockingConflicts).toEqual([]);
+    expect(authority.diagnosticNotices).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "LOCAL_STATE_STALE", severity: "warning", sources: ["local"] }),
     ]));
+    expect(authority.rejectedSources).toContain("local");
   });
 
   it("rejects an otherwise coherent unsigned local workflow as a legacy QA/session artifact", () => {
@@ -170,8 +173,15 @@ describe("workflow context authority", () => {
     state.workflowContextCheckpoint = undefined;
     const authority = resolveWorkflowContextAuthority(baseline(), state, true);
     expect(authority.activeSource).toBe("app-workbook");
-    expect(authority.conflicts).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: "LOCAL_CONTEXT_UNSIGNED", severity: "error" }),
+    expect(authority.confidence).toBe("high");
+    expect(authority.blockingConflicts).toEqual([]);
+    expect(authority.diagnosticNotices).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: "LOCAL_CONTEXT_UNSIGNED",
+        severity: "warning",
+        message: "Old browser session state was ignored. The app is using the validated Closing checkpoint.",
+        recommendedAction: "No action is required.",
+      }),
     ]));
   });
 
@@ -180,8 +190,10 @@ describe("workflow context authority", () => {
     state.confirmedResults[0] = { ...state.confirmedResults[0], wrestlerA: "Contaminated QA Wrestler" };
     const authority = resolveWorkflowContextAuthority(baseline(), state, true);
     expect(authority.activeSource).toBe("app-workbook");
-    expect(authority.conflicts).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: "LOCAL_RESULT_CONTEXT_MISMATCH", severity: "error" }),
+    expect(authority.confidence).toBe("high");
+    expect(authority.blockingConflicts).toEqual([]);
+    expect(authority.diagnosticNotices).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "LOCAL_RESULT_CONTEXT_MISMATCH", severity: "warning" }),
     ]));
   });
 
@@ -193,9 +205,34 @@ describe("workflow context authority", () => {
       completedThroughYearWeek: 13,
       confidence: "low",
     });
-    expect(authority.conflicts).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: "APP_CHECKPOINT_RESULTS_MISMATCH", severity: "error" }),
+    expect(authority.blockingConflicts).toEqual([]);
+    expect(authority.diagnosticNotices).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "APP_CHECKPOINT_RESULTS_MISMATCH", severity: "warning" }),
     ]));
+    expect(authority.rejectedSources).toContain("app-workbook");
+  });
+
+  it("keeps an error attached to the active source as a blocking conflict", () => {
+    const context = baseline();
+    const activeError = {
+      code: "APP_ACTIVE_CONTEXT_INVALID",
+      severity: "error" as const,
+      message: "The selected App checkpoint is internally inconsistent.",
+      sources: ["app-workbook" as const],
+      recommendedAction: "Restore a coherent App checkpoint.",
+    };
+    context.appWorkbook = {
+      ...context.appWorkbook!,
+      valid: true,
+      confidence: "conflicted",
+      conflicts: [activeError],
+    };
+    context.conflicts = [activeError];
+    const authority = resolveWorkflowContextAuthority(context, createEmptyTrackerState(), true);
+    expect(authority.activeSource).toBe("app-workbook");
+    expect(authority.confidence).toBe("conflicted");
+    expect(authority.blockingConflicts).toEqual([activeError]);
+    expect(authority.diagnosticNotices).toEqual([]);
   });
 
   it("falls back without changing context when browser-local state is lost", () => {

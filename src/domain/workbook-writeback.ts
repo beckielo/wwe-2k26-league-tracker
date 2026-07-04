@@ -72,6 +72,34 @@ const STANDINGS_HEADERS = [
   "status",
 ];
 
+const LEGACY_SCHEDULE_HEADERS = [
+  "League Year",
+  "Split",
+  "Week",
+  "Round Type",
+  "League",
+  "Show Day",
+  "Match #",
+  "Wrestler A",
+  "Wrestler B",
+  "Winner",
+  "Result Type",
+  "Notes",
+];
+
+const LEGACY_STANDINGS_HEADERS = [
+  "League",
+  "Rank",
+  "Wrestler",
+  "Seed",
+  "Matches",
+  "Wins",
+  "Draws",
+  "Losses",
+  "Points",
+  "Status / Zone",
+];
+
 function validTimestamp(value: string): boolean {
   return Number.isFinite(Date.parse(value));
 }
@@ -151,6 +179,146 @@ function replaceSheet(workbook: XLSX.WorkBook, name: string, rows: unknown[][]):
   if (!workbook.SheetNames.includes(name)) workbook.SheetNames.push(name);
 }
 
+function overwriteExistingSheetValues(
+  workbook: XLSX.WorkBook,
+  name: string,
+  rows: Array<Array<string | number | boolean>>,
+): boolean {
+  const sheet = workbook.Sheets[name];
+  if (!sheet) return false;
+  rows.forEach((row, rowIndex) => row.forEach((value, columnIndex) => {
+    const address = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex });
+    const cell = {
+      ...(sheet[address] ?? {}),
+      t: typeof value === "number" ? "n" : typeof value === "boolean" ? "b" : "s",
+      v: value,
+    };
+    delete cell.f;
+    delete cell.w;
+    sheet[address] = cell;
+  }));
+  sheet["!ref"] = XLSX.utils.encode_range({
+    s: { r: 0, c: 0 },
+    e: { r: rows.length - 1, c: rows[0].length - 1 },
+  });
+  return true;
+}
+
+function legacyScheduleKey(values: {
+  leagueYear: number;
+  split: string;
+  week: number;
+  league: string;
+  matchNumber: number;
+  wrestlerA: string;
+  wrestlerB: string;
+}): string {
+  return [
+    values.leagueYear,
+    values.split,
+    values.week,
+    values.league,
+    values.matchNumber,
+    values.wrestlerA,
+    values.wrestlerB,
+  ].join("|");
+}
+
+function parseLegacyLeagueYear(value: unknown): number {
+  const parsed = String(value ?? "").match(/(\d+)/);
+  return parsed ? Number(parsed[1]) : 0;
+}
+
+function synchronizeLegacyFallbackSheets(
+  workbook: XLSX.WorkBook,
+  acceptedMatches: Match[],
+  closePackage: WeeklyClosePackage,
+): void {
+  const scheduleSheet = workbook.Sheets.Schedule_22W;
+  if (scheduleSheet) {
+    const existingRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(scheduleSheet, {
+      defval: "",
+      raw: true,
+    });
+    const existingByKey = new Map(existingRows.map((row) => [
+      legacyScheduleKey({
+        leagueYear: parseLegacyLeagueYear(row["League Year"]),
+        split: String(row.Split ?? ""),
+        week: Number(row.Week),
+        league: String(row.League ?? ""),
+        matchNumber: Number(row["Match #"]),
+        wrestlerA: String(row["Wrestler A"] ?? ""),
+        wrestlerB: String(row["Wrestler B"] ?? ""),
+      }),
+      row,
+    ]));
+    const closeResultById = new Map(closePackage.results.map((result) => [result.matchId, result]));
+    const leagueOrder = new Map([
+      ["Regional League", 0],
+      ["National League", 1],
+      ["Continental League", 2],
+      ["Global League", 3],
+    ]);
+    const scheduleRows = acceptedMatches
+      .slice()
+      .sort((a, b) => (
+        a.week - b.week
+        || (leagueOrder.get(a.league) ?? 99) - (leagueOrder.get(b.league) ?? 99)
+        || a.matchNumber - b.matchNumber
+      ))
+      .map((match) => {
+        const existing = existingByKey.get(legacyScheduleKey(match));
+        const result = closeResultById.get(match.id);
+        const splitWeek = match.split === "Closing Split" ? match.week - 24 : match.week;
+        const resultSource = result
+          ? result.source === "Manual" ? "User" : "Simulation"
+          : String(existing?.["Result Type"] ?? "");
+        const outcomePrefix = result?.resultType === "Draw"
+          ? "Draw · "
+          : result?.resultType === "No Contest"
+            ? "No Contest · "
+            : "";
+        const notes = result
+          ? `${outcomePrefix}${match.split} Week ${splitWeek} completed · validated App checkpoint fallback`
+          : String(existing?.Notes ?? "");
+        return [
+          `League Year ${match.leagueYear}`,
+          match.split,
+          match.week,
+          match.roundType,
+          match.league,
+          match.showDay,
+          match.matchNumber,
+          match.wrestlerA,
+          match.wrestlerB,
+          result ? result.winner ?? "" : String(existing?.Winner ?? ""),
+          resultSource,
+          notes,
+        ];
+      });
+    overwriteExistingSheetValues(workbook, "Schedule_22W", [
+      LEGACY_SCHEDULE_HEADERS,
+      ...scheduleRows,
+    ]);
+  }
+
+  overwriteExistingSheetValues(workbook, "Standings_Current", [
+    LEGACY_STANDINGS_HEADERS,
+    ...closePackage.standings.map((row) => [
+      row.league,
+      row.rank,
+      row.wrestler,
+      row.seed,
+      row.matches,
+      row.wins,
+      row.draws,
+      row.losses,
+      row.points,
+      row.status,
+    ]),
+  ]);
+}
+
 function synchronizeDashboardContext(workbook: XLSX.WorkBook, context: Pick<Match, "leagueYear" | "split" | "week">): void {
   const dashboard = workbook.Sheets.Dashboard;
   if (!dashboard) return;
@@ -161,10 +329,12 @@ function synchronizeDashboardContext(workbook: XLSX.WorkBook, context: Pick<Matc
     ["Aktueller Stand", `Woche ${context.week} abgeschlossen`],
     ["Ligaphase", `${context.split} Woche ${splitWeek} abgeschlossen`],
     ["Dateistand", `LY${context.leagueYear} ${context.split} Week ${splitWeek} abgeschlossen`],
+    ["Authoritative next-match source", `National League \u2013 ${context.split} Woche ${splitWeek + 1}`],
   ]);
   for (const [index, row] of rows.entries()) {
     const key = String(row[0] ?? "").trim();
-    const replacement = replacements.get(key);
+    const replacement = replacements.get(key)
+      ?? (key.endsWith("User-Show") ? `National League \u2013 ${context.split} Woche ${splitWeek + 1}` : undefined);
     if (!replacement) continue;
     const address = XLSX.utils.encode_cell({ r: index, c: 1 });
     dashboard[address] = { ...dashboard[address], t: "s", v: replacement, w: replacement };
@@ -194,6 +364,9 @@ export function createWorkbookWriteback(
   const contextMatch = authoritySchedule.find((match) => match.week === closePackage.week);
   if (!contextMatch) return { ok: false, errors: [`Week ${closePackage.week} has no authoritative context match.`] };
   synchronizeDashboardContext(workbook, contextMatch);
+  if (acceptedMatches.length === 528) {
+    synchronizeLegacyFallbackSheets(workbook, acceptedMatches, closePackage);
+  }
   replaceSheet(workbook, RESULTS_SHEET, [
     RESULT_HEADERS,
     ...closePackage.results.map((result) => [

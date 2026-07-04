@@ -184,6 +184,16 @@ function slug(value: string): string {
     .replace(/(^-|-$)/g, "");
 }
 
+function matchSemanticKey(match: Pick<Match, "leagueYear" | "split" | "week" | "league" | "matchNumber">): string {
+  return [
+    match.leagueYear,
+    match.split,
+    match.week,
+    match.league,
+    match.matchNumber,
+  ].join("|");
+}
+
 function readDashboard(workbook: XLSX.WorkBook): Map<string, string> {
   const sheet = workbook.Sheets.Dashboard;
   if (!sheet) throw new Error("Required workbook sheet is missing: Dashboard");
@@ -344,26 +354,43 @@ export function loadTrackerData(): TrackerData {
       source: { file: sourceFile, sheet: ACCEPTED_SCHEDULE_SHEET, row: index + 2 },
     };
   });
-  const appScheduleIds = new Set(appScheduleMatches.map((match) => match.id));
-  const matches = [...workbookMatches.filter((match) => !appScheduleIds.has(match.id)), ...appScheduleMatches];
+  const appMatchBySemanticKey = new Map(
+    appScheduleMatches.map((match) => [matchSemanticKey(match), match]),
+  );
+  const matches = [
+    ...workbookMatches.filter((match) => !appMatchBySemanticKey.has(matchSemanticKey(match))),
+    ...appScheduleMatches,
+  ];
 
   const matchById = new Map(matches.map((match) => [match.id, match]));
+  const workbookMatchById = new Map(workbookMatches.map((match) => [match.id, match]));
   const results: MatchResult[] = scheduleRows.flatMap((row, index) => {
     const winner = text(row.Winner);
-    if (!winner) return [];
     const matchLeague = league(row.League);
-    const matchId = `${slug(matchLeague)}-${number(row.Week)}-${number(row["Match #"])}`;
-    const match = matchById.get(matchId);
-    if (!match) throw new Error(`Result has no scheduled match: ${matchId}`);
-    const loser = winner === match.wrestlerA ? match.wrestlerB : match.wrestlerA;
+    const legacyMatchId = `${slug(matchLeague)}-${number(row.Week)}-${number(row["Match #"])}`;
+    const legacyMatch = workbookMatchById.get(legacyMatchId);
+    if (!legacyMatch) throw new Error(`Result has no scheduled match: ${legacyMatchId}`);
+    const match = appMatchBySemanticKey.get(matchSemanticKey(legacyMatch)) ?? legacyMatch;
+    const notes = text(row.Notes);
+    const encodedOutcome = /^draw\b/i.test(notes)
+      ? "draw"
+      : /^no contest\b/i.test(notes)
+        ? "no-contest"
+        : winner
+          ? "decisive"
+          : null;
+    if (!encodedOutcome) return [];
+    const loser = encodedOutcome === "decisive"
+      ? (winner === match.wrestlerA ? match.wrestlerB : match.wrestlerA)
+      : null;
     const sourceValue = text(row["Result Type"]);
     return [{
-      matchId,
-      outcome: "decisive",
-      winner,
+      matchId: match.id,
+      outcome: encodedOutcome,
+      winner: encodedOutcome === "decisive" ? winner : null,
       loser,
       resultSource: sourceValue === "User" || sourceValue === "Simulation" ? sourceValue : "Unknown",
-      notes: text(row.Notes) || null,
+      notes: notes || null,
       source: { file: sourceFile, sheet: "Schedule_22W", row: index + 2 },
     }];
   });

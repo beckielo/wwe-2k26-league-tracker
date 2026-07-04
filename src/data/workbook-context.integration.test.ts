@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
+import * as XLSX from "xlsx";
 import { createEmptyTrackerState, reconstructActiveSplitLiveStandings } from "@/domain/tracker-state";
 import { resolveWorkflowContextAuthority } from "@/domain/workflow-context";
 
 vi.mock("server-only", () => ({}));
 
-import { loadTrackerData } from "./workbook";
+import { loadMasterWorkbookBuffer, loadTrackerData } from "./workbook";
 
 describe("reconstructed current-master Closing checkpoint", () => {
   it("loads the committed W36 App checkpoint as the high-confidence authority", () => {
@@ -111,5 +112,59 @@ describe("reconstructed current-master Closing checkpoint", () => {
     expect(live.standings.find((row) => row.wrestler === match.wrestlerA)?.matches).toBe(13);
     expect(live.standings.find((row) => row.wrestler === match.wrestlerB)?.matches).toBe(13);
     expect(live.standings.filter((row) => row.matches === 12)).toHaveLength(46);
+  });
+
+  it("keeps Dashboard, Schedule_22W, and Standings_Current synchronized to Closing W36", () => {
+    const { buffer } = loadMasterWorkbookBuffer();
+    const workbook = XLSX.read(buffer, { type: "buffer" });
+    expect(workbook.SheetNames).toHaveLength(18);
+
+    const dashboard = new Map(
+      XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets.Dashboard, { header: 1, raw: true })
+        .map((row) => [String(row[0] ?? ""), String(row[1] ?? "")]),
+    );
+    expect(dashboard.get("WWE 2K26 Liga-System")).toContain("League Year 2");
+    expect(dashboard.get("WWE 2K26 Liga-System")).toContain("Closing Split");
+    expect(dashboard.get("Aktueller Stand")).toBe("Woche 36 abgeschlossen");
+    expect(dashboard.get("Ligaphase")).toBe("Closing Split Woche 12 abgeschlossen");
+    expect([...dashboard.entries()].find(([key]) => key.endsWith("User-Show"))?.[1])
+      .toContain("Closing Split Woche 13");
+
+    const schedule = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets.Schedule_22W);
+    expect(schedule).toHaveLength(528);
+    expect(new Set(schedule.map((row) => row.Split))).toEqual(new Set(["Closing Split"]));
+    expect(schedule.filter((row) => row.Winner || /^Draw\b|^No Contest\b/i.test(String(row.Notes ?? "")))).toHaveLength(288);
+
+    const fallbackStandings = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets.Standings_Current);
+    const appStandings = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets.App_State_Standings);
+    expect(fallbackStandings).toEqual(appStandings.map((row) => ({
+      League: row.league,
+      Rank: row.rank,
+      Wrestler: row.wrestler,
+      Seed: row.seed,
+      Matches: row.matches,
+      Wins: row.wins,
+      Draws: row.draws,
+      Losses: row.losses,
+      Points: row.points,
+      "Status / Zone": row.status,
+    })));
+  });
+
+  it("deduplicates synchronized fallback matches and imports all committed Closing results", () => {
+    const data = loadTrackerData();
+    expect(data.matches).toHaveLength(528);
+    expect(data.matches.every((match) => (
+      match.leagueYear === 2 && match.split === "Closing Split"
+    ))).toBe(true);
+    expect(data.results).toHaveLength(288);
+    expect(data.results.filter((result) => result.outcome === "draw")).toHaveLength(2);
+    expect(data.workflowContext.dashboard).toMatchObject({
+      leagueYear: 2,
+      split: "Closing Split",
+      completedThroughYearWeek: 36,
+      activeYearWeek: 37,
+    });
+    expect(data.workflowContext.dashboard.conflicts).toEqual([]);
   });
 });

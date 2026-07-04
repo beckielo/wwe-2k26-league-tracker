@@ -216,29 +216,55 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 }
 
-function WorkflowContextNotice() {
+export function WorkflowContextNotice() {
   const { authority } = useTrackerState();
-  if (authority.conflicts.length === 0 && authority.confidence === "high") return null;
-  const blocking = authority.conflicts.filter((entry) => entry.severity === "error");
-  const lead = blocking[0] ?? authority.conflicts[0];
+  const blocking = authority.blockingConflicts;
+  const diagnostics = authority.diagnosticNotices;
+  if (blocking.length === 0 && diagnostics.length === 0 && authority.confidence === "high") return null;
   const authorityLabel = authority.activeSource === "local"
     ? "Validated local session"
     : authority.activeSource === "app-workbook"
       ? "Validated app checkpoint"
       : "Workbook fallback";
 
+  if (blocking.length === 0 && diagnostics.length > 0 && authority.activeSource !== "workbook-dashboard") {
+    return (
+      <aside className="workflow-context-diagnostics" aria-label="Context diagnostics">
+        <details>
+          <summary>{diagnostics.length} context notice{diagnostics.length === 1 ? "" : "s"}</summary>
+          <div>
+            <strong>{authorityLabel}</strong>
+            <p>{diagnostics[0].message}</p>
+            <ul>{diagnostics.map((entry) => (
+              <li key={`${entry.code}:${entry.message}`}>
+                <strong>{entry.code}</strong>
+                <span>{entry.message}</span>
+              </li>
+            ))}</ul>
+          </div>
+        </details>
+      </aside>
+    );
+  }
+
+  const lead = blocking[0] ?? diagnostics[0];
+  const notices = [...blocking, ...diagnostics];
   return (
-    <section className={`workflow-authority-notice confidence-${authority.confidence}`} aria-label="Workflow context authority">
+    <section
+      className={`workflow-authority-notice confidence-${authority.confidence}${blocking.length > 0 ? " has-blocking-conflict" : ""}`}
+      aria-label="Workflow context authority"
+      role={blocking.length > 0 ? "alert" : "status"}
+    >
       <div>
         <span>Context authority</span>
         <strong>{authorityLabel}</strong>
         <small>Confidence: {authority.confidence} · {authority.sourceSignature}</small>
       </div>
       {lead && <p>{lead.message} {lead.recommendedAction}</p>}
-      {authority.conflicts.length > 0 && (
+      {notices.length > 0 && (
         <details>
-          <summary>{authority.conflicts.length} context notice{authority.conflicts.length === 1 ? "" : "s"}</summary>
-          <ul>{authority.conflicts.map((entry) => (
+          <summary>{notices.length} context notice{notices.length === 1 ? "" : "s"}</summary>
+          <ul>{notices.map((entry) => (
             <li key={`${entry.code}:${entry.message}`}>
               <strong>{entry.code}</strong>
               <span>{entry.message}</span>
