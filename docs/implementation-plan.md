@@ -529,3 +529,11 @@ The first implementation slice should:
 - Full Live Standings league cards now keep a cleaner, consistent 2x2 grid so Global aligns with Continental and National aligns with Regional while preserving existing card sizing and spacing language.
 - Result Entry winner selection boxes now use the site rounded-corner language.
 - The Weekly Workflow action button on Result Entry now uses the same rounded-corner treatment while preserving its color, size, and placement.
+
+## Historical analytics authority
+
+- Treat `H2H_Tracker` and `Winning_Streaks` as reproducible current-context projections.
+- Build both projections from the same Year/Split/completed-week authority used by the active workflow.
+- Keep `Legacy_Tracker` as the all-time source. Merge only validated current league and streak overlays during an incomplete split; completed awards require explicit completed-split evidence.
+- Synchronize the two derived sheets during safe Closing workbook writeback without changing their schemas.
+- Exclude rejected browser state, stale future logs, unknown result IDs, and cross-split rows before analytics are calculated.

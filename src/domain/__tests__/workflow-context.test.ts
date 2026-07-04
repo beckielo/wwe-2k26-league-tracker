@@ -13,6 +13,7 @@ import {
   createAppWorkbookContextCandidate,
   createDashboardContextCandidate,
   resolveWorkflowContextAuthority,
+  scopeTrackerStateToAuthority,
   signLocalWorkflowContext,
 } from "../workflow-context";
 
@@ -275,5 +276,29 @@ describe("workflow context authority", () => {
     const authority = resolveWorkflowContextAuthority(baseline(), activeLocalState(37), false);
     expect(authority.activeSource).toBe("app-workbook");
     expect(authority.localStateAccepted).toBe(false);
+  });
+
+  it("keeps rejected browser and QA history out of authority-scoped analytics", () => {
+    const state: TrackerState = {
+      ...createEmptyTrackerState(),
+      confirmedResults: [week36Results[0]],
+      completedWeeks: [{ week: 46, completedAt: generatedAt }],
+      completedSplitLegacyCommits: [{
+        sourceSignature: "completed-split:qa-artifact",
+        committedAt: generatedAt,
+        leagueYear: 99,
+        split: "Closing Split",
+        titleRecords: [{ league: "Global League", wrestler: "QA Winner" }],
+        eliteCupWinner: "QA Winner",
+      }],
+    };
+
+    const rejected = scopeTrackerStateToAuthority(state, false);
+    expect(rejected.confirmedResults).toEqual([]);
+    expect(rejected.completedWeeks).toEqual([]);
+    expect(rejected.completedSplitLegacyCommits).toEqual([]);
+    expect(state.completedSplitLegacyCommits).toHaveLength(1);
+
+    expect(scopeTrackerStateToAuthority(state, true)).toBe(state);
   });
 });

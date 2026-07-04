@@ -67,6 +67,23 @@ export interface WorkflowContextAuthority extends Omit<WorkflowContextCandidate,
   rejectedSources: WorkflowContextSource[];
 }
 
+export function scopeTrackerStateToAuthority(
+  state: TrackerState,
+  localStateAccepted: boolean,
+): TrackerState {
+  if (localStateAccepted) return state;
+  return {
+    ...state,
+    confirmedResults: [],
+    completedWeeks: [],
+    acceptedSchedule: undefined,
+    activeWorkflow: undefined,
+    completedSplitLegacyCommits: [],
+    lastCompletedAchievementMetadata: null,
+    championMetadataAudit: undefined,
+  };
+}
+
 export interface AppWorkbookContextInput {
   latestWriteback: { week: number; completedAt: string } | null;
   schedule: Match[];

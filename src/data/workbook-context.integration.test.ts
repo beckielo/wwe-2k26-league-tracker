@@ -5,7 +5,7 @@ import { resolveWorkflowContextAuthority } from "@/domain/workflow-context";
 
 vi.mock("server-only", () => ({}));
 
-import { loadMasterWorkbookBuffer, loadTrackerData } from "./workbook";
+import { loadLegacyTableData, loadMasterWorkbookBuffer, loadTrackerData } from "./workbook";
 
 describe("reconstructed current-master Closing checkpoint", () => {
   it("loads the committed W36 App checkpoint as the high-confidence authority", () => {
@@ -166,5 +166,56 @@ describe("reconstructed current-master Closing checkpoint", () => {
       activeYearWeek: 37,
     });
     expect(data.workflowContext.dashboard.conflicts).toEqual([]);
+  });
+
+  it("loads Closing-compatible H2H and streak analytics from the validated W36 checkpoint", () => {
+    const data = loadTrackerData();
+    expect(data.headToHead).toHaveLength(288);
+    expect(data.headToHead.filter((record) => !record.winner)).toHaveLength(2);
+    expect(new Set(data.headToHead.map((record) => record.week))).toEqual(
+      new Set(Array.from({ length: 12 }, (_, index) => index + 1)),
+    );
+    expect(data.streaks).toHaveLength(48);
+    expect(data.streaks.find((record) => record.wrestler === "Ilja Dragunov")).toMatchObject({
+      currentStreak: 11,
+      longestWinningStreak: 11,
+      lastResult: "W",
+    });
+    expect(data.historicalAnalytics).toMatchObject({
+      leagueYear: 2,
+      split: "Closing Split",
+      completedThroughYearWeek: 36,
+      completedThroughSplitWeek: 12,
+      activeYearWeek: 37,
+      activeSplitWeek: 13,
+      resultCount: 288,
+      decisiveCount: 286,
+      drawCount: 2,
+      noContestCount: 0,
+      rejectedResultCount: 0,
+      ignoredContextResultCount: 0,
+      headToHeadSheetStatus: "current",
+      winningStreakSheetStatus: "current",
+    });
+    expect(data.validationIssues.filter((issue) => issue.code.startsWith("HISTORICAL_ANALYTICS_"))).toEqual([]);
+  });
+
+  it("preserves all-time Legacy records while applying only safe Closing context overlays", () => {
+    const legacy = loadLegacyTableData();
+    expect(legacy.summary.leagueTitleRecords).toBe(4);
+    expect(legacy.summary.eliteCupRecords).toBe(2);
+    expect(legacy.profiles.find((profile) => profile.wrestler === "Gunther")).toMatchObject({
+      leagueWinsTotal: 1,
+      globalChampionWins: 1,
+      eliteCupWins: 1,
+    });
+    expect(legacy.profiles.find((profile) => profile.wrestler === "Ilja Dragunov")).toMatchObject({
+      currentLeague: "Continental League",
+      longestWinStreakOverall: 11,
+    });
+    expect(legacy.historicalAnalytics).toMatchObject({
+      split: "Closing Split",
+      completedThroughYearWeek: 36,
+    });
   });
 });

@@ -14,6 +14,7 @@ import { reconcileCompletedSplitHistory } from "@/domain/completed-split-reconci
 import type { LeagueName, Match } from "@/domain/types";
 import {
   resolveWorkflowContextAuthority,
+  scopeTrackerStateToAuthority,
   signLocalWorkflowContext,
   type WorkflowContextAuthority,
   type WorkflowContextBaseline,
@@ -100,13 +101,7 @@ export function TrackerStateProvider({
     [hydrated, storedState, workflowContext],
   );
   const state = useMemo(
-    () => authority.localStateAccepted ? storedState : {
-      ...storedState,
-      confirmedResults: [],
-      completedWeeks: [],
-      acceptedSchedule: undefined,
-      activeWorkflow: undefined,
-    },
+    () => scopeTrackerStateToAuthority(storedState, authority.localStateAccepted),
     [authority.localStateAccepted, storedState],
   );
 

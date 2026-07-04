@@ -5,12 +5,12 @@ import Link from "next/link";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { reconstructActiveSplitLiveStandings } from "@/domain/tracker-state";
 import { generateSocialFeed, predictMatch } from "@/domain/match-predictions";
-import { buildHistoricalResults, buildHistoricalResultsFromHeadToHead } from "@/domain/match-history";
+import { buildHistoricalResults } from "@/domain/match-history";
 import { getPreviousHeadToHeadContext } from "@/domain/head-to-head";
 import { getRecentForm } from "@/domain/recent-form";
 import { getWorkflowSummary } from "@/domain/week-progression";
 import { getWeekDisplay } from "@/domain/week-display";
-import type { HeadToHeadRecord, LeagueName, Match, MatchResult, StandingRow, TrackerMeta, ValidationIssue } from "@/domain/types";
+import type { LeagueName, Match, MatchResult, StandingRow, TrackerMeta, ValidationIssue } from "@/domain/types";
 import { LEAGUE_NAMES } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { CurrentUserSwitcher, useCurrentUser } from "./current-user-switcher";
@@ -28,7 +28,6 @@ interface DashboardControlCenterProps {
   workbookCompletedThroughWeek: number;
   baselineStandings: StandingRow[];
   workbookResults: MatchResult[];
-  workbookHeadToHead: HeadToHeadRecord[];
   meta: TrackerMeta;
   leagueYear: number;
   userLeague: LeagueName;
@@ -69,11 +68,11 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
   const currentRanks = new Map(userLeagueRows.map((row) => [row.wrestler, row.rank]));
   const previousSplitChampionColorRoles = getPreviousSplitChampionColorRoles(props.legacySummary.completedSplitAudit, state.completedSplitLegacyCommits);
   const allKnownMatches = [...props.workbookMatches.filter((match) => !matches.some((active) => active.id === match.id)), ...matches];
-  const activeSplit = split;
-  const matchHistory = [
-    ...buildHistoricalResultsFromHeadToHead(props.workbookHeadToHead, leagueYear, activeSplit),
-    ...buildHistoricalResults(allKnownMatches, props.workbookResults, state.confirmedResults),
-  ];
+  const matchHistory = buildHistoricalResults(
+    allKnownMatches,
+    props.workbookResults,
+    state.confirmedResults,
+  );
   const card = matches
     .filter((match) => match.week === yearWeek && match.league === userLeague)
     .sort((a, b) => a.matchNumber - b.matchNumber);

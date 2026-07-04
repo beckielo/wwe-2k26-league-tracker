@@ -161,6 +161,7 @@ export interface TrackerData {
   standings: StandingRow[];
   headToHead: HeadToHeadRecord[];
   streaks: StreakRecord[];
+  historicalAnalytics: import("./historical-analytics").HistoricalAnalyticsAudit;
   matchupReference: MatchupReferenceRow[];
   hasLeagueFinalsTemplate: boolean;
   workflowContext: import("./workflow-context").WorkflowContextBaseline;

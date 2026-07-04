@@ -8,6 +8,8 @@ import {
   RESULTS_SHEET,
   STANDINGS_SHEET,
   ACCEPTED_SCHEDULE_SHEET,
+  HEAD_TO_HEAD_SHEET,
+  WINNING_STREAKS_SHEET,
 } from "../workbook-writeback";
 import { acceptedScheduleMatches, createAcceptedScheduleSnapshot, generateSchedule, validateSchedule } from "../schedule-setup";
 import type { LeagueName, Match, StandingRow } from "../types";
@@ -172,6 +174,21 @@ function legacyFallbackWorkbook(): Uint8Array {
     ["League", "Rank", "Wrestler", "Seed", "Matches", "Wins", "Draws", "Losses", "Points", "Status / Zone"],
     ["Global League", 1, "Old A", 1, 13, 13, 0, 0, 39, "Opening"],
   ]), "Standings_Current");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ["League", "Week", "Round Type", "Wrestler A", "Wrestler B", "Winner", "Loser"],
+    ["Global League", 13, "Rückrunde", "Old A", "Old B", "Old A", "Old B"],
+  ]), HEAD_TO_HEAD_SHEET);
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ["League", "Wrestler", "Seed", "Current Streak", "Longest Winning Streak", "Last Result", "Notes"],
+    ["Global League", "Old A", 1, 13, 13, "W", "Opening Week 13"],
+  ]), WINNING_STREAKS_SHEET);
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ["WWE 2K26 Legacy Tracker"],
+    ["Manually maintained all-time source"],
+    [],
+    ["Wrestler", "Current League", "League Wins Total"],
+    ["Old A", "Global League", 1],
+  ]), "Legacy_Tracker");
   return XLSX.write(workbook, { type: "array", bookType: "xlsx", cellStyles: true });
 }
 
@@ -297,8 +314,11 @@ describe("safe workbook writeback", () => {
   });
 
   it("synchronizes existing legacy fallback sheets from the coherent Closing checkpoint", () => {
+    const baseline = legacyFallbackWorkbook();
+    const baselineWorkbookData = XLSX.read(baseline, { type: "array", cellStyles: true });
+    const legacyBefore = XLSX.utils.sheet_to_json<unknown[]>(baselineWorkbookData.Sheets.Legacy_Tracker, { header: 1, raw: true });
     const result = createWorkbookWriteback(
-      { workbook: legacyFallbackWorkbook(), sourceFile: "source.xlsx", schedule },
+      { workbook: baseline, sourceFile: "source.xlsx", schedule },
       closingClosePackage(),
       "2026-06-15T13:00:00.000Z",
     );
@@ -329,6 +349,18 @@ describe("safe workbook writeback", () => {
       Wrestler: closingStandings[0].wrestler,
       Matches: 1,
     });
+
+    const headToHead = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[HEAD_TO_HEAD_SHEET]);
+    const streaks = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[WINNING_STREAKS_SHEET]);
+    expect(headToHead).toHaveLength(24);
+    expect(new Set(headToHead.map((row) => row.Week))).toEqual(new Set([1]));
+    expect(streaks).toHaveLength(48);
+    expect(streaks.every((row) => String(row.Notes).includes("Closing Split Week 1"))).toBe(true);
+    expect(XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets.Legacy_Tracker, { header: 1, raw: true })).toEqual(legacyBefore);
+    expect(result.metadata.sheets).toEqual(expect.arrayContaining([
+      HEAD_TO_HEAD_SHEET,
+      WINNING_STREAKS_SHEET,
+    ]));
   });
 
   it("rejects Closing Split writeback when no accepted schedule exists or result ids do not match", () => {

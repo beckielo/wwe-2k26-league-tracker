@@ -80,7 +80,7 @@ The next user show is National League, Opening Split Week 14. Its six matchups a
 
 ### C-008: Some Excel table ranges do not cover all populated rows
 
-- `H2H_Tracker` has 312 populated result rows plus its header, while the named Excel table covers only `A1:G265`.
+- The original Opening `H2H_Tracker` had 312 populated result rows plus its header, while the named Excel table covered only `A1:G265`. The synchronized Closing W36 projection has 288 populated result rows and retains the existing worksheet range without changing workbook structure.
 - `Changelog` contains populated rows beyond the named table range `A1:D5`.
 - **Impact:** an importer that reads only named table ranges would omit valid workbook content.
 - **Current handling:** initial ingestion must inspect populated worksheet rows and report named-table range drift. It must not silently discard rows outside a table.
@@ -123,7 +123,7 @@ The next user show is National League, Opening Split Week 14. Its six matchups a
 * **Snapshot boundary:** the Excel workbook remains the authoritative baseline through completed Week 13. Phase 3A confirmations are a separate versioned browser-local overlay and never overwrite workbook cells.
 * **Completion:** the first open scheduled week may be completed only when all 24 authoritative schedule rows have one valid confirmed result. Completion locks that week; unlocking requires an explicit warning.
 * **Standings overlay:** Winner adds one match, one win/loss, and 3/0 points; Draw adds one match and one draw to each wrestler and one point each. No Contest is accepted as a confirmed completion outcome but does not change matches or points because the normal-league workbook encoding/effect remains unresolved.
-* **Ranking display:** app-state standings sort by updated points and preserve workbook order for equal points. Full H2H/streak re-ranking after newly confirmed app results is deferred until app-state H2H/streak overlays are implemented.
+* **Ranking display:** app-state standings sort by updated points and preserve workbook order for equal points. Current H2H and streak evidence is now reconstructed from authority-accepted results at the active completed-week boundary.
 * **Persistence:** confirmed results, completed-week locks, and import/export timestamps use browser `localStorage`. JSON export/import is the portable backup; there is no database or workbook write.
 * **Status:** **resolved for Phase 3A local workflow; workbook export and permanent storage remain out of scope**.
 
@@ -531,3 +531,15 @@ The following checks found no current-data conflict:
 - Mini Live Standings on Week Review keeps the same reconstructed Live Standings source and locked-week boundary behavior, but its four league previews now render as a readable responsive grid instead of an overly cramped four-card row.
 - Each mini league card standardizes the preview columns to `#`, `Wrestler`, `Pts`, and `Status` so the section remains compact without sacrificing wrestler-name or status-badge readability.
 - The preview card styling was polished with rounded dark cards, consistent inner padding, cleaner row spacing, numeric alignment, and controlled wrestler-name truncation/status-pill sizing; placement in the Week Review workflow is unchanged.
+
+## Historical analytics Closing compatibility
+
+- `H2H_Tracker` and `Winning_Streaks` are current-context projections, not all-time archives. Their original 13-week contents exactly matched the old Opening checkpoint and had no League Year or Split columns that could support safe multi-split history.
+- Current H2H and streak analytics are derived from the schedule and results selected by `WorkflowContextAuthority`, limited to the selected League Year, Split, and completed-through Year Week.
+- The validated baseline is League Year 2, Closing Split, completed through Year Week 36 / Split Week 12, with active Year Week 37 / Split Week 13.
+- Opening rows, future Week 46 rows, unknown result IDs, duplicate IDs, and rejected browser/QA state cannot contribute to current H2H or streak calculations.
+- Draws remain H2H meetings and reset current winning streaks. No Contest remains neutral for streaks and is excluded from H2H. These are the existing rules; no scoring or tiebreak rule changed.
+- Safe Closing workbook writeback synchronizes the existing `H2H_Tracker` and `Winning_Streaks` columns from cumulative validated `Schedule_22W` results. It does not add, remove, or rename sheets or columns.
+- `Legacy_Tracker` remains the manually maintained all-time source and is never replaced with Closing-only records. Active Closing standings may update current league placement, and validated Closing streaks may raise an all-time streak maximum, but an incomplete active split cannot create league titles, Elite Cups, doubles, or invincible-split records.
+- Browser-local completed-split overlays are visible only when the local workflow is accepted by `WorkflowContextAuthority`. Rejected overlays are excluded from analytics without being deleted from local storage.
+- The workbook sheets keep their original schema. The runtime analytics audit carries the League Year, Split, completed/active week boundary, source label, counts, and a context signature that the legacy sheet format cannot safely store without a structural change.
