@@ -72,6 +72,7 @@ masterResults: props.existingResults,
 localResults: state.confirmedResults,
 split: authority.split,
 completedThroughWeek: authority.completedThroughYearWeek,
+baselineCompletedThroughYearWeek: props.workbookCurrentWeek,
 activeLeagueYear: authority.leagueYear,
 rosterReplacements: state.rosterReplacements,
 }).standings;

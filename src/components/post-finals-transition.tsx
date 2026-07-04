@@ -55,9 +55,10 @@ export function PostFinalsTransitionView(props: Props) {
     localResults: hydrated ? state.confirmedResults : [],
     split: contextSplit,
     completedThroughWeek: contextCompletedThroughYearWeek,
+    baselineCompletedThroughYearWeek: props.completedThroughWeek,
     activeLeagueYear: contextLeagueYear,
     rosterReplacements: state.rosterReplacements,
-  }).standings, [activeWorkflowMatches, contextCompletedThroughYearWeek, contextLeagueYear, contextSplit, hydrated, props.results, props.standings, state.acceptedPostFinalsComposition?.rosters, state.activeWorkflow, state.confirmedResults, state.rosterReplacements]);
+  }).standings, [activeWorkflowMatches, contextCompletedThroughYearWeek, contextLeagueYear, contextSplit, hydrated, props.completedThroughWeek, props.results, props.standings, state.acceptedPostFinalsComposition?.rosters, state.activeWorkflow, state.confirmedResults, state.rosterReplacements]);
   const localResults = useMemo(() => state.confirmedResults.map((result): MatchResult => {
     const match = activeWorkflowMatches.find((candidate) => candidate.id === result.matchId);
     const loser = result.resultType === "Winner" && result.winner && match

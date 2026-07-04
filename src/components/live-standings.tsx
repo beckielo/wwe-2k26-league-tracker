@@ -115,9 +115,10 @@ export function LiveStandings({ baseline, workbookMatches, workbookResults, meta
       localResults: hydrated ? state.confirmedResults : [],
       split,
       completedThroughWeek: activeCompletedThroughWeek,
+      baselineCompletedThroughYearWeek: meta.appBaselineCompletedThroughWeek,
       activeLeagueYear: authority.leagueYear,
     }),
-    [activeCompletedThroughWeek, authority.leagueYear, baseline, hydrated, matches, state.acceptedPostFinalsComposition?.rosters, state.activeWorkflow, state.confirmedResults, split, workbookResults],
+    [activeCompletedThroughWeek, authority.leagueYear, baseline, hydrated, matches, meta.appBaselineCompletedThroughWeek, state.acceptedPostFinalsComposition?.rosters, state.activeWorkflow, state.confirmedResults, split, workbookResults],
   );
   const standings = live.standings;
   const selectedUser = useCurrentUser(live.composition).currentUser;

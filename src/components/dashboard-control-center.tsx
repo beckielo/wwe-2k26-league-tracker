@@ -52,6 +52,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
     localResults: state.confirmedResults,
     split: authority.split,
     completedThroughWeek: authority.completedThroughYearWeek,
+    baselineCompletedThroughYearWeek: props.workbookCompletedThroughWeek,
     activeLeagueYear: authority.leagueYear,
     postFinalsAssignments: state.activeWorkflow ? LEAGUE_NAMES.flatMap((league) => state.acceptedPostFinalsComposition?.rosters[league] ?? []) : undefined,
     rosterReplacements: state.rosterReplacements ?? [],
