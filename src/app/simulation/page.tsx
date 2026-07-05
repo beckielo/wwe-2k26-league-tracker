@@ -13,7 +13,7 @@ return (
 eyebrow="Non-user shows"
 title="Simulation"
 description={
-"Review progress by league and generate editable previews only for open non-user matches in the active app week. " +
+"Review progress by league and generate editable previews only for open non-user matches in the current week. " +
 data.meta.userLeague +
 " remains excluded."
 }

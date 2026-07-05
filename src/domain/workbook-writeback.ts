@@ -1,12 +1,15 @@
 import * as XLSX from "xlsx";
 import type { WeeklyClosePackage } from "./weekly-close-exports";
 import { acceptedScheduleMatches } from "./schedule-setup";
-import type { Match } from "./types";
+import { deriveCurrentHistoricalAnalytics } from "./historical-analytics";
+import type { Match, MatchResult, StandingRow } from "./types";
 
 export const RESULTS_SHEET = "App_Confirmed_Results";
 export const STANDINGS_SHEET = "App_State_Standings";
 export const LOG_SHEET = "App_Writeback_Log";
 export const ACCEPTED_SCHEDULE_SHEET = "App_Accepted_Schedule";
+export const HEAD_TO_HEAD_SHEET = "H2H_Tracker";
+export const WINNING_STREAKS_SHEET = "Winning_Streaks";
 
 export interface WorkbookWritebackBaseline {
   workbook: Uint8Array;
@@ -70,6 +73,34 @@ const STANDINGS_HEADERS = [
   "losses",
   "points",
   "status",
+];
+
+const LEGACY_SCHEDULE_HEADERS = [
+  "League Year",
+  "Split",
+  "Week",
+  "Round Type",
+  "League",
+  "Show Day",
+  "Match #",
+  "Wrestler A",
+  "Wrestler B",
+  "Winner",
+  "Result Type",
+  "Notes",
+];
+
+const LEGACY_STANDINGS_HEADERS = [
+  "League",
+  "Rank",
+  "Wrestler",
+  "Seed",
+  "Matches",
+  "Wins",
+  "Draws",
+  "Losses",
+  "Points",
+  "Status / Zone",
 ];
 
 function validTimestamp(value: string): boolean {
@@ -151,6 +182,298 @@ function replaceSheet(workbook: XLSX.WorkBook, name: string, rows: unknown[][]):
   if (!workbook.SheetNames.includes(name)) workbook.SheetNames.push(name);
 }
 
+function overwriteExistingSheetValues(
+  workbook: XLSX.WorkBook,
+  name: string,
+  rows: Array<Array<string | number | boolean>>,
+): boolean {
+  const sheet = workbook.Sheets[name];
+  if (!sheet) return false;
+  rows.forEach((row, rowIndex) => row.forEach((value, columnIndex) => {
+    const address = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex });
+    const cell = {
+      ...(sheet[address] ?? {}),
+      t: typeof value === "number" ? "n" : typeof value === "boolean" ? "b" : "s",
+      v: value,
+    };
+    delete cell.f;
+    delete cell.w;
+    sheet[address] = cell;
+  }));
+  sheet["!ref"] = XLSX.utils.encode_range({
+    s: { r: 0, c: 0 },
+    e: { r: rows.length - 1, c: rows[0].length - 1 },
+  });
+  return true;
+}
+
+function overwriteExistingDerivedSheetValues(
+  workbook: XLSX.WorkBook,
+  name: string,
+  rows: Array<Array<string | number | boolean>>,
+): boolean {
+  const sheet = workbook.Sheets[name];
+  if (!sheet) return false;
+  const previousRange = XLSX.utils.decode_range(sheet["!ref"] ?? "A1:A1");
+  const targetEnd = {
+    r: Math.max(previousRange.e.r, rows.length - 1),
+    c: Math.max(previousRange.e.c, rows[0].length - 1),
+  };
+  for (let rowIndex = 0; rowIndex <= targetEnd.r; rowIndex += 1) {
+    for (let columnIndex = 0; columnIndex <= targetEnd.c; columnIndex += 1) {
+      const address = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex });
+      const existing = sheet[address];
+      const value = rows[rowIndex]?.[columnIndex];
+      if (value === undefined) {
+        sheet[address] = existing?.s ? { t: "z", s: existing.s } : { t: "z" };
+        continue;
+      }
+      sheet[address] = {
+        ...(existing ?? {}),
+        t: typeof value === "number" ? "n" : typeof value === "boolean" ? "b" : "s",
+        v: value,
+      };
+      delete sheet[address].f;
+      delete sheet[address].w;
+    }
+  }
+  sheet["!ref"] = XLSX.utils.encode_range({
+    s: { r: 0, c: 0 },
+    e: targetEnd,
+  });
+  return true;
+}
+
+function legacyScheduleKey(values: {
+  leagueYear: number;
+  split: string;
+  week: number;
+  league: string;
+  matchNumber: number;
+  wrestlerA: string;
+  wrestlerB: string;
+}): string {
+  return [
+    values.leagueYear,
+    values.split,
+    values.week,
+    values.league,
+    values.matchNumber,
+    values.wrestlerA,
+    values.wrestlerB,
+  ].join("|");
+}
+
+function parseLegacyLeagueYear(value: unknown): number {
+  const parsed = String(value ?? "").match(/(\d+)/);
+  return parsed ? Number(parsed[1]) : 0;
+}
+
+function legacyScheduleResults(
+  workbook: XLSX.WorkBook,
+  acceptedMatches: Match[],
+): MatchResult[] {
+  const sheet = workbook.Sheets.Schedule_22W;
+  if (!sheet) return [];
+  const matchByKey = new Map(acceptedMatches.map((match) => [legacyScheduleKey(match), match]));
+  return XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+    defval: "",
+    raw: true,
+  }).flatMap((row): MatchResult[] => {
+    const match = matchByKey.get(legacyScheduleKey({
+      leagueYear: parseLegacyLeagueYear(row["League Year"]),
+      split: String(row.Split ?? ""),
+      week: Number(row.Week),
+      league: String(row.League ?? ""),
+      matchNumber: Number(row["Match #"]),
+      wrestlerA: String(row["Wrestler A"] ?? ""),
+      wrestlerB: String(row["Wrestler B"] ?? ""),
+    }));
+    if (!match) return [];
+    const winner = String(row.Winner ?? "").trim();
+    const notes = String(row.Notes ?? "").trim();
+    const outcome = /^Draw\b/i.test(notes)
+      ? "draw"
+      : /^No Contest\b/i.test(notes)
+        ? "no-contest"
+        : winner
+          ? "decisive"
+          : null;
+    if (!outcome) return [];
+    return [{
+      matchId: match.id,
+      outcome,
+      winner: outcome === "decisive" ? winner : null,
+      loser: outcome === "decisive"
+        ? (winner === match.wrestlerA ? match.wrestlerB : match.wrestlerA)
+        : null,
+      resultSource: "Unknown",
+      notes: notes || null,
+      source: { file: "workbook-writeback", sheet: "Schedule_22W" },
+    }];
+  });
+}
+
+function synchronizeHistoricalAnalyticsSheets(
+  workbook: XLSX.WorkBook,
+  acceptedMatches: Match[],
+  standings: StandingRow[],
+  context: Pick<Match, "leagueYear" | "split" | "week">,
+): string[] {
+  const analytics = deriveCurrentHistoricalAnalytics({
+    matches: acceptedMatches,
+    results: legacyScheduleResults(workbook, acceptedMatches),
+    standings,
+    leagueYear: context.leagueYear,
+    split: context.split,
+    completedThroughYearWeek: context.week,
+    authoritySourceSignature: "validated-workbook-writeback",
+  });
+  const synchronizedSheets: string[] = [];
+  if (overwriteExistingDerivedSheetValues(workbook, HEAD_TO_HEAD_SHEET, [
+    ["League", "Week", "Round Type", "Wrestler A", "Wrestler B", "Winner", "Loser"],
+    ...analytics.headToHead.map((record) => [
+      record.league,
+      record.week,
+      record.roundType,
+      record.wrestlerA,
+      record.wrestlerB,
+      record.winner,
+      record.loser,
+    ]),
+  ])) synchronizedSheets.push(HEAD_TO_HEAD_SHEET);
+  if (overwriteExistingDerivedSheetValues(workbook, WINNING_STREAKS_SHEET, [
+    ["League", "Wrestler", "Seed", "Current Streak", "Longest Winning Streak", "Last Result", "Notes"],
+    ...analytics.streaks.map((record) => [
+      record.league,
+      record.wrestler,
+      record.seed,
+      record.currentStreak,
+      record.longestWinningStreak,
+      record.lastResult,
+      record.notes ?? "",
+    ]),
+  ])) synchronizedSheets.push(WINNING_STREAKS_SHEET);
+  return synchronizedSheets;
+}
+
+function synchronizeLegacyFallbackSheets(
+  workbook: XLSX.WorkBook,
+  acceptedMatches: Match[],
+  closePackage: WeeklyClosePackage,
+): void {
+  const scheduleSheet = workbook.Sheets.Schedule_22W;
+  if (scheduleSheet) {
+    const existingRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(scheduleSheet, {
+      defval: "",
+      raw: true,
+    });
+    const existingByKey = new Map(existingRows.map((row) => [
+      legacyScheduleKey({
+        leagueYear: parseLegacyLeagueYear(row["League Year"]),
+        split: String(row.Split ?? ""),
+        week: Number(row.Week),
+        league: String(row.League ?? ""),
+        matchNumber: Number(row["Match #"]),
+        wrestlerA: String(row["Wrestler A"] ?? ""),
+        wrestlerB: String(row["Wrestler B"] ?? ""),
+      }),
+      row,
+    ]));
+    const closeResultById = new Map(closePackage.results.map((result) => [result.matchId, result]));
+    const leagueOrder = new Map([
+      ["Regional League", 0],
+      ["National League", 1],
+      ["Continental League", 2],
+      ["Global League", 3],
+    ]);
+    const scheduleRows = acceptedMatches
+      .slice()
+      .sort((a, b) => (
+        a.week - b.week
+        || (leagueOrder.get(a.league) ?? 99) - (leagueOrder.get(b.league) ?? 99)
+        || a.matchNumber - b.matchNumber
+      ))
+      .map((match) => {
+        const existing = existingByKey.get(legacyScheduleKey(match));
+        const result = closeResultById.get(match.id);
+        const splitWeek = match.split === "Closing Split" ? match.week - 24 : match.week;
+        const resultSource = result
+          ? result.source === "Manual" ? "User" : "Simulation"
+          : String(existing?.["Result Type"] ?? "");
+        const outcomePrefix = result?.resultType === "Draw"
+          ? "Draw · "
+          : result?.resultType === "No Contest"
+            ? "No Contest · "
+            : "";
+        const notes = result
+          ? `${outcomePrefix}${match.split} Week ${splitWeek} completed · validated App checkpoint fallback`
+          : String(existing?.Notes ?? "");
+        return [
+          `League Year ${match.leagueYear}`,
+          match.split,
+          match.week,
+          match.roundType,
+          match.league,
+          match.showDay,
+          match.matchNumber,
+          match.wrestlerA,
+          match.wrestlerB,
+          result ? result.winner ?? "" : String(existing?.Winner ?? ""),
+          resultSource,
+          notes,
+        ];
+      });
+    overwriteExistingSheetValues(workbook, "Schedule_22W", [
+      LEGACY_SCHEDULE_HEADERS,
+      ...scheduleRows,
+    ]);
+  }
+
+  overwriteExistingSheetValues(workbook, "Standings_Current", [
+    LEGACY_STANDINGS_HEADERS,
+    ...closePackage.standings.map((row) => [
+      row.league,
+      row.rank,
+      row.wrestler,
+      row.seed,
+      row.matches,
+      row.wins,
+      row.draws,
+      row.losses,
+      row.points,
+      row.status,
+    ]),
+  ]);
+}
+
+function synchronizeDashboardContext(workbook: XLSX.WorkBook, context: Pick<Match, "leagueYear" | "split" | "week">): void {
+  const dashboard = workbook.Sheets.Dashboard;
+  if (!dashboard) return;
+  const rows = XLSX.utils.sheet_to_json<unknown[]>(dashboard, { header: 1, defval: "", raw: true });
+  const splitWeek = context.split === "Closing Split" ? context.week - 24 : context.week;
+  const replacements = new Map<string, string>([
+    ["WWE 2K26 Liga-System", `League Year ${context.leagueYear} – ${context.split}`],
+    ["Aktueller Stand", `Woche ${context.week} abgeschlossen`],
+    ["Ligaphase", `${context.split} Woche ${splitWeek} abgeschlossen`],
+    ["Dateistand", `LY${context.leagueYear} ${context.split} Week ${splitWeek} abgeschlossen`],
+    ["Authoritative next-match source", `National League \u2013 ${context.split} Woche ${splitWeek + 1}`],
+  ]);
+  for (const [index, row] of rows.entries()) {
+    const key = String(row[0] ?? "").trim();
+    const replacement = replacements.get(key)
+      ?? (key.endsWith("User-Show") ? `National League \u2013 ${context.split} Woche ${splitWeek + 1}` : undefined);
+    if (!replacement) continue;
+    const address = XLSX.utils.encode_cell({ r: index, c: 1 });
+    dashboard[address] = { ...dashboard[address], t: "s", v: replacement, w: replacement };
+  }
+}
+
+function contextFilename(context: Pick<Match, "leagueYear" | "split" | "week">): string {
+  const splitLabel = context.split.replace(" Split", "");
+  return `WWE_2K26_Liga_System_LY${context.leagueYear}_${splitLabel}_W${context.week}_abgeschlossen.xlsx`;
+}
+
 export function createWorkbookWriteback(
   baseline: WorkbookWritebackBaseline,
   closePackage: WeeklyClosePackage,
@@ -160,12 +483,25 @@ export function createWorkbookWriteback(
   if (!validTimestamp(generatedAt)) errors.push("generatedAt is invalid.");
   if (errors.length) return { ok: false, errors };
 
-  const workbook = XLSX.read(baseline.workbook, { type: "array", cellDates: false });
+  const workbook = XLSX.read(baseline.workbook, { type: "array", cellDates: false, cellStyles: true });
   const acceptedMatches = closePackage.acceptedSchedule?.validation.valid ? acceptedScheduleMatches(closePackage.acceptedSchedule) : [];
   const authoritySchedule = acceptedMatches.length > 0
     ? [...baseline.schedule.filter((match) => !acceptedMatches.some((accepted) => accepted.id === match.id)), ...acceptedMatches]
     : baseline.schedule;
   const matchById = new Map(authoritySchedule.map((match) => [match.id, match]));
+  const contextMatch = authoritySchedule.find((match) => match.week === closePackage.week);
+  if (!contextMatch) return { ok: false, errors: [`Week ${closePackage.week} has no authoritative context match.`] };
+  synchronizeDashboardContext(workbook, contextMatch);
+  let synchronizedAnalyticsSheets: string[] = [];
+  if (acceptedMatches.length === 528) {
+    synchronizeLegacyFallbackSheets(workbook, acceptedMatches, closePackage);
+    synchronizedAnalyticsSheets = synchronizeHistoricalAnalyticsSheets(
+      workbook,
+      acceptedMatches,
+      closePackage.standings,
+      contextMatch,
+    );
+  }
   replaceSheet(workbook, RESULTS_SHEET, [
     RESULT_HEADERS,
     ...closePackage.results.map((result) => [
@@ -253,13 +589,15 @@ export function createWorkbookWriteback(
   const output = XLSX.write(workbook, { type: "array", bookType: "xlsx" });
   return {
     ok: true,
-    filename: `WWE_2K26_Liga_System_LY2_Opening_W${closePackage.week}_abgeschlossen.xlsx`,
+    filename: contextFilename(contextMatch),
     workbook: output,
     metadata: {
       week: closePackage.week,
       resultCount: closePackage.results.length,
       standingsCount: closePackage.standings.length,
-      sheets: acceptedMatches.length > 0 ? [RESULTS_SHEET, STANDINGS_SHEET, LOG_SHEET, ACCEPTED_SCHEDULE_SHEET] : [RESULTS_SHEET, STANDINGS_SHEET, LOG_SHEET],
+      sheets: acceptedMatches.length > 0
+        ? [RESULTS_SHEET, STANDINGS_SHEET, LOG_SHEET, ACCEPTED_SCHEDULE_SHEET, ...synchronizedAnalyticsSheets]
+        : [RESULTS_SHEET, STANDINGS_SHEET, LOG_SHEET],
     },
   };
 }

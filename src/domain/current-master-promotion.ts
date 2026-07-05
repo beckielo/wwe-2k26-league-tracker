@@ -4,9 +4,11 @@ import * as XLSX from "xlsx";
 import type { WeeklyClosePackage } from "./weekly-close-exports";
 import {
   createWorkbookWriteback,
+  HEAD_TO_HEAD_SHEET,
   LOG_SHEET,
   RESULTS_SHEET,
   STANDINGS_SHEET,
+  WINNING_STREAKS_SHEET,
   type WorkbookWritebackBaseline,
 } from "./workbook-writeback";
 
@@ -69,6 +71,23 @@ function validatePromotedWorkbook(
   ) {
     errors.push("Generated workbook has an incomplete writeback log.");
   }
+  if (
+    workbook.Sheets[WINNING_STREAKS_SHEET]
+    && XLSX.utils.sheet_to_json(workbook.Sheets[WINNING_STREAKS_SHEET]).length !== 48
+  ) {
+    errors.push("Generated workbook has incomplete current-context winning streak analytics.");
+  }
+  if (workbook.Sheets[HEAD_TO_HEAD_SHEET] && workbook.Sheets.Schedule_22W) {
+    const expectedHeadToHead = XLSX.utils.sheet_to_json<Record<string, unknown>>(
+      workbook.Sheets.Schedule_22W,
+    ).filter((row) => (
+      (row.Winner || /^Draw\b/i.test(String(row.Notes ?? "")))
+      && !/^No Contest\b/i.test(String(row.Notes ?? ""))
+    )).length;
+    if (XLSX.utils.sheet_to_json(workbook.Sheets[HEAD_TO_HEAD_SHEET]).length !== expectedHeadToHead) {
+      errors.push("Generated workbook head-to-head analytics do not match completed schedule results.");
+    }
+  }
 
   return errors;
 }
@@ -123,7 +142,7 @@ export function promoteCurrentMaster(
     return { ok: false, errors: validationErrors };
   }
 
-  const targetName = `[${CURRENT_MASTER_MARKER}] WWE_2K26_Liga_System_LY2_Opening_W${closePackage.week}_abgeschlossen.xlsx`;
+  const targetName = `[${CURRENT_MASTER_MARKER}] ${writeback.filename}`;
   const oldPath = path.join(sourceDir, sourceName);
   const targetPath = path.join(sourceDir, targetName);
   const backupFilename = backupName(sourceName, closePackage.week);

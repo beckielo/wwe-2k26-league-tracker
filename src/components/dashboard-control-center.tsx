@@ -5,12 +5,12 @@ import Link from "next/link";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { reconstructActiveSplitLiveStandings } from "@/domain/tracker-state";
 import { generateSocialFeed, predictMatch } from "@/domain/match-predictions";
-import { buildHistoricalResults, buildHistoricalResultsFromHeadToHead } from "@/domain/match-history";
+import { buildHistoricalResults } from "@/domain/match-history";
 import { getPreviousHeadToHeadContext } from "@/domain/head-to-head";
 import { getRecentForm } from "@/domain/recent-form";
 import { getWorkflowSummary } from "@/domain/week-progression";
 import { getWeekDisplay } from "@/domain/week-display";
-import type { HeadToHeadRecord, LeagueName, Match, MatchResult, StandingRow, TrackerMeta, ValidationIssue } from "@/domain/types";
+import type { LeagueName, Match, MatchResult, StandingRow, TrackerMeta, ValidationIssue } from "@/domain/types";
 import { LEAGUE_NAMES } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { CurrentUserSwitcher, useCurrentUser } from "./current-user-switcher";
@@ -28,7 +28,6 @@ interface DashboardControlCenterProps {
   workbookCompletedThroughWeek: number;
   baselineStandings: StandingRow[];
   workbookResults: MatchResult[];
-  workbookHeadToHead: HeadToHeadRecord[];
   meta: TrackerMeta;
   leagueYear: number;
   userLeague: LeagueName;
@@ -42,37 +41,38 @@ interface DashboardControlCenterProps {
 }
 
 export function DashboardControlCenter(props: DashboardControlCenterProps) {
-  const { state, hydrated } = useTrackerState();
+  const { state, authority, hydrated } = useTrackerState();
   const matches = getActiveWorkflowMatches(state, props.workbookMatches);
-  const workflowBaseline = state.activeWorkflow ? (state.activeWorkflow.split === "Closing Split" ? 24 : 0) : props.workbookCompletedThroughWeek;
+  const workflowBaseline = authority.completedThroughYearWeek;
   const live = reconstructActiveSplitLiveStandings({
     previousFinalStandings: props.baselineStandings,
     scheduledMatches: matches,
     masterResults: props.workbookResults,
     localResults: state.confirmedResults,
-    split: state.activeWorkflow?.split ?? props.meta.currentSplit,
-    completedThroughWeek: state.activeWorkflow ? state.activeWorkflow.yearWeek - (state.activeWorkflow.splitWeek === 1 ? 1 : 0) : props.workbookCompletedThroughWeek,
-    activeLeagueYear: state.activeWorkflow?.leagueYear,
+    split: authority.split,
+    completedThroughWeek: authority.completedThroughYearWeek,
+    baselineCompletedThroughYearWeek: props.workbookCompletedThroughWeek,
+    activeLeagueYear: authority.leagueYear,
     postFinalsAssignments: state.activeWorkflow ? LEAGUE_NAMES.flatMap((league) => state.acceptedPostFinalsComposition?.rosters[league] ?? []) : undefined,
     rosterReplacements: state.rosterReplacements ?? [],
   });
   const selectedUser = useCurrentUser(live.composition).currentUser;
   const selectedUserLeague = selectedUser?.league ?? props.userLeague;
   const summary = getWorkflowSummary(state, matches, workflowBaseline, selectedUserLeague);
-  const yearWeek = summary.activeWeek ?? state.activeWorkflow?.yearWeek ?? props.workbookCompletedThroughWeek + 1;
-  const leagueYear = state.activeWorkflow?.leagueYear ?? props.leagueYear;
-  const split = state.activeWorkflow?.split;
+  const yearWeek = summary.activeWeek ?? authority.activeYearWeek;
+  const leagueYear = authority.leagueYear;
+  const split = authority.split;
   const userLeague = selectedUserLeague;
   const display = getWeekDisplay(leagueYear, yearWeek, split);
   const userLeagueRows = live.standings.filter((row) => row.league === userLeague).sort((a, b) => a.rank - b.rank);
   const currentRanks = new Map(userLeagueRows.map((row) => [row.wrestler, row.rank]));
   const previousSplitChampionColorRoles = getPreviousSplitChampionColorRoles(props.legacySummary.completedSplitAudit, state.completedSplitLegacyCommits);
   const allKnownMatches = [...props.workbookMatches.filter((match) => !matches.some((active) => active.id === match.id)), ...matches];
-  const activeSplit = split ?? props.meta.currentSplit;
-  const matchHistory = [
-    ...buildHistoricalResultsFromHeadToHead(props.workbookHeadToHead, leagueYear, activeSplit),
-    ...buildHistoricalResults(allKnownMatches, props.workbookResults, state.confirmedResults),
-  ];
+  const matchHistory = buildHistoricalResults(
+    allKnownMatches,
+    props.workbookResults,
+    state.confirmedResults,
+  );
   const card = matches
     .filter((match) => match.week === yearWeek && match.league === userLeague)
     .sort((a, b) => a.matchNumber - b.matchNumber);
@@ -110,7 +110,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
       </div>
       <div className="next-action-block">
         <span>Next action</span>
-        <strong>{card.length ? `Complete the ${userLeague} card` : "Connect the next authoritative card"}</strong>
+        <strong>{card.length ? `Complete the ${userLeague} card` : "Open the next scheduled card"}</strong>
         <p>{card.length ? "Record all six outcomes, then review and lock the week." : "No matchup is shown until an accepted schedule supplies it."}</p>
         <div className="dashboard-workflow-actions dashboard-workflow-actions-spaced">
           <Link href={nextHref} className="action-button action-primary">{nextLabel}</Link>
@@ -136,7 +136,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
           <div className="fight-card-title"><LeagueBrandMark league={userLeague} usage="compact" /><span>
             <p className="broadcast-kicker">Current user-controlled show</p>
             <h2>{userLeague}</h2>
-            <p>{display.compact} · Authoritative schedule</p>
+            <p>{display.compact} · Official schedule</p>
           </span></div>
           <Link href="/schedule">Full schedule</Link>
         </header>
@@ -158,7 +158,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
             </li>;
           })}
         </ol> : <div className="p-6">
-          <EmptyState title="No current card available" description="The control center will display matches only after they are present in the workbook schedule or an explicitly accepted schedule snapshot." />
+          <EmptyState title="No current card available" description="The control center will display matches after the next schedule has been accepted." />
           <div className="mt-4"><Link href="/schedule-setup" className="action-button action-secondary">Review schedule setup</Link></div>
         </div>}
       </section>
@@ -166,8 +166,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
       <UserLeagueLiveTable league={userLeague} rows={userLeagueRows} currentUserWrestler={selectedUser?.wrestler ?? props.meta.userWrestler} championRoles={previousSplitChampionColorRoles} />
     </div>
     <SocialFeed comments={socialFeed} />
-    <p className="dashboard-diagnostics-note">Source Warnings remain available in review workflows · Non-blocking · details contained.</p>
-    <ReplaceWrestlerControl activeRoster={live.composition} matches={matches} leagueYear={leagueYear} split={split ?? props.meta.currentSplit} week={yearWeek} />
+    <ReplaceWrestlerControl activeRoster={live.composition} matches={matches} leagueYear={leagueYear} split={split} week={yearWeek} />
     <NewRunSetupWizard meta={props.meta} />
   </>;
 }

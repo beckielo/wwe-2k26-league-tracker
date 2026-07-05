@@ -48,6 +48,7 @@ export interface TrackerState {
   version: 1;
   confirmedResults: ConfirmedResult[];
   completedWeeks: CompletedWeek[];
+  workflowContextCheckpoint?: LocalWorkflowContextCheckpoint;
   lastExportedAt: string | null;
   lastImportedAt: string | null;
   leagueFinalsResults?: LeagueFinalsResult[];
@@ -63,6 +64,13 @@ export interface TrackerState {
   completedSplitLegacyCommits?: CompletedSplitLegacyCommit[];
   lastCompletedAchievementMetadata?: LastCompletedSplitChampionMetadata | null;
   championMetadataAudit?: import("./previous-split-name-colors").ChampionMetadataAudit;
+}
+
+export interface LocalWorkflowContextCheckpoint {
+  scope: "user-workflow";
+  baselineSourceSignature: string;
+  acceptedScheduleSignature: string | null;
+  signedAt: string;
 }
 
 export interface CompletedSplitLegacyCommit {
@@ -417,6 +425,7 @@ export interface ActiveSplitLiveStandingsInput {
   localResults: ConfirmedResult[];
   split: SplitName;
   completedThroughWeek: number;
+  baselineCompletedThroughYearWeek?: number;
   activeLeagueYear?: number;
   rosterReplacements?: RosterReplacementLogEntry[];
   newRunSetupDraft?: NewRunSetupDraft;
@@ -434,6 +443,45 @@ export function reconstructActiveSplitLiveStandings(input: ActiveSplitLiveStandi
   const activeLeagueYear = input.activeLeagueYear ?? 2;
   const activeMatches = input.scheduledMatches.filter((match) => match.leagueYear === activeLeagueYear && match.split === input.split && match.week >= startWeek && match.week <= latestLocalWeek);
   const allSplitMatches = applyRosterReplacementsToMatches(input.scheduledMatches.filter((match) => match.leagueYear === activeLeagueYear && match.split === input.split), input.rosterReplacements ?? [], new Set(input.localResults.map((result) => result.matchId)));
+  const baselineCompletedThroughYearWeek = input.baselineCompletedThroughYearWeek ?? input.completedThroughWeek;
+  const baselineSplitWeek = input.split === "Closing Split"
+    ? baselineCompletedThroughYearWeek - 24
+    : baselineCompletedThroughYearWeek;
+  const scheduleLeagueByWrestler = new Map(allSplitMatches.flatMap((match) => [
+    [normalized(match.wrestlerA), match.league] as const,
+    [normalized(match.wrestlerB), match.league] as const,
+  ]));
+  const baselineMatchesCurrentCheckpoint = input.previousFinalStandings.length === 48
+    && baselineSplitWeek >= 0
+    && baselineSplitWeek <= 22
+    && input.previousFinalStandings.every((row) => (
+      row.matches === baselineSplitWeek
+      && scheduleLeagueByWrestler.get(normalized(row.wrestler)) === row.league
+    ));
+  if (baselineMatchesCurrentCheckpoint) {
+    const composition = applyRosterReplacementsToStandings(
+      input.previousFinalStandings,
+      input.rosterReplacements ?? [],
+    );
+    const overlayMatches = allSplitMatches.filter((match) => (
+      match.week > baselineCompletedThroughYearWeek && match.week <= latestLocalWeek
+    ));
+    const overlayMatchById = new Map(overlayMatches.map((match) => [match.id, match]));
+    const overlays = new Map<string, ConfirmedResult>();
+    for (const result of input.masterResults) {
+      const match = overlayMatchById.get(result.matchId);
+      const confirmed = match ? resultFromMatchResult(result, match) : null;
+      if (confirmed) overlays.set(confirmed.matchId, confirmed);
+    }
+    for (const result of input.localResults) {
+      if (overlayMatchById.has(result.matchId)) overlays.set(result.matchId, result);
+    }
+    return {
+      composition,
+      standings: calculateStandingsWithConfirmedResults(composition, overlayMatches, [...overlays.values()]),
+      diagnostics: validateRoster(composition),
+    };
+  }
   const diagnostics: string[] = [];
   if (allSplitMatches.length === 0 && input.masterResults.length === 0 && input.localResults.length === 0) {
     return { composition: input.previousFinalStandings, standings: input.previousFinalStandings, diagnostics: [] };
@@ -565,6 +613,7 @@ export function calculateLiveStandingsFromCurrentMaster(
     localResults: confirmedResults,
     split,
     completedThroughWeek: currentMasterCompletedThroughWeek,
+    baselineCompletedThroughYearWeek: currentMasterCompletedThroughWeek,
     rosterReplacements: [],
   }).standings;
 }

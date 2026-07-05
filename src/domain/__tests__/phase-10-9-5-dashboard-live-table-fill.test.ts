@@ -14,14 +14,15 @@ describe("Phase 10.9.5 dashboard user league live table fill polish", () => {
     expect(dashboard).toContain("placementLabel(league, row.rank)");
   });
 
-  it("uses a no-scroll flex table area that expands to fill the paired dashboard card", () => {
+  it("gives all twelve rows enough desktop height without clipping the last row", () => {
     const css = source("src/app/globals.css");
 
-    expect(css).toContain(".dashboard-equal-panels { --dashboard-panel-height:clamp(590px,64vh,660px); }");
+    expect(css).toContain(".dashboard-equal-panels { --dashboard-panel-height:clamp(620px,70vh,680px); }");
     expect(css).toContain(".dashboard-equal-panel { height:var(--dashboard-panel-height); display:flex; flex-direction:column; min-height:0; }");
     expect(css).toContain(".dashboard-live-table-wrap{overflow:visible;max-height:none;flex:1;min-height:0;display:flex}");
     expect(css).toContain(".dashboard-live-table table{width:100%;height:100%;border-collapse:collapse;font-size:11px;table-layout:fixed}");
-    expect(css).toContain(".dashboard-live-table-compact tbody tr{height:calc(100% / 12)}");
+    expect(css).toContain(".dashboard-live-table-compact tbody tr{height:auto}");
+    expect(css).toContain("--dashboard-panel-height: clamp(620px, 70vh, 680px)");
     expect(css).not.toContain(".dashboard-live-table-wrap{overflow:auto");
   });
 
@@ -31,6 +32,9 @@ describe("Phase 10.9.5 dashboard user league live table fill polish", () => {
     expect(css).toContain("padding:8px 5px;border-bottom:1px solid #ffffff0b;text-align:left;vertical-align:middle");
     expect(css).toContain("padding-top:9px;padding-bottom:9px");
     expect(css).toContain(".dashboard-live-table .zone-pill{display:inline-block;max-width:100%;white-space:normal;font-size:8px;line-height:1.08;padding:3px 5px}");
+    expect(css).toContain(".dashboard-live-table td:nth-child(2) strong{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}");
     expect(css).toContain("@media (max-width:1000px)");
+    expect(css).toContain(".dashboard-equal-panel{height:auto;max-height:none}");
+    expect(css).toContain("@media (max-width: 760px)");
   });
 });

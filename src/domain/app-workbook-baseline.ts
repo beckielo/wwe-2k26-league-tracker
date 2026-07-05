@@ -11,6 +11,7 @@ export interface AppWorkbookBaseline {
   hasWritebackSheets: boolean;
   latestAppWritebackWeek: number | null;
   latestAppWritebackCompletedAt: string | null;
+  latestWriteback: { week: number; completedAt: string } | null;
   standings: StandingRow[] | null;
   confirmedResults: ConfirmedResult[];
   validationIssues: ValidationIssue[];
@@ -34,10 +35,10 @@ function warning(code: string, message: string, sheet: string): ValidationIssue 
   return { code, severity: "warning", message, source: { file: "loaded workbook", sheet } };
 }
 
-function parseLog(workbook: XLSX.WorkBook): Pick<AppWorkbookBaseline, "latestAppWritebackWeek" | "latestAppWritebackCompletedAt" | "validationIssues"> {
+function parseLog(workbook: XLSX.WorkBook): Pick<AppWorkbookBaseline, "latestAppWritebackWeek" | "latestAppWritebackCompletedAt" | "latestWriteback" | "validationIssues"> {
   const sheetRows = rows(workbook, LOG_SHEET);
   if (!sheetRows) {
-    return { latestAppWritebackWeek: null, latestAppWritebackCompletedAt: null, validationIssues: [] };
+    return { latestAppWritebackWeek: null, latestAppWritebackCompletedAt: null, latestWriteback: null, validationIssues: [] };
   }
   const valid = sheetRows.flatMap((row, index) => {
     const week = finiteNumber(row.week);
@@ -45,18 +46,19 @@ function parseLog(workbook: XLSX.WorkBook): Pick<AppWorkbookBaseline, "latestApp
     return week !== null && Number.isInteger(week) && week > 0 && Number.isFinite(Date.parse(completedAt))
       ? [{ week, completedAt, index }]
       : [];
-  }).sort((a, b) => a.week - b.week || a.index - b.index);
+  }).sort((a, b) => Date.parse(a.completedAt) - Date.parse(b.completedAt) || a.index - b.index);
   const latest = valid.at(-1);
   return {
     latestAppWritebackWeek: latest?.week ?? null,
     latestAppWritebackCompletedAt: latest?.completedAt ?? null,
+    latestWriteback: latest ? { week: latest.week, completedAt: latest.completedAt } : null,
     validationIssues: sheetRows.length > 0 && !latest
       ? [warning("APP_WRITEBACK_LOG_INVALID", "App_Writeback_Log has no valid week/completedAt entry; the original workbook week remains authoritative.", LOG_SHEET)]
       : [],
   };
 }
 
-function parseStandings(workbook: XLSX.WorkBook, roster: StandingRow[]): { standings: StandingRow[] | null; issues: ValidationIssue[] } {
+function parseStandings(workbook: XLSX.WorkBook, schedule: Match[]): { standings: StandingRow[] | null; issues: ValidationIssue[] } {
   const sheetRows = rows(workbook, STANDINGS_SHEET);
   if (!sheetRows) return { standings: null, issues: [] };
   const parsed: StandingRow[] = [];
@@ -90,10 +92,10 @@ function parseStandings(workbook: XLSX.WorkBook, roster: StandingRow[]): { stand
     parsed.push(standing);
   }
   if (parsed.length !== 48) errors.push(`expected exactly 48 rows, found ${parsed.length}`);
-  const rosterKeys = new Set(roster.map((row) => `${row.league}:${row.wrestler}`));
-  const parsedKeys = parsed.map((row) => `${row.league}:${row.wrestler}`);
-  if (new Set(parsedKeys).size !== parsedKeys.length || parsedKeys.some((key) => !rosterKeys.has(key))) {
-    errors.push("wrestlers must uniquely match the authoritative workbook roster");
+  const rosterWrestlers = new Set(schedule.flatMap((match) => [match.wrestlerA, match.wrestlerB]).map((wrestler) => wrestler.trim().toLocaleLowerCase()));
+  const parsedWrestlers = parsed.map((row) => row.wrestler.trim().toLocaleLowerCase());
+  if (new Set(parsedWrestlers).size !== parsedWrestlers.length || parsedWrestlers.some((wrestler) => !rosterWrestlers.has(wrestler))) {
+    errors.push("wrestlers must uniquely match an authoritative schedule roster");
   }
   for (const league of LEAGUE_NAMES) {
     const leagueRows = parsed.filter((row) => row.league === league);
@@ -162,15 +164,15 @@ function parseResults(workbook: XLSX.WorkBook, schedule: Match[]): { results: Co
 export function parseAppWorkbookBaseline(
   workbook: XLSX.WorkBook,
   schedule: Match[],
-  workbookStandings: StandingRow[],
 ): AppWorkbookBaseline {
   const log = parseLog(workbook);
-  const standings = parseStandings(workbook, workbookStandings);
+  const standings = parseStandings(workbook, schedule);
   const results = parseResults(workbook, schedule);
   return {
     hasWritebackSheets: [LOG_SHEET, RESULTS_SHEET, STANDINGS_SHEET].some((name) => Boolean(workbook.Sheets[name])),
     latestAppWritebackWeek: log.latestAppWritebackWeek,
     latestAppWritebackCompletedAt: log.latestAppWritebackCompletedAt,
+    latestWriteback: log.latestWriteback,
     standings: standings.standings,
     confirmedResults: results.results,
     validationIssues: [...log.validationIssues, ...standings.issues, ...results.issues],

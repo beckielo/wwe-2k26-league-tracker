@@ -10,9 +10,9 @@ const legacy = loadLegacyTableData();
 
 return (
 <> <PageHeader
-     eyebrow="Primary workflow · final checkpoint"
+     eyebrow="Primary workflow · final check"
      title="Week Review"
-     description="Review every league, resolve missing or invalid results, safely lock a completed week, manage local state, and inspect standings without changing Excel."
+     description="Review every league, resolve missing results, lock the completed week, and inspect the updated standings."
    />
 
   <WeekReview
@@ -25,8 +25,6 @@ return (
     hasLeagueFinalsTemplate={data.hasLeagueFinalsTemplate}
     userLeague={data.meta.userLeague}
     workbookCurrentWeek={data.meta.appBaselineCompletedThroughWeek}
-    originalWorkbookCurrentWeek={data.meta.currentWeek}
-    latestAppWritebackWeek={data.meta.latestAppWritebackWeek}
     sourceFile={data.sourceFile}
     userWrestler={data.meta.userWrestler}
     completedSplitAudit={legacy.summary.audit}

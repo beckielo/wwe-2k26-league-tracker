@@ -18,7 +18,6 @@ interface LiveStandingsProps {
   workbookMatches: Match[];
   workbookResults: MatchResult[];
   meta: TrackerMeta;
-  sourceFile: string;
   completedSplitAudit?: LegacyCompletedSplitAudit;
 }
 
@@ -67,16 +66,45 @@ function LeagueTable({ league, rows, userLeague, currentUserWrestler, championRo
         })}</tbody>
       </table>
     </div>
+    <div className="live-mobile-standings">
+      {rows.map((row) => {
+        const zone = placementZone(row.rank, league);
+        return (
+          <article key={row.wrestler} className={`live-mobile-standing placement-${zone}`}>
+            <span className="rank-badge">{row.rank}</span>
+            <div className="live-mobile-standing-name">
+              <strong>
+                <WrestlerNameWithRole
+                  wrestler={row.wrestler}
+                  currentUserWrestler={currentUserWrestler}
+                  championRoles={championRoles}
+                />
+              </strong>
+              <small>Seed {row.seed}</small>
+            </div>
+            <div className="live-mobile-standing-record">
+              <span>{row.matches} played</span>
+              <strong>{row.wins}-{row.draws}-{row.losses}</strong>
+            </div>
+            <div className="live-mobile-standing-points">
+              <strong>{row.points}</strong>
+              <small>Pts</small>
+            </div>
+            <span className="zone-pill">{placementLabel(league, row.rank)}</span>
+          </article>
+        );
+      })}
+    </div>
   </section>;
 }
 
-export function LiveStandings({ baseline, workbookMatches, workbookResults, meta, sourceFile, completedSplitAudit }: LiveStandingsProps) {
-  const { state, hydrated } = useTrackerState();
+export function LiveStandings({ baseline, workbookMatches, workbookResults, meta, completedSplitAudit }: LiveStandingsProps) {
+  const { state, authority, hydrated } = useTrackerState();
   const matches = useMemo(() => getActiveWorkflowMatches(state, workbookMatches), [state, workbookMatches]);
   const previousSplitChampionColorRoles = useMemo(() => getPreviousSplitChampionColorRoles(completedSplitAudit, state.completedSplitLegacyCommits), [completedSplitAudit, state.completedSplitLegacyCommits]);
-  const split = state.activeWorkflow?.split ?? meta.currentSplit;
-  const splitWeek = state.activeWorkflow?.splitWeek ?? (meta.currentSplit === "Closing Split" ? Math.max(1, meta.currentWeek - 24) : meta.currentWeek);
-  const activeCompletedThroughWeek = state.activeWorkflow ? state.activeWorkflow.yearWeek - (state.activeWorkflow.splitWeek === 1 ? 1 : 0) : (meta.appBaselineCompletedThroughWeek ?? meta.currentWeek);
+  const split = authority.split;
+  const splitWeek = authority.splitWeek;
+  const activeCompletedThroughWeek = authority.completedThroughYearWeek;
   const live = useMemo(
     () => reconstructActiveSplitLiveStandings({
       previousFinalStandings: baseline,
@@ -86,14 +114,14 @@ export function LiveStandings({ baseline, workbookMatches, workbookResults, meta
       localResults: hydrated ? state.confirmedResults : [],
       split,
       completedThroughWeek: activeCompletedThroughWeek,
-      activeLeagueYear: state.activeWorkflow?.leagueYear,
+      baselineCompletedThroughYearWeek: meta.appBaselineCompletedThroughWeek,
+      activeLeagueYear: authority.leagueYear,
     }),
-    [activeCompletedThroughWeek, baseline, hydrated, matches, state.acceptedPostFinalsComposition?.rosters, state.activeWorkflow, state.confirmedResults, split, workbookResults],
+    [activeCompletedThroughWeek, authority.leagueYear, baseline, hydrated, matches, meta.appBaselineCompletedThroughWeek, state.acceptedPostFinalsComposition?.rosters, state.activeWorkflow, state.confirmedResults, split, workbookResults],
   );
   const standings = live.standings;
   const selectedUser = useCurrentUser(live.composition).currentUser;
   const userLeague = state.activeWorkflow?.userLeague ?? selectedUser?.league ?? meta.userLeague;
-  const source = state.activeWorkflow?.scheduleSource ?? `Workbook · ${sourceFile}`;
   const diagnostics = [...live.diagnostics, ...validateActiveSplitStandings(standings, splitWeek)];
   const lastUpdate = state.completedWeeks.at(-1)?.completedAt ?? meta.latestAppWritebackCompletedAt ?? state.activeWorkflow?.activatedAt ?? null;
 
@@ -103,22 +131,30 @@ export function LiveStandings({ baseline, workbookMatches, workbookResults, meta
       <div>
         <p className="eyebrow">Four divisions · one live table</p>
         <h1>{split} Standings</h1>
-        <p>Current master standings are authoritative for the active split; browser-local overlays are applied only beyond the workbook/app baseline. No fixture or result is inferred.</p>
+        <p>Completed results define the active split table. Current-week updates are applied only after you save them, and no fixture or result is inferred.</p>
       </div>
       <div className="live-broadcast-status"><span />Live table feed<strong>{split} · Week {splitWeek}</strong></div>
     </section>
 
     <dl className="live-source-deck">
-      <div><dt>Competition</dt><dd>League Year {state.activeWorkflow?.leagueYear ?? meta.leagueYear}</dd></div>
+      <div><dt>Competition</dt><dd>League Year {authority.leagueYear}</dd></div>
       <div><dt>Current window</dt><dd>{split} · Split Week {splitWeek}</dd></div>
-      <div><dt>Table source</dt><dd>{source}</dd></div>
-      <div><dt>Last lock / update</dt><dd>{lastUpdate ? new Date(lastUpdate).toLocaleString() : `Workbook through Week ${meta.currentWeek}`}</dd></div>
+      <div><dt>Progress status</dt><dd>Saved through Year Week {authority.completedThroughYearWeek}</dd></div>
+      <div><dt>Last lock / update</dt><dd>{lastUpdate ? `${new Date(lastUpdate).toISOString().slice(0, 16).replace("T", " ")} UTC` : `Through Year Week ${authority.completedThroughYearWeek}`}</dd></div>
     </dl>
 
-    {diagnostics.length > 0 && <section className="source-warning" role="alert">
-      <strong>Active split standings source warning</strong>
-      <ul>{diagnostics.map((diagnostic) => <li key={diagnostic}>{diagnostic}</li>)}</ul>
-    </section>}
+    {diagnostics.length > 0 && <details className="source-warning">
+      <summary>
+        <span>
+          <strong>Data details</strong>
+          <small>{diagnostics.length} notice{diagnostics.length === 1 ? "" : "s"}</small>
+        </span>
+        <b>Review details</b>
+      </summary>
+      <div role="alert">
+        <ul>{diagnostics.map((diagnostic) => <li key={diagnostic}>{diagnostic}</li>)}</ul>
+      </div>
+    </details>}
 
     <section className="rank-zone-legend" aria-label="Position color legend">
       <div><LeagueIcon name="belt" /><span><strong>Position zones</strong><small>Tinted rows and rank plates show competitive status.</small></span></div>

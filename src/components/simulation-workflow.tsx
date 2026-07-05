@@ -3,21 +3,23 @@
 import { SimulationWorkbench } from "./simulation-workbench";
 import { Stat } from "./ui";
 import { WorkflowSummaryBanner } from "./workflow-summary-banner";
-import { buildSimulationCandidates } from "@/domain/simulation";
+import { buildSimulationCandidates, resolveSimulationScheduleSource } from "@/domain/simulation";
 import { getWorkflowSummary } from "@/domain/week-progression";
-import type {
-League,
-LeagueName,
-Match,
-MatchResult,
-MatchupReferenceRow,
-StandingRow,
-StreakRecord,
+import {
+LEAGUE_NAMES,
+type League,
+type LeagueName,
+type Match,
+type MatchResult,
+type MatchupReferenceRow,
+type StandingRow,
+type StreakRecord,
 } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { useCurrentUser } from "./current-user-switcher";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { getWeekDisplay } from "@/domain/week-display";
+import { reconstructActiveSplitLiveStandings } from "@/domain/tracker-state";
 
 interface SimulationWorkflowProps {
 matches: Match[];
@@ -32,7 +34,7 @@ userWrestler: string;
 }
 
 export function SimulationWorkflow(props: SimulationWorkflowProps) {
-const { state, hydrated } = useTrackerState();
+const { state, authority, hydrated } = useTrackerState();
 const selectedUser = useCurrentUser(props.standings).currentUser;
 
 if (!hydrated) {
@@ -42,8 +44,8 @@ Loading local tracker state… </div>
 }
 
 const workflowMatches = getActiveWorkflowMatches(state, props.matches);
-const workflowBaseline = state.activeWorkflow ? (state.activeWorkflow.split === "Closing Split" ? 24 : 0) : props.workbookCurrentWeek;
-const workflowUserLeague = selectedUser?.league ?? props.userLeague;
+const workflowBaseline = authority.completedThroughYearWeek;
+const workflowUserLeague = state.activeWorkflow?.userLeague ?? selectedUser?.league ?? props.userLeague;
 const summary = getWorkflowSummary(
 state,
 workflowMatches,
@@ -62,23 +64,44 @@ return ( <WorkflowSummaryBanner
 );
 }
 
+const liveStandings = reconstructActiveSplitLiveStandings({
+previousFinalStandings: props.standings,
+postFinalsAssignments: state.activeWorkflow ? LEAGUE_NAMES.flatMap((league) => state.acceptedPostFinalsComposition?.rosters[league] ?? []) : undefined,
+scheduledMatches: workflowMatches,
+masterResults: props.existingResults,
+localResults: state.confirmedResults,
+split: authority.split,
+completedThroughWeek: authority.completedThroughYearWeek,
+baselineCompletedThroughYearWeek: props.workbookCurrentWeek,
+activeLeagueYear: authority.leagueYear,
+rosterReplacements: state.rosterReplacements,
+}).standings;
+
 const simulation = buildSimulationCandidates({
 matches: workflowMatches,
 matchupReference: props.matchupReference,
 leagues: props.leagues,
-standings: props.standings,
+standings: liveStandings,
 streaks: props.streaks,
 existingResults: props.existingResults,
 userLeague: workflowUserLeague,
 targetWeek: week,
 confirmedMatchIds: state.confirmedResults.map((result) => result.matchId),
-scheduleSource: state.activeWorkflow && state.acceptedSchedule ? "accepted-snapshot" : "workbook",
+scheduleSource: resolveSimulationScheduleSource({
+  activeSource: authority.activeSource,
+  scheduleSource: authority.scheduleSource,
+  hasAcceptedSchedule: Boolean(state.acceptedSchedule),
+}),
 });
-const display = getWeekDisplay(state.activeWorkflow?.leagueYear ?? 2, week, state.activeWorkflow?.split);
+const display = getWeekDisplay(authority.leagueYear, week, authority.split);
 
 const eligibleLeagues = [
 ...new Set(simulation.candidates.map((candidate) => candidate.match.league)),
 ];
+const missingNonUserMatches = summary.nonUserLeagueProgress.reduce(
+  (total, league) => total + league.missing,
+  0,
+);
 
 return (
 <> <div className="mb-8"> <WorkflowSummaryBanner
@@ -98,7 +121,10 @@ return (
       label="Open simulation matches"
       value={simulation.candidates.length}
       detail={
-        eligibleLeagues.join(" · ") || "All non-user matches confirmed"
+        eligibleLeagues.join(" · ")
+          || (missingNonUserMatches
+          ? `${missingNonUserMatches} matches need prediction inputs`
+            : "All non-user matches confirmed")
       }
     />
     <Stat
@@ -138,21 +164,34 @@ return (
 
         <p className="mt-3 text-sm text-slate-400">
           {league.missing
-            ? league.missing + " authoritative matches still open."
-            : "League card complete in local state."}
+            ? league.missing + " scheduled matches still open."
+            : "League card complete."}
         </p>
       </div>
     ))}
   </div>
 
+  {simulation.errors.length > 0 && (
+    <div className="mb-8 border border-amber-400/30 bg-amber-400/10 p-5 text-amber-100" role="alert">
+      <h2 className="font-black uppercase">Prediction data needed</h2>
+      <p className="mt-2 text-sm">Complete the following wrestler data before generating this week&apos;s preview:</p>
+      <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
+        {simulation.errors.map((error) => <li key={error}>{error}</li>)}
+      </ul>
+    </div>
+  )}
+
   {simulation.candidates.length === 0 ? (
     <div className="border border-white/10 bg-[#111722] p-10 text-center">
       <h2 className="text-2xl font-black uppercase">
-        Simulation card complete
+        {missingNonUserMatches ? "Prediction candidates unavailable" : "Simulation card complete"}
       </h2>
       <p className="mt-2 text-slate-500">
-        No open authoritative non-user matchups remain for {display.primary}.
-        Continue to Week Review.
+        {missingNonUserMatches
+          ? simulation.errors.length
+            ? "The scheduled matches are ready, but the prediction data listed above is incomplete."
+            : `${missingNonUserMatches} non-user matches remain open, but no eligible preview is available for the current saved schedule.`
+          : `No open non-user matchups remain for ${display.primary}. Continue to Week Review.`}
       </p>
     </div>
   ) : (

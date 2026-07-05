@@ -8,6 +8,8 @@ import {
   RESULTS_SHEET,
   STANDINGS_SHEET,
   ACCEPTED_SCHEDULE_SHEET,
+  HEAD_TO_HEAD_SHEET,
+  WINNING_STREAKS_SHEET,
 } from "../workbook-writeback";
 import { acceptedScheduleMatches, createAcceptedScheduleSnapshot, generateSchedule, validateSchedule } from "../schedule-setup";
 import type { LeagueName, Match, StandingRow } from "../types";
@@ -139,6 +141,57 @@ function baselineWorkbook(): Uint8Array {
   return XLSX.write(workbook, { type: "array", bookType: "xlsx" });
 }
 
+function contextDashboardWorkbook(): Uint8Array {
+  const workbook = XLSX.utils.book_new();
+  const dashboard = XLSX.utils.aoa_to_sheet([
+    ["WWE 2K26 Liga-System", "League Year 2 \u2013 Opening Split"],
+    ["Aktueller Stand", "Woche 13 abgeschlossen"],
+    ["Ligaphase", "Opening Split Woche 13 abgeschlossen"],
+    ["Dateistand", "LY2 Opening Split Week 13 abgeschlossen"],
+  ]);
+  dashboard.B1.s = { fill: { patternType: "solid", fgColor: { rgb: "FF112233" } } };
+  XLSX.utils.book_append_sheet(workbook, dashboard, "Dashboard");
+  return XLSX.write(workbook, { type: "array", bookType: "xlsx", cellStyles: true });
+}
+
+function legacyFallbackWorkbook(): Uint8Array {
+  const workbook = XLSX.utils.book_new();
+  const dashboard = XLSX.utils.aoa_to_sheet([
+    ["WWE 2K26 Liga-System", "League Year 2 \u2013 Opening Split"],
+    ["Aktueller Stand", "Woche 13 abgeschlossen"],
+    ["Ligaphase", "Opening Split Woche 13 abgeschlossen"],
+    ["Next User-Show", "National League \u2013 Opening Split Woche 14"],
+    ["Dateistand", "LY2 Opening Split Week 13 abgeschlossen"],
+    ["Authoritative next-match source", "National League \u2013 Opening Split Woche 14"],
+  ]);
+  dashboard.B1.s = { fill: { patternType: "solid", fgColor: { rgb: "FF112233" } } };
+  XLSX.utils.book_append_sheet(workbook, dashboard, "Dashboard");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ["League Year", "Split", "Week", "Round Type", "League", "Show Day", "Match #", "Wrestler A", "Wrestler B", "Winner", "Result Type", "Notes"],
+    ["League Year 2", "Opening Split", 1, "Hinrunde", "Global League", "Freitag", 1, "Old A", "Old B", "Old A", "Simulation", "Opening result"],
+  ]), "Schedule_22W");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ["League", "Rank", "Wrestler", "Seed", "Matches", "Wins", "Draws", "Losses", "Points", "Status / Zone"],
+    ["Global League", 1, "Old A", 1, 13, 13, 0, 0, 39, "Opening"],
+  ]), "Standings_Current");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ["League", "Week", "Round Type", "Wrestler A", "Wrestler B", "Winner", "Loser"],
+    ["Global League", 13, "Rückrunde", "Old A", "Old B", "Old A", "Old B"],
+  ]), HEAD_TO_HEAD_SHEET);
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ["League", "Wrestler", "Seed", "Current Streak", "Longest Winning Streak", "Last Result", "Notes"],
+    ["Global League", "Old A", 1, 13, 13, "W", "Opening Week 13"],
+  ]), WINNING_STREAKS_SHEET);
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ["WWE 2K26 Legacy Tracker"],
+    ["Manually maintained all-time source"],
+    [],
+    ["Wrestler", "Current League", "League Wins Total"],
+    ["Old A", "Global League", 1],
+  ]), "Legacy_Tracker");
+  return XLSX.write(workbook, { type: "array", bookType: "xlsx", cellStyles: true });
+}
+
 function generate(pkg = closePackage()) {
   return createWorkbookWriteback(
     { workbook: baselineWorkbook(), sourceFile: "source.xlsx", schedule },
@@ -219,6 +272,27 @@ describe("safe workbook writeback", () => {
     ]);
   });
 
+  it("synchronizes existing Dashboard context cells without changing its structure or style", () => {
+    const result = createWorkbookWriteback(
+      { workbook: contextDashboardWorkbook(), sourceFile: "source.xlsx", schedule },
+      closePackage(),
+      "2026-06-13T13:00:00.000Z",
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const workbook = XLSX.read(result.workbook, { type: "array", cellStyles: true });
+    expect(workbook.SheetNames).toEqual(expect.arrayContaining(["Dashboard", RESULTS_SHEET, STANDINGS_SHEET, LOG_SHEET]));
+    const dashboardRows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets.Dashboard, { header: 1, raw: true });
+    expect(String(dashboardRows[0][1])).toContain("League Year 2");
+    expect(String(dashboardRows[0][1])).toContain("Opening Split");
+    expect(dashboardRows.slice(1)).toEqual([
+      ["Aktueller Stand", "Woche 14 abgeschlossen"],
+      ["Ligaphase", "Opening Split Woche 14 abgeschlossen"],
+      ["Dateistand", "LY2 Opening Split Week 14 abgeschlossen"],
+    ]);
+    expect(workbook.Sheets.Dashboard.B1.s).toBeTruthy();
+  });
+
   it("writes the accepted Closing Split schedule snapshot for Year Weeks 25-46", () => {
     expect(closingMatches.filter((match) => match.week === 25)).toHaveLength(24);
     const result = createWorkbookWriteback(
@@ -236,6 +310,57 @@ describe("safe workbook writeback", () => {
     for (const league of leagues) expect(rows.filter((row) => row.yearWeek === 25 && row.league === league)).toHaveLength(6);
     expect(rows[0]).toMatchObject({ split: "Closing Split", leagueYear: 2, scheduleSource: "accepted generated snapshot" });
     expect(new Set(rows.filter((row) => row.yearWeek === 25).map((row) => row.matchId))).toEqual(new Set(closingWeek25Results.map((result) => result.matchId)));
+    expect(result.filename).toBe("WWE_2K26_Liga_System_LY2_Closing_W25_abgeschlossen.xlsx");
+  });
+
+  it("synchronizes existing legacy fallback sheets from the coherent Closing checkpoint", () => {
+    const baseline = legacyFallbackWorkbook();
+    const baselineWorkbookData = XLSX.read(baseline, { type: "array", cellStyles: true });
+    const legacyBefore = XLSX.utils.sheet_to_json<unknown[]>(baselineWorkbookData.Sheets.Legacy_Tracker, { header: 1, raw: true });
+    const result = createWorkbookWriteback(
+      { workbook: baseline, sourceFile: "source.xlsx", schedule },
+      closingClosePackage(),
+      "2026-06-15T13:00:00.000Z",
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const workbook = XLSX.read(result.workbook, { type: "array", cellStyles: true });
+    const dashboardRows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets.Dashboard, { header: 1, raw: true });
+    expect(dashboardRows[0]).toEqual(["WWE 2K26 Liga-System", expect.stringMatching(/League Year 2.+Closing Split/)]);
+    expect(dashboardRows[1]).toEqual(["Aktueller Stand", "Woche 25 abgeschlossen"]);
+    expect(dashboardRows[2]).toEqual(["Ligaphase", "Closing Split Woche 1 abgeschlossen"]);
+    expect(dashboardRows[3]).toEqual(["Next User-Show", expect.stringMatching(/National League.+Closing Split Woche 2/)]);
+    expect(dashboardRows[4]).toEqual(["Dateistand", "LY2 Closing Split Week 1 abgeschlossen"]);
+    expect(dashboardRows[5]).toEqual(["Authoritative next-match source", expect.stringMatching(/National League.+Closing Split Woche 2/)]);
+    expect(workbook.Sheets.Dashboard.B1.s).toBeTruthy();
+
+    const fallbackSchedule = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets.Schedule_22W);
+    expect(fallbackSchedule).toHaveLength(528);
+    expect(new Set(fallbackSchedule.map((row) => row.Split))).toEqual(new Set(["Closing Split"]));
+    expect(fallbackSchedule.filter((row) => row.Week === 25)).toHaveLength(24);
+    expect(fallbackSchedule.filter((row) => row.Week === 25 && row.Winner)).toHaveLength(24);
+    expect(fallbackSchedule.filter((row) => row.Week === 26 && row.Winner)).toHaveLength(0);
+
+    const fallbackStandings = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets.Standings_Current);
+    expect(fallbackStandings).toHaveLength(48);
+    expect(fallbackStandings[0]).toMatchObject({
+      League: closingStandings[0].league,
+      Wrestler: closingStandings[0].wrestler,
+      Matches: 1,
+    });
+
+    const headToHead = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[HEAD_TO_HEAD_SHEET]);
+    const streaks = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[WINNING_STREAKS_SHEET]);
+    expect(headToHead).toHaveLength(24);
+    expect(new Set(headToHead.map((row) => row.Week))).toEqual(new Set([1]));
+    expect(streaks).toHaveLength(48);
+    expect(streaks.every((row) => String(row.Notes).includes("Closing Split Week 1"))).toBe(true);
+    expect(XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets.Legacy_Tracker, { header: 1, raw: true })).toEqual(legacyBefore);
+    expect(result.metadata.sheets).toEqual(expect.arrayContaining([
+      HEAD_TO_HEAD_SHEET,
+      WINNING_STREAKS_SHEET,
+    ]));
   });
 
   it("rejects Closing Split writeback when no accepted schedule exists or result ids do not match", () => {

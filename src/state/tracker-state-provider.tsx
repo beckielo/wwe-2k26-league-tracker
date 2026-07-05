@@ -12,9 +12,17 @@ import {
 } from "@/domain/tracker-state";
 import { reconcileCompletedSplitHistory } from "@/domain/completed-split-reconciliation";
 import type { LeagueName, Match } from "@/domain/types";
+import {
+  resolveWorkflowContextAuthority,
+  scopeTrackerStateToAuthority,
+  signLocalWorkflowContext,
+  type WorkflowContextAuthority,
+  type WorkflowContextBaseline,
+} from "@/domain/workflow-context";
 
 interface TrackerStateContextValue {
   state: TrackerState;
+  authority: WorkflowContextAuthority;
   hydrated: boolean;
   replaceState: (state: TrackerState) => void;
   updateState: (updater: (current: TrackerState) => TrackerState) => void;
@@ -25,9 +33,42 @@ interface TrackerStateContextValue {
 
 const TrackerStateContext = createContext<TrackerStateContextValue | null>(null);
 
-export function TrackerStateProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<TrackerState>(createEmptyTrackerState);
+const defaultWorkflowContext: WorkflowContextBaseline = {
+  dashboard: {
+    source: "workbook-dashboard",
+    valid: true,
+    leagueYear: 2,
+    split: "Opening Split",
+    activeYearWeek: 1,
+    completedThroughYearWeek: 0,
+    splitWeek: 1,
+    phase: "setup",
+    scheduleSource: "Workbook schedule",
+    standingsSource: "Workbook standings",
+    resultsSource: "Workbook results",
+    finalsReadiness: "not-ready",
+    sourceSignature: "workflow-default",
+    confidence: "low",
+    conflicts: [],
+  },
+  appWorkbook: null,
+  selected: "workbook-dashboard",
+  schedule: [],
+  conflicts: [],
+};
+
+export function TrackerStateProvider({
+  children,
+  workflowContext = defaultWorkflowContext,
+}: {
+  children: ReactNode;
+  workflowContext?: WorkflowContextBaseline;
+}) {
+  const [storedState, setStoredState] = useState<TrackerState>(createEmptyTrackerState);
   const [hydrated, setHydrated] = useState(false);
+  const baselineSourceSignature = workflowContext.selected === "app-workbook" && workflowContext.appWorkbook?.valid
+    ? workflowContext.appWorkbook.sourceSignature
+    : workflowContext.dashboard.sourceSignature;
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -37,7 +78,7 @@ export function TrackerStateProvider({ children }: { children: ReactNode }) {
           const parsed = JSON.parse(stored) as TrackerState;
           if (parsed.version === 1) {
             const recovered = reconcileCompletedSplitHistory(recoverPostRegularSeasonWorkflowState(parsed));
-            setState(recovered);
+            setStoredState(recovered);
             if (JSON.stringify(recovered) !== JSON.stringify(parsed)) window.localStorage.setItem(TRACKER_STATE_STORAGE_KEY, JSON.stringify(recovered));
           }
         } catch {
@@ -50,13 +91,23 @@ export function TrackerStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const persist = useCallback((next: TrackerState) => {
-    const reconciled = reconcileCompletedSplitHistory(next);
-    setState(reconciled);
+    const signed = signLocalWorkflowContext(next, baselineSourceSignature);
+    const reconciled = reconcileCompletedSplitHistory(signed);
+    setStoredState(reconciled);
     window.localStorage.setItem(TRACKER_STATE_STORAGE_KEY, JSON.stringify(reconciled));
-  }, []);
+  }, [baselineSourceSignature]);
+  const authority = useMemo(
+    () => resolveWorkflowContextAuthority(workflowContext, storedState, hydrated),
+    [hydrated, storedState, workflowContext],
+  );
+  const state = useMemo(
+    () => scopeTrackerStateToAuthority(storedState, authority.localStateAccepted),
+    [authority.localStateAccepted, storedState],
+  );
 
   const value = useMemo<TrackerStateContextValue>(() => ({
     state,
+    authority,
     hydrated,
     replaceState: persist,
     updateState: (updater) => persist(updater(state)),
@@ -74,7 +125,7 @@ export function TrackerStateProvider({ children }: { children: ReactNode }) {
       const empty = resetTrackerState();
       persist(empty);
     },
-  }), [hydrated, persist, state]);
+  }), [authority, hydrated, persist, state]);
 
   return <TrackerStateContext.Provider value={value}>{children}</TrackerStateContext.Provider>;
 }

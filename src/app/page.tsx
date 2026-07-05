@@ -15,13 +15,13 @@ function LeagueCommandCenterDashboard() {
   return (
     <>
       <PageHeader
-        eyebrow="Workbook baseline + local workflow"
+        eyebrow="Current league workflow"
         title="League Command Center"
-        description="Run the current show, resolve only what matters now, and move safely through the league year from one authoritative card."
+        description="Run the current show, resolve only what matters now, and move safely through the league year one card at a time."
         aside={
           <div className="source-status">
             <span />
-            Workbook connected
+            League data ready
           </div>
         }
       />
@@ -31,7 +31,6 @@ function LeagueCommandCenterDashboard() {
         workbookCompletedThroughWeek={data.meta.appBaselineCompletedThroughWeek}
         baselineStandings={data.standings}
         workbookResults={data.results}
-        workbookHeadToHead={data.headToHead}
         meta={data.meta}
         leagueYear={data.meta.leagueYear}
         userLeague={data.meta.userLeague}
@@ -45,7 +44,7 @@ function LeagueCommandCenterDashboard() {
       />
 
       <div className="mt-8 flex flex-col justify-between gap-3 border border-white/10 bg-white/[.025] px-5 py-4 text-xs text-slate-500 sm:flex-row">
-        <span>Source: {data.sourceFile}</span>
+        <span>Progress saved through Year Week {data.meta.appBaselineCompletedThroughWeek}</span>
         <span>
           {data.matches.length} scheduled matches · {data.results.length} completed results · {data.leagues.length} leagues
         </span>

@@ -9,9 +9,9 @@ describe("Phase 11.1 Week Review ordering and mini standings", () => {
   const weekReview = source("src/components/week-review.tsx");
   const workflowBanner = source("src/components/workflow-summary-banner.tsx");
 
-  it("renders Active browser-local workflow first, followed by current app week and stat cards", () => {
-    expect(weekReview.indexOf("<WorkflowSummaryBanner")).toBeLessThan(weekReview.indexOf("Current active app week"));
-    expect(weekReview.indexOf("Current active app week")).toBeLessThan(weekReview.indexOf('label="Scheduled"'));
+  it("renders the active workflow first, followed by the current week and stat cards", () => {
+    expect(weekReview.indexOf("<WorkflowSummaryBanner")).toBeLessThan(weekReview.indexOf("Current week"));
+    expect(weekReview.indexOf("Current week")).toBeLessThan(weekReview.indexOf('label="Scheduled"'));
     expect(weekReview.indexOf('label="Scheduled"')).toBeLessThan(weekReview.indexOf('label="Manual"'));
     expect(weekReview.indexOf('label="Manual"')).toBeLessThan(weekReview.indexOf('label="Simulation"'));
     expect(weekReview.indexOf('label="Simulation"')).toBeLessThan(weekReview.indexOf('label="State"'));
@@ -24,8 +24,9 @@ describe("Phase 11.1 Week Review ordering and mini standings", () => {
     expect(weekReview.indexOf("<PromoteCurrentMaster")).toBeLessThan(weekReview.indexOf("promptPreview={<MiniLiveStandingsPreview"));
   });
 
-  it("always renders mini standings from the Live Standings source through the latest locked or workbook week", () => {
-    expect(weekReview).toContain("const miniStandingsCompletedThroughWeek = latestLockedWeek ?? workbookCurrentWeek");
+  it("always renders mini standings from the shared workflow authority through its completed week", () => {
+    expect(weekReview).toContain("const miniStandingsCompletedThroughWeek = authority.completedThroughYearWeek");
+    expect(weekReview).toContain("const activeSplit = authority.split");
     expect(weekReview).toContain("reconstructActiveSplitLiveStandings");
     expect(weekReview).toContain("localResults: state.confirmedResults.filter((result) => result.week <= miniStandingsCompletedThroughWeek)");
     expect(weekReview).toContain("completedThroughWeek: miniStandingsCompletedThroughWeek");

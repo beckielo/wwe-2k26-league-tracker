@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildSimulationCandidates,
   calculateFavoriteProbability,
+  resolveSimulationScheduleSource,
   simulateMatch,
   simulateMatches,
   validateSimulatedResults,
@@ -44,6 +45,19 @@ function candidate(): SimulationCandidate {
 }
 
 describe("simulation eligibility", () => {
+  it("uses accepted-snapshot eligibility for a validated App checkpoint", () => {
+    expect(resolveSimulationScheduleSource({
+      activeSource: "app-workbook",
+      scheduleSource: "App_Accepted_Schedule / authoritative workbook schedule",
+      hasAcceptedSchedule: false,
+    })).toBe("accepted-snapshot");
+    expect(resolveSimulationScheduleSource({
+      activeSource: "workbook-dashboard",
+      scheduleSource: "Workbook Dashboard + Schedule_22W",
+      hasAcceptedSchedule: false,
+    })).toBe("workbook");
+  });
+
   it("loads all six Closing Split Week 1 matches for each non-user league from an accepted snapshot", () => {
     const seeds = Object.fromEntries(LEAGUE_NAMES.map((leagueName) => [
       leagueName,
@@ -169,6 +183,25 @@ expect(result.candidates).toEqual([]);
       userLeague: "National League",
     });
     expect(result.candidates).toEqual([]);
+  });
+
+  it("reports missing wrestler inputs without throwing or exposing sheet details", () => {
+    const regional = match("Regional League");
+    const result = buildSimulationCandidates({
+      matches: [regional],
+      matchupReference: [reference(regional)],
+      leagues: [league(regional)],
+      standings: [standing(regional, "Alpha", 1, 30)],
+      streaks: [streak(regional, "Alpha", 2, 5), streak(regional, "Beta", 1, 3)],
+      existingResults: [],
+      userLeague: "National League",
+    });
+
+    expect(result.candidates).toEqual([]);
+    expect(result.errors).toEqual([
+      "Prediction data is missing for Beta in Regional League: current standing.",
+    ]);
+    expect(result.errors.join(" ")).not.toMatch(/Workbook|App_|Standings_Current/);
   });
 });
 

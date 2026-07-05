@@ -21,7 +21,7 @@ export function LeagueBrandMark({ league, usage = "compact", className = "" }: {
   const usesBatchImage = batchImageUsages.includes(usage);
   const style = { "--brand-primary": asset.primaryColor, "--brand-accent": asset.accentColor } as CSSProperties;
   return <span className={`league-brand-mark brand-${usage} league-${asset.id} ${className}`} style={style} data-brand-fallback={asset.fallbackCrest} data-brand-art={usesFullImage ? "full" : "monogram"}>
-    {usesFullImage && <ResilientBrandImage src={asset.assetPath} alt={`${league} custom league logo`} className="brand-image" />}
+    {usesFullImage && <ResilientBrandImage src={asset.decorativeAssetPath} alt={`${league} custom league logo`} className="brand-image" />}
     {usesBatchImage && <ResilientBrandImage src={asset.batchAssetPath} alt={`${league} compact badge`} className="brand-image brand-batch-image" />}
     <span className="brand-fallback" aria-hidden>{asset.fallbackCrest}</span>
   </span>;
@@ -57,7 +57,7 @@ export function EventBrandPanel({ night, children }: { night: "Night One" | "Nig
   return <div className="event-brand-panel">
     <span className="event-decorative-art" aria-hidden="true"><ResilientBrandImage src={EVENT_DECORATIVE_ASSETS[night]} alt="" className="decorative-image" /></span>
     <span className="event-brand-art">
-      <ResilientBrandImage src={asset.assetPath} alt={`${asset.name} custom event logo`} className="brand-image" />
+      <ResilientBrandImage src={EVENT_DECORATIVE_ASSETS[night]} alt={`${asset.name} custom event logo`} className="brand-image" />
       <span className="brand-fallback" aria-hidden>{asset.fallbackCrest}</span>
     </span>
     <div><p>League Finals · Week 24</p><h2>{night}</h2>{children}</div>

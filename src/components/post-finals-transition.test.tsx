@@ -153,7 +153,7 @@ describe("PostFinalsTransitionView composition acceptance", () => {
     );
 
     expect(await screen.findByText("Closing Split Setup Ready")).toBeInTheDocument();
-    expect(screen.getByText("The reviewed post-finals league composition is accepted and ready to become the Closing Split baseline.")).toBeInTheDocument();
+    expect(screen.getByText("The reviewed post-finals league composition is accepted and ready as the Closing Split starting point.")).toBeInTheDocument();
     expect(screen.getByText("48 wrestlers")).toBeInTheDocument();
     expect(screen.getByText("no duplicates")).toBeInTheDocument();
     expect(screen.getByText("No preview — generate the Closing Split schedule first.")).toBeInTheDocument();
@@ -191,6 +191,10 @@ describe("PostFinalsTransitionView composition acceptance", () => {
       expect(stored.completedWeeks).toHaveLength(0);
       expect(stored.leagueFinalsResults).toHaveLength(finalsMatches.length);
       expect(stored.postFinalsTransitionCompleted).toMatchObject({ nextLeagueYear: 2, nextSplit: "Closing Split" });
+      expect(stored.workflowContextCheckpoint).toMatchObject({
+        scope: "user-workflow",
+        acceptedScheduleSignature: expect.stringMatching(/^workflow-/),
+      });
     });
   });
 

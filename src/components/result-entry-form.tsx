@@ -22,10 +22,10 @@ export function ResultEntryForm({ matches, userLeague }: ResultEntryFormProps) {
 const { state, replaceState, hydrated } = useTrackerState();
 
 const [matchId, setMatchId] = useState(matches[0]?.id ?? "");
-const [resultType, setResultType] =
-useState<ConfirmedResultType>("Winner");
-const [winner, setWinner] = useState(matches[0]?.wrestlerA ?? "");
-const [dirty, setDirty] = useState(false);
+const [drafts, setDrafts] = useState<Record<string, {
+resultType: ConfirmedResultType;
+winner: string | null;
+}>>({});
 const [message, setMessage] = useState<{
 tone: "success" | "error";
 text: string;
@@ -41,13 +41,12 @@ const existing = state.confirmedResults.find(
 (result) => result.matchId === matchId,
 );
 
-const effectiveResultType = dirty
-? resultType
-: existing?.resultType ?? resultType;
+const draft = drafts[matchId];
+const effectiveResultType = draft?.resultType ?? existing?.resultType ?? "Winner";
 
-const effectiveWinner = dirty
-? winner
-: existing?.winner ?? winner;
+const effectiveWinner = draft
+? draft.winner
+: existing?.winner ?? selected?.wrestlerA ?? "";
 
 const weekLocked = selected ? isWeekLocked(state, selected.week) : false;
 const openReview = (state.manualReviews ?? []).find(
@@ -55,17 +54,8 @@ const openReview = (state.manualReviews ?? []).find(
 );
 
 function chooseMatch(id: string) {
-const match = matches.find((item) => item.id === id);
-const confirmed = state.confirmedResults.find(
-(result) => result.matchId === id,
-);
-
 setMatchId(id);
-setResultType(confirmed?.resultType ?? "Winner");
-setWinner(confirmed?.winner ?? match?.wrestlerA ?? "");
-setDirty(false);
 setMessage(null);
-
 }
 
 function submit(event: FormEvent<HTMLFormElement>) {
@@ -98,7 +88,11 @@ if (!action.ok) {
 }
 
 replaceState(action.state);
-setDirty(false);
+setDrafts((current) => {
+  const next = { ...current };
+  delete next[matchId];
+  return next;
+});
 setMessage({
   tone: "success",
   text:
@@ -107,7 +101,7 @@ setMessage({
     selected.wrestlerA +
     " vs " +
     selected.wrestlerB +
-    ". Stored in local app state only.",
+    ".",
 });
 
 }
@@ -126,12 +120,14 @@ if (!action.ok) {
 }
 
 replaceState(action.state);
-setResultType("Winner");
-setWinner(selected?.wrestlerA ?? "");
-setDirty(false);
+setDrafts((current) => {
+  const next = { ...current };
+  delete next[matchId];
+  return next;
+});
 setMessage({
   tone: "success",
-  text: "Confirmed result removed from local app state.",
+  text: "Confirmed result removed.",
 });
 
 }
@@ -172,7 +168,7 @@ Loading local tracker state… </div>
 }
 
 return ( <form onSubmit={submit} className="grid gap-5 p-6">
-{weekLocked && ( <div className="border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-200">
+  {weekLocked && ( <div className="border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-200">
 Week {selected?.week} is complete and locked. Unlock it from Week
 Review before editing. </div>
 )}
@@ -213,9 +209,10 @@ Review before editing. </div>
               value={name}
               checked={effectiveResultType === "Winner" && effectiveWinner === name}
               onChange={() => {
-                setResultType("Winner");
-                setWinner(name);
-                setDirty(true);
+                setDrafts((current) => ({
+                  ...current,
+                  [matchId]: { resultType: "Winner", winner: name },
+                }));
               }}
             >
               {name}
@@ -225,9 +222,10 @@ Review before editing. </div>
           value="Draw"
           checked={effectiveResultType === "Draw"}
           onChange={() => {
-            setResultType("Draw");
-            setWinner("");
-            setDirty(true);
+            setDrafts((current) => ({
+              ...current,
+              [matchId]: { resultType: "Draw", winner: null },
+            }));
           }}
         >
           Draw
@@ -236,9 +234,10 @@ Review before editing. </div>
           value="No Contest"
           checked={effectiveResultType === "No Contest"}
           onChange={() => {
-            setResultType("No Contest");
-            setWinner("");
-            setDirty(true);
+            setDrafts((current) => ({
+              ...current,
+              [matchId]: { resultType: "No Contest", winner: null },
+            }));
           }}
         >
           No Contest
@@ -270,7 +269,7 @@ Review before editing. </div>
 
   {existing && (
     <div className="border border-sky-400/20 bg-sky-400/5 p-4 text-sm text-sky-200">
-      Confirmed {existing.resultType === "Winner" ? `${existing.winner} wins` : existing.resultType} from {existing.source} at{" "}
+      Confirmed {existing.resultType === "Winner" ? `${existing.winner} wins` : existing.resultType} at{" "}
       {new Date(existing.confirmedAt).toLocaleString()}.
     </div>
   )}
@@ -318,10 +317,11 @@ Review before editing. </div>
 function ResultOption({ value, checked, onChange, children }: { value: string; checked: boolean; onChange: () => void; children: ReactNode }) {
 return (
   <label
+    data-selected={checked ? "true" : "false"}
     className={
-      "flex min-h-16 cursor-pointer items-center rounded-lg border p-4 font-bold transition " +
+      "result-option flex min-h-16 cursor-pointer items-center gap-3 rounded-lg border p-4 font-bold transition " +
       (checked
-        ? "border-red-400 bg-red-400/10 text-white"
+        ? "is-selected border-red-400 bg-red-400/10 text-white"
         : "border-white/10 bg-white/[.02] text-slate-100 hover:border-white/25")
     }
   >
@@ -331,9 +331,12 @@ return (
       name="winner"
       value={value}
       checked={checked}
+      aria-checked={checked}
       onChange={onChange}
     />
-    {children}
+    <span className="result-option-indicator" aria-hidden="true">{checked ? "\u2713" : ""}</span>
+    <span className="min-w-0 flex-1">{children}</span>
+    <span className="result-option-state">{checked ? "Selected" : "Select"}</span>
   </label>
 );
 }

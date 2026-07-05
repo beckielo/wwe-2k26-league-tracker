@@ -6,8 +6,19 @@ import * as XLSX from "xlsx";
 import { validateTrackerData } from "@/domain/validation";
 import { buildCurrentStandingsFromScheduleComposition, buildLeaguesFromStandings, validateCurrentLeagueComposition } from "@/domain/current-league-composition";
 import { parseAppWorkbookBaseline } from "@/domain/app-workbook-baseline";
+import {
+  buildWorkflowContextBaseline,
+  createAppWorkbookContextCandidate,
+  createDashboardContextCandidate,
+} from "@/domain/workflow-context";
+import {
+  deriveCurrentHistoricalAnalytics,
+  historicalAnalyticsSheetStatus,
+  type HistoricalAnalyticsAudit,
+} from "@/domain/historical-analytics";
 import { ACCEPTED_SCHEDULE_SHEET } from "@/domain/workbook-writeback";
-import { MANUAL_LEGACY_COMPLETED_SPLIT_SOURCE } from "@/domain/legacy-manual-corrections";
+import { buildPrecedingSplitHistory } from "@/domain/completed-split-history";
+import { MANUAL_LEGACY_COMPLETED_SPLIT_SOURCE, MANUAL_LEGACY_ELITE_CUP_CORRECTIONS } from "@/domain/legacy-manual-corrections";
 import { auditLegacyCompletedSplitSources, applyLegacyHistoryRecords, applyManualEliteCupDisplayPatch, enrichLegacyProfilesFromCurrentMaster, enrichLegacyProfilesWithCompletedSplitChampions, extractCompletedEliteCupRecordsFromFinalStandings, extractCompletedSplitTitleRecordsFromFinalStandings, legacyProfileEliteCupRecords, parseLegacyTracker, summarizeLegacyProfiles, type LegacyTableData } from "@/domain/legacy";
 import {
   LEAGUE_NAMES,
@@ -49,10 +60,15 @@ export function loadMasterWorkbookBuffer(): { buffer: Buffer; sourceFile: string
   };
 }
 
-export function loadLegacyTableData(): LegacyTableData & { sourceFile: string; sourceSheet: "Legacy_Tracker" } {
+export function loadLegacyTableData(): LegacyTableData & {
+  sourceFile: string;
+  sourceSheet: "Legacy_Tracker";
+  historicalAnalytics: HistoricalAnalyticsAudit;
+} {
   const workbookPath = findMasterWorkbook();
   const sourceFile = path.basename(workbookPath);
   const workbook = XLSX.read(fs.readFileSync(workbookPath), { type: "buffer", cellDates: false });
+  const tracker = loadTrackerData();
   const legacy = parseLegacyTracker(workbook);
   const standings = workbook.Sheets.Standings_Current
     ? XLSX.utils.sheet_to_json<SheetRow>(workbook.Sheets.Standings_Current, { defval: null, raw: true }).map((row) => ({
@@ -68,52 +84,43 @@ export function loadLegacyTableData(): LegacyTableData & { sourceFile: string; s
       status: text(row["Status / Zone"]),
     }))
     : [];
-  const streaks = workbook.Sheets.Winning_Streaks
-    ? XLSX.utils.sheet_to_json<SheetRow>(workbook.Sheets.Winning_Streaks, { defval: null, raw: true }).map((row) => ({
-      league: league(row.League),
-      wrestler: text(row.Wrestler),
-      seed: number(row.Seed),
-      currentStreak: number(row["Current Streak"]),
-      longestWinningStreak: number(row["Longest Winning Streak"]),
-      lastResult: text(row["Last Result"]) as StreakRecord["lastResult"],
-      notes: text(row.Notes) || null,
-    }))
-    : [];
   const dashboard = readDashboard(workbook);
-  const leagueYearLabel = dashboard.get("WWE 2K26 Liga-System") || "League Year 2";
-  const currentSplit = (leagueYearLabel.includes("Closing") ? "Closing Split" : "Opening Split") as SplitName;
-  const appScheduleRows = workbook.Sheets[ACCEPTED_SCHEDULE_SHEET]
-    ? XLSX.utils.sheet_to_json<SheetRow>(workbook.Sheets[ACCEPTED_SCHEDULE_SHEET], { defval: null, raw: true })
-    : [];
-  const currentMatches: Match[] = appScheduleRows.map((row, index) => ({
-    id: text(row.matchId),
-    leagueYear: number(row.leagueYear),
-    split: split(row.split),
-    week: number(row.yearWeek),
-    roundType: roundType(row.roundType),
-    league: league(row.league),
-    showDay: text(row.showDay) as League["showDay"],
-    matchNumber: number(row.matchNumber),
-    wrestlerA: text(row.wrestlerA),
-    wrestlerB: text(row.wrestlerB),
-    matchupKey: text(row.matchupKey),
-    status: "scheduled",
-    source: { file: sourceFile, sheet: ACCEPTED_SCHEDULE_SHEET, row: index + 2 },
-  }));
-  const currentCompositionStandings = buildCurrentStandingsFromScheduleComposition(standings, currentMatches, [], currentSplit) ?? standings;
-  const currentProfiles = enrichLegacyProfilesFromCurrentMaster(legacy.profiles, currentCompositionStandings, streaks);
-  const closingScheduleExists = currentMatches.some((match) => match.split === "Closing Split");
-  const completedOpeningFromPostFinals = closingScheduleExists && currentSplit === "Opening Split";
-  const finalStandingHistory = (standings.every((row) => row.matches >= 22) && /finals|post-finals|abgeschlossen/i.test(`${dashboard.get("League Finals") ?? ""} ${dashboard.get("Ligaphase") ?? ""} ${dashboard.get("Aktueller Stand") ?? ""}`)) || completedOpeningFromPostFinals
-    ? extractCompletedSplitTitleRecordsFromFinalStandings(standings, parseLeagueYear(leagueYearLabel), "Opening Split", completedOpeningFromPostFinals ? "Post-Finals/Closing schedule completed Opening split source" : "Current master final standings")
+  const leagueYearLabel = dashboard.get("WWE 2K26 Liga-System") || tracker.meta.leagueYearLabel;
+  const currentSplit = tracker.meta.currentSplit;
+  const currentProfiles = enrichLegacyProfilesFromCurrentMaster(
+    legacy.profiles,
+    tracker.standings,
+    tracker.streaks,
+  );
+  const explicitCompletedStandings = standings.every((row) => row.matches >= 22)
+    && /finals|post-finals|abgeschlossen/i.test(
+      `${dashboard.get("League Finals") ?? ""} ${dashboard.get("Ligaphase") ?? ""} ${dashboard.get("Aktueller Stand") ?? ""}`,
+    );
+  const finalStandingHistory = explicitCompletedStandings
+    ? extractCompletedSplitTitleRecordsFromFinalStandings(
+      standings,
+      parseLeagueYear(leagueYearLabel),
+      currentSplit,
+      "Current master final standings",
+    )
     : { titleRecords: [], warnings: [] };
   const finalEliteCupHistory = finalStandingHistory.titleRecords.length === 4
-    ? extractCompletedEliteCupRecordsFromFinalStandings(standings, parseLeagueYear(leagueYearLabel), "Opening Split", completedOpeningFromPostFinals ? "Post-Finals/League Finals completed Elite Cup source" : "Current master final Elite Cup status")
+    ? extractCompletedEliteCupRecordsFromFinalStandings(
+      standings,
+      parseLeagueYear(leagueYearLabel),
+      currentSplit,
+      "Current master final Elite Cup status",
+    )
     : { eliteCupRecords: [], warnings: [] };
-  const completedSplits = ["1:Historical Split", ...(finalStandingHistory.titleRecords.length === 4 ? [`${parseLeagueYear(leagueYearLabel)}:Opening Split`] : [])];
+  const completedSplits = [
+    "1:Historical Split",
+    ...(finalStandingHistory.titleRecords.length === 4
+      ? [`${parseLeagueYear(leagueYearLabel)}:${currentSplit}`]
+      : []),
+  ];
   const audit = auditLegacyCompletedSplitSources([
     { source: "Legacy_Tracker", completedSplits: ["1:Historical Split"], eliteCupRecords: legacyProfileEliteCupRecords(legacy.profiles), notes: [`Legacy_Tracker profile totals: ${legacy.summary.leagueTitleRecords} league title records, ${legacy.summary.eliteCupRecords} Elite Cup records.`] },
-    { source: "Post-Finals/final standings", completedSplits: finalStandingHistory.titleRecords.length === 4 ? [`${parseLeagueYear(leagueYearLabel)}:Opening Split`] : [], titleRecords: finalStandingHistory.titleRecords, notes: finalStandingHistory.warnings },
+    { source: "Post-Finals/final standings", completedSplits: finalStandingHistory.titleRecords.length === 4 ? [`${parseLeagueYear(leagueYearLabel)}:${currentSplit}`] : [], titleRecords: finalStandingHistory.titleRecords, notes: finalStandingHistory.warnings },
     { source: "League Finals records", completedSplits, eliteCupRecords: finalEliteCupHistory.eliteCupRecords, notes: finalEliteCupHistory.warnings.length ? finalEliteCupHistory.warnings : ["Recovered completed Elite Cup winner from finalized Global League Champion + Elite Cup status when Legacy_Tracker was incomplete."] },
     { source: "App database/history records", completedSplits, notes: ["Checked workbook app-state sheets; active Closing Split records are not counted as completed history."] },
     MANUAL_LEGACY_COMPLETED_SPLIT_SOURCE,
@@ -125,7 +132,15 @@ export function loadLegacyTableData(): LegacyTableData & { sourceFile: string; s
   );
   const summary = summarizeLegacyProfiles(profilesWithTitles, audit);
   const displayPatch = applyManualEliteCupDisplayPatch(profilesWithTitles, summary);
-  return { ...legacy, policyNote: "", profiles: displayPatch.profiles, summary: displayPatch.summary, sourceFile, sourceSheet: "Legacy_Tracker" };
+  return {
+    ...legacy,
+    policyNote: "",
+    profiles: displayPatch.profiles,
+    summary: displayPatch.summary,
+    sourceFile,
+    sourceSheet: "Legacy_Tracker",
+    historicalAnalytics: tracker.historicalAnalytics,
+  };
 }
 
 type CellValue = string | number | boolean | null | undefined;
@@ -177,6 +192,16 @@ function slug(value: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
+}
+
+function matchSemanticKey(match: Pick<Match, "leagueYear" | "split" | "week" | "league" | "matchNumber">): string {
+  return [
+    match.leagueYear,
+    match.split,
+    match.week,
+    match.league,
+    match.matchNumber,
+  ].join("|");
 }
 
 function readDashboard(workbook: XLSX.WorkBook): Map<string, string> {
@@ -339,26 +364,43 @@ export function loadTrackerData(): TrackerData {
       source: { file: sourceFile, sheet: ACCEPTED_SCHEDULE_SHEET, row: index + 2 },
     };
   });
-  const appScheduleIds = new Set(appScheduleMatches.map((match) => match.id));
-  const matches = [...workbookMatches.filter((match) => !appScheduleIds.has(match.id)), ...appScheduleMatches];
+  const appMatchBySemanticKey = new Map(
+    appScheduleMatches.map((match) => [matchSemanticKey(match), match]),
+  );
+  const matches = [
+    ...workbookMatches.filter((match) => !appMatchBySemanticKey.has(matchSemanticKey(match))),
+    ...appScheduleMatches,
+  ];
 
   const matchById = new Map(matches.map((match) => [match.id, match]));
+  const workbookMatchById = new Map(workbookMatches.map((match) => [match.id, match]));
   const results: MatchResult[] = scheduleRows.flatMap((row, index) => {
     const winner = text(row.Winner);
-    if (!winner) return [];
     const matchLeague = league(row.League);
-    const matchId = `${slug(matchLeague)}-${number(row.Week)}-${number(row["Match #"])}`;
-    const match = matchById.get(matchId);
-    if (!match) throw new Error(`Result has no scheduled match: ${matchId}`);
-    const loser = winner === match.wrestlerA ? match.wrestlerB : match.wrestlerA;
+    const legacyMatchId = `${slug(matchLeague)}-${number(row.Week)}-${number(row["Match #"])}`;
+    const legacyMatch = workbookMatchById.get(legacyMatchId);
+    if (!legacyMatch) throw new Error(`Result has no scheduled match: ${legacyMatchId}`);
+    const match = appMatchBySemanticKey.get(matchSemanticKey(legacyMatch)) ?? legacyMatch;
+    const notes = text(row.Notes);
+    const encodedOutcome = /^draw\b/i.test(notes)
+      ? "draw"
+      : /^no contest\b/i.test(notes)
+        ? "no-contest"
+        : winner
+          ? "decisive"
+          : null;
+    if (!encodedOutcome) return [];
+    const loser = encodedOutcome === "decisive"
+      ? (winner === match.wrestlerA ? match.wrestlerB : match.wrestlerA)
+      : null;
     const sourceValue = text(row["Result Type"]);
     return [{
-      matchId,
-      outcome: "decisive",
-      winner,
+      matchId: match.id,
+      outcome: encodedOutcome,
+      winner: encodedOutcome === "decisive" ? winner : null,
       loser,
       resultSource: sourceValue === "User" || sourceValue === "Simulation" ? sourceValue : "Unknown",
-      notes: text(row.Notes) || null,
+      notes: notes || null,
       source: { file: sourceFile, sheet: "Schedule_22W", row: index + 2 },
     }];
   });
@@ -376,7 +418,9 @@ export function loadTrackerData(): TrackerData {
     status: text(row["Status / Zone"]),
   }));
 
-  const headToHead: HeadToHeadRecord[] = readRows(workbook, "H2H_Tracker").map((row) => ({
+  const workbookHeadToHead: HeadToHeadRecord[] = readRows(workbook, "H2H_Tracker")
+    .filter((row) => text(row.League))
+    .map((row) => ({
     league: league(row.League),
     week: number(row.Week),
     roundType: roundType(row["Round Type"]),
@@ -384,9 +428,11 @@ export function loadTrackerData(): TrackerData {
     wrestlerB: text(row["Wrestler B"]),
     winner: text(row.Winner),
     loser: text(row.Loser),
-  }));
+    }));
 
-  const streaks: StreakRecord[] = readRows(workbook, "Winning_Streaks").map((row) => ({
+  const workbookStreaks: StreakRecord[] = readRows(workbook, "Winning_Streaks")
+    .filter((row) => text(row.League))
+    .map((row) => ({
     league: league(row.League),
     wrestler: text(row.Wrestler),
     seed: number(row.Seed),
@@ -394,7 +440,7 @@ export function loadTrackerData(): TrackerData {
     longestWinningStreak: number(row["Longest Winning Streak"]),
     lastResult: text(row["Last Result"]) as StreakRecord["lastResult"],
     notes: text(row.Notes) || null,
-  }));
+    }));
 
   const matchupReference: MatchupReferenceRow[] = readRows(workbook, "Matchup_Reference").map((row) => ({
     week: number(row.Week),
@@ -408,9 +454,31 @@ export function loadTrackerData(): TrackerData {
     sourceLabel: text(row.Source),
     status: text(row["Status / Use"]),
   }));
-  const appBaseline = parseAppWorkbookBaseline(workbook, matches, workbookStandings);
-  const baselineStandings = appBaseline.standings ?? workbookStandings;
-  const appMatchResults: MatchResult[] = appBaseline.confirmedResults.map((result) => {
+  const appBaseline = parseAppWorkbookBaseline(workbook, matches);
+  const dashboardContext = createDashboardContextCandidate({
+    leagueYear,
+    split: currentSplit,
+    completedThroughYearWeek: currentWeek,
+    schedule: workbookMatches,
+    standings: workbookStandings,
+  });
+  const appContext = createAppWorkbookContextCandidate({
+    latestWriteback: appBaseline.latestWriteback,
+    schedule: matches,
+    standings: appBaseline.standings,
+    results: appBaseline.confirmedResults,
+  });
+  const useAppCheckpoint = Boolean(appContext?.valid);
+  const authoritativeMatches = useAppCheckpoint ? matches : workbookMatches;
+  const workflowContext = buildWorkflowContextBaseline({
+    dashboard: dashboardContext,
+    appWorkbook: appContext,
+    dashboardSchedule: authoritativeMatches,
+  });
+  const selectedContext = useAppCheckpoint ? appContext! : dashboardContext;
+  const baselineStandings = useAppCheckpoint ? appBaseline.standings! : workbookStandings;
+  const acceptedAppResults = useAppCheckpoint ? appBaseline.confirmedResults : [];
+  const appMatchResults: MatchResult[] = acceptedAppResults.map((result) => {
     const match = matchById.get(result.matchId);
     const loser = result.resultType === "Winner" && result.winner && match
       ? (result.winner === match.wrestlerA ? match.wrestlerB : match.wrestlerA)
@@ -432,12 +500,62 @@ export function loadTrackerData(): TrackerData {
   ];
   const currentCompositionStandings = buildCurrentStandingsFromScheduleComposition(
     baselineStandings,
-    matches,
+    authoritativeMatches,
     workbookBackedResults,
-    currentSplit,
+    selectedContext.split,
   );
-  const standings = currentCompositionStandings ?? baselineStandings;
+  const standings = useAppCheckpoint ? baselineStandings : (currentCompositionStandings ?? baselineStandings);
   const activeLeagues = currentCompositionStandings ? buildLeaguesFromStandings(standings, leagues) : leagues;
+  const currentHistoricalAnalytics = deriveCurrentHistoricalAnalytics({
+    matches: authoritativeMatches,
+    results: workbookBackedResults,
+    standings,
+    leagueYear: selectedContext.leagueYear,
+    split: selectedContext.split,
+    completedThroughYearWeek: selectedContext.completedThroughYearWeek,
+    authoritySourceSignature: selectedContext.sourceSignature,
+  });
+  const analyticsSheetStatus = historicalAnalyticsSheetStatus(
+    workbookHeadToHead,
+    workbookStreaks,
+    currentHistoricalAnalytics,
+  );
+  const historicalAnalytics: HistoricalAnalyticsAudit = {
+    ...currentHistoricalAnalytics.context,
+    ...analyticsSheetStatus,
+  };
+  const confirmedOpeningEliteCup = MANUAL_LEGACY_ELITE_CUP_CORRECTIONS.find((record) => (
+    record.leagueYear === 2 && record.split === "Opening Split" && record.wrestler
+  ));
+  const completedSplitHistory = buildPrecedingSplitHistory({
+    currentContext: selectedContext,
+    sourceWorkbook: sourceFile,
+    confirmedEliteCupWinner: confirmedOpeningEliteCup ? {
+      leagueYear: confirmedOpeningEliteCup.leagueYear,
+      split: "Opening Split",
+      wrestler: confirmedOpeningEliteCup.wrestler,
+      source: confirmedOpeningEliteCup.sourceLabel ?? "User-confirmed historical correction",
+    } : undefined,
+  });
+  const historicalAnalyticsIssues: ValidationIssue[] = [
+    ...(analyticsSheetStatus.headToHeadSheetStatus === "reconstructed" ? [{
+      code: "HISTORICAL_ANALYTICS_H2H_RECONSTRUCTED",
+      severity: "warning" as const,
+      message: "H2H_Tracker did not match the validated workflow context. The app reconstructed current head-to-head data from accepted schedule results.",
+      source: { file: sourceFile, sheet: "H2H_Tracker" },
+    }] : []),
+    ...(analyticsSheetStatus.winningStreakSheetStatus === "reconstructed" ? [{
+      code: "HISTORICAL_ANALYTICS_STREAKS_RECONSTRUCTED",
+      severity: "warning" as const,
+      message: "Winning_Streaks did not match the validated workflow context. The app reconstructed current streaks from accepted schedule results.",
+      source: { file: sourceFile, sheet: "Winning_Streaks" },
+    }] : []),
+    ...(currentHistoricalAnalytics.context.rejectedResultCount > 0 ? [{
+      code: "HISTORICAL_ANALYTICS_RESULTS_REJECTED",
+      severity: "warning" as const,
+      message: `${currentHistoricalAnalytics.context.rejectedResultCount} result records were excluded because they did not match the validated analytics context.`,
+    }] : []),
+  ];
 
   const dataWithoutIssues: Omit<TrackerData, "validationIssues"> = {
     sourceFile,
@@ -448,7 +566,7 @@ export function loadTrackerData(): TrackerData {
       currentWeek,
       latestAppWritebackWeek: appBaseline.latestAppWritebackWeek,
       latestAppWritebackCompletedAt: appBaseline.latestAppWritebackCompletedAt,
-      appBaselineCompletedThroughWeek: Math.max(currentWeek, appBaseline.latestAppWritebackWeek ?? currentWeek),
+      appBaselineCompletedThroughWeek: selectedContext.completedThroughYearWeek,
       usesAppWritebackSheets: appBaseline.hasWritebackSheets,
       currentStatus,
       userLeague: league(dashboard.get("User-Liga")),
@@ -461,21 +579,25 @@ export function loadTrackerData(): TrackerData {
     ],
     weeks,
     leagues: activeLeagues,
-    matches,
+    matches: authoritativeMatches,
     results: workbookBackedResults,
-    appWritebackResults: appBaseline.confirmedResults,
+    appWritebackResults: acceptedAppResults,
     standings,
-    headToHead,
-    streaks,
+    headToHead: currentHistoricalAnalytics.headToHead,
+    streaks: currentHistoricalAnalytics.streaks,
+    historicalAnalytics,
+    completedSplitHistory,
     matchupReference,
     hasLeagueFinalsTemplate: Boolean(workbook.Sheets.PPV_Template_Layout),
+    workflowContext,
   };
 
   return {
     ...dataWithoutIssues,
     validationIssues: [
       ...validateTrackerData(dataWithoutIssues),
-      ...validateCurrentLeagueComposition(standings, matches, currentSplit),
+      ...validateCurrentLeagueComposition(standings, authoritativeMatches, selectedContext.split),
+      ...historicalAnalyticsIssues,
       ...workbookWarnings(workbook, sourceFile),
       ...appBaseline.validationIssues.map((issue) => ({
         ...issue,

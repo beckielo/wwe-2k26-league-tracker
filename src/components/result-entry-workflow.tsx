@@ -29,7 +29,7 @@ userLeague,
 userWrestler,
 standings,
 }: ResultEntryWorkflowProps) {
-const { state, hydrated } = useTrackerState();
+const { state, authority, hydrated } = useTrackerState();
 const selectedUser = useCurrentUser(standings).currentUser;
 
 if (!hydrated) {
@@ -39,8 +39,8 @@ Loading local tracker state… </div>
 }
 
 const workflowMatches = getActiveWorkflowMatches(state, matches);
-const workflowBaseline = state.activeWorkflow ? (state.activeWorkflow.split === "Closing Split" ? 24 : 0) : workbookCurrentWeek;
-const workflowUserLeague = selectedUser?.league ?? userLeague;
+const workflowBaseline = authority.completedThroughYearWeek;
+const workflowUserLeague = state.activeWorkflow?.userLeague ?? selectedUser?.league ?? userLeague;
 const workflowUserWrestler = selectedUser?.wrestler ?? userWrestler;
 const summary = getWorkflowSummary(
 state,
@@ -71,7 +71,7 @@ const userConfirmed = summary.userLeagueProgress?.confirmed ?? 0;
 const userMissing =
 summary.userLeagueProgress?.missing ?? userMatches.length;
 const userShowComplete = userMissing === 0;
-const display = getWeekDisplay(state.activeWorkflow?.leagueYear ?? 2, week, state.activeWorkflow?.split);
+const display = getWeekDisplay(authority.leagueYear, week, authority.split);
 
 return (
 <> <div className="mb-8"> <WorkflowSummaryBanner
@@ -142,7 +142,7 @@ return (
         <ResultEntryForm matches={userMatches} userLeague={workflowUserLeague} />
       ) : (
         <div className="p-6 text-slate-400">
-          No authoritative user-league matches exist for this week.
+          No user-league matches are scheduled for this week.
         </div>
       )}
     </Panel>
@@ -159,7 +159,7 @@ return (
 
       <div className="space-y-4 p-6 text-sm leading-6 text-slate-300">
         <p>
-          Only the six authoritative {workflowUserLeague} matchups for active Week{" "}
+          Only the six scheduled {workflowUserLeague} matchups for Week{" "}
           {week} are available here.
         </p>
         <p>
@@ -167,8 +167,7 @@ return (
           and locked in Week Review.
         </p>
         <p>
-          The workbook stays read-only; confirmations are stored only in
-          this browser.
+          Confirmed results are saved on this device until the week is locked.
         </p>
 
         <Link
