@@ -1,5 +1,19 @@
 import type { ConfirmedResult } from "./tracker-state";
-import { LEAGUE_NAMES, type LeagueName, type Match, type SplitName, type StandingRow } from "./types";
+import { calculatePoints } from "./scoring";
+import {
+  calculateWinningStreaks,
+  decideTwoWrestlerTiebreak,
+} from "./tiebreakers";
+import {
+  LEAGUE_NAMES,
+  type HeadToHeadRecord,
+  type LeagueName,
+  type Match,
+  type MatchResult,
+  type SplitName,
+  type StandingRow,
+  type StreakRecord,
+} from "./types";
 import { createWorkflowSourceSignature } from "./workflow-context";
 
 export type ClosingCheckpointProvenance =
@@ -34,8 +48,17 @@ export interface ClosingCheckpointEvaluation {
   confidence: "high" | "conflicted";
   sourceSignature: string;
   standings: StandingRow[];
+  tiebreakerStatus: "clear" | "provisional" | "needs_tiebreaker";
+  unresolvedTies: ReconstructedPointTie[];
   errors: string[];
   warnings: string[];
+}
+
+export interface ReconstructedPointTie {
+  league: LeagueName;
+  points: number;
+  wrestlers: string[];
+  status: "needs_tiebreaker";
 }
 
 export interface ClosingCheckpointSelection {
@@ -74,12 +97,123 @@ function deriveSeeds(schedule: Match[], errors: string[]): Map<string, number> {
   return seeds;
 }
 
+function appendTiebreakerStatus(status: string): string {
+  return [...new Set([
+    ...status.split("·").map((part) => part.trim()).filter(Boolean),
+    "needs_tiebreaker",
+  ])].join(" · ");
+}
+
+export function resolveReconstructedPointTies(
+  rows: StandingRow[],
+  headToHead: HeadToHeadRecord[],
+  streaks: StreakRecord[],
+): { standings: StandingRow[]; unresolvedTies: ReconstructedPointTie[] } {
+  const unresolvedTies: ReconstructedPointTie[] = [];
+  const standings = LEAGUE_NAMES.flatMap((league) => {
+    const leagueRows = rows
+      .filter((row) => row.league === league)
+      .sort((a, b) => b.points - a.points);
+    const pointGroups = new Map<number, StandingRow[]>();
+    for (const row of leagueRows) {
+      pointGroups.set(row.points, [...(pointGroups.get(row.points) ?? []), row]);
+    }
+
+    const ordered = [...pointGroups.entries()]
+      .sort(([pointsA], [pointsB]) => pointsB - pointsA)
+      .flatMap(([points, tiedRows]) => {
+        if (tiedRows.length === 1) return tiedRows;
+        if (tiedRows.length === 2) {
+          const decision = decideTwoWrestlerTiebreak(
+            tiedRows[0],
+            tiedRows[1],
+            headToHead,
+            streaks,
+          );
+          if (!decision.matchRequired && decision.winner) {
+            return decision.winner === tiedRows[0].wrestler
+              ? tiedRows
+              : [tiedRows[1], tiedRows[0]];
+          }
+        }
+
+        unresolvedTies.push({
+          league,
+          points,
+          wrestlers: tiedRows.map((row) => row.wrestler),
+          status: "needs_tiebreaker",
+        });
+        return tiedRows.map((row) => ({
+          ...row,
+          status: appendTiebreakerStatus(row.status),
+        }));
+      });
+
+    return ordered.map((row, index) => ({ ...row, rank: index + 1 }));
+  });
+
+  return { standings, unresolvedTies };
+}
+
+function tiebreakEvidence(
+  schedule: Match[],
+  results: ConfirmedResult[],
+): { headToHead: HeadToHeadRecord[]; streaks: StreakRecord[] } {
+  const matchById = new Map(schedule.map((match) => [match.id, match]));
+  const matchResults: MatchResult[] = results.flatMap((result): MatchResult[] => {
+    const match = matchById.get(result.matchId);
+    if (!match) return [];
+    const decisive = result.resultType === "Winner" && result.winner;
+    return [{
+      matchId: result.matchId,
+      outcome: result.resultType === "Winner"
+        ? "decisive"
+        : result.resultType === "Draw"
+          ? "draw"
+          : "no-contest",
+      winner: result.winner,
+      loser: decisive
+        ? (result.winner === match.wrestlerA ? match.wrestlerB : match.wrestlerA)
+        : null,
+      resultSource: result.source,
+      notes: null,
+      source: { file: "closing-checkpoint", sheet: "confirmed-results" },
+    }];
+  });
+  const headToHead = matchResults.flatMap((result): HeadToHeadRecord[] => {
+    const match = matchById.get(result.matchId);
+    if (!match || result.outcome === "no-contest") return [];
+    const winner = result.outcome === "decisive" ? result.winner ?? "" : "";
+    return [{
+      league: match.league,
+      week: match.split === "Closing Split" ? match.week - 24 : match.week,
+      roundType: match.roundType,
+      wrestlerA: match.wrestlerA,
+      wrestlerB: match.wrestlerB,
+      winner,
+      loser: winner
+        ? (winner === match.wrestlerA ? match.wrestlerB : match.wrestlerA)
+        : "",
+    }];
+  });
+  const streaks = calculateWinningStreaks(schedule, matchResults).map((record): StreakRecord => ({
+    league: record.league,
+    wrestler: record.wrestler,
+    seed: 0,
+    currentStreak: record.currentWinningStreak,
+    longestWinningStreak: record.longestWinningStreak,
+    lastResult: "",
+    notes: null,
+  }));
+  return { headToHead, streaks };
+}
+
 function reconstructStandings(
   schedule: Match[],
   results: ConfirmedResult[],
   completedThroughYearWeek: number,
   errors: string[],
-): StandingRow[] {
+): { standings: StandingRow[]; unresolvedTies: ReconstructedPointTie[] } {
   const seeds = deriveSeeds(schedule, errors);
   const wrestlersByLeague = new Map<LeagueName, string[]>(
     LEAGUE_NAMES.map((league) => [league, []]),
@@ -124,14 +258,12 @@ function reconstructStandings(
       winner.wins += 1;
       loser.losses += 1;
     }
-    rowA.points = rowA.wins * 3 + rowA.draws;
-    rowB.points = rowB.wins * 3 + rowB.draws;
+    rowA.points = calculatePoints(rowA.wins, rowA.draws);
+    rowB.points = calculatePoints(rowB.wins, rowB.draws);
   }
 
-  return LEAGUE_NAMES.flatMap((league) => rows
-    .filter((row) => row.league === league)
-    .sort((a, b) => b.points - a.points || a.seed - b.seed)
-    .map((row, index) => ({ ...row, rank: index + 1 })));
+  const evidence = tiebreakEvidence(schedule, results);
+  return resolveReconstructedPointTies(rows, evidence.headToHead, evidence.streaks);
 }
 
 export function evaluateClosingCheckpoint(candidate: ClosingCheckpointCandidate): ClosingCheckpointEvaluation {
@@ -206,19 +338,27 @@ export function evaluateClosingCheckpoint(candidate: ClosingCheckpointCandidate)
     warnings.push(`${candidate.provenance} evidence is not independently persistent and cannot be promoted.`);
   }
 
-  const standings = errors.length
-    ? []
+  const reconstruction = errors.length
+    ? { standings: [], unresolvedTies: [] }
     : reconstructStandings(
       candidate.schedule,
       candidate.results,
       candidate.completedThroughYearWeek,
       errors,
     );
+  const standings = reconstruction.standings;
   if (standings.length > 0 && standings.some((row) => (
     row.matches !== splitWeek
     || row.matches !== row.wins + row.draws + row.losses
-    || row.points !== row.wins * 3 + row.draws
+    || row.points !== calculatePoints(row.wins, row.draws)
   ))) errors.push("Reconstructed standings records are internally inconsistent.");
+  const finalResolutionRequired = candidate.completedThroughYearWeek >= 46;
+  const needsTiebreaker = finalResolutionRequired && reconstruction.unresolvedTies.length > 0;
+  if (needsTiebreaker) {
+    errors.push(
+      `Final regular-season standings contain ${reconstruction.unresolvedTies.length} unresolved point tie(s); a Tiebreaker Match is required.`,
+    );
+  }
 
   const sourceSignature = createWorkflowSourceSignature([
     "closing-checkpoint",
@@ -251,6 +391,12 @@ export function evaluateClosingCheckpoint(candidate: ClosingCheckpointCandidate)
     confidence: promotable ? "high" : "conflicted",
     sourceSignature,
     standings,
+    tiebreakerStatus: reconstruction.unresolvedTies.length === 0
+      ? "clear"
+      : needsTiebreaker
+        ? "needs_tiebreaker"
+        : "provisional",
+    unresolvedTies: reconstruction.unresolvedTies,
     errors: [...new Set(errors)],
     warnings,
   };
