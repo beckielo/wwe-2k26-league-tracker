@@ -459,6 +459,15 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
       </div>
   )}
 
+  <MiniLiveStandingsPreview
+    standings={updatedStandings}
+    split={activeSplit}
+    splitWeek={activeSplitWeek}
+    latestLockedWeek={latestLockedWeek}
+    currentUserWrestler={userWrestler}
+    championRoles={getPreviousSplitChampionColorRoles(completedSplitAudit, state.completedSplitLegacyCommits)}
+  />
+
   <details className="border border-white/10 bg-[#111722] p-5">
     <summary className="cursor-pointer text-sm font-black uppercase tracking-wider text-slate-300">Advanced backup and data export</summary>
     <div className="mt-5">
@@ -469,7 +478,6 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
         userLeague={workflowUserLeague}
         workbookCompletedThroughWeek={workbookCurrentWeek}
         source={sourceFile}
-        promptPreview={<MiniLiveStandingsPreview standings={updatedStandings} split={activeSplit} splitWeek={activeSplitWeek} latestLockedWeek={latestLockedWeek} currentUserWrestler={userWrestler} championRoles={getPreviousSplitChampionColorRoles(completedSplitAudit, state.completedSplitLegacyCommits)} />}
       />
     </div>
   </details>

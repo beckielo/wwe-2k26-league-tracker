@@ -33,7 +33,7 @@ describe("Phase 11 Week Review workflow overhaul", () => {
 
   it("shows the GitHub continuation prompt and navigates to Dashboard on success", () => {
     expect(promote).toContain("Do you want");
-    expect(promote.indexOf("Do you want")).toBeLessThan(promote.indexOf("props.promptPreview"));
+    expect(promote).not.toContain("promptPreview");
     expect(promote).toContain('router.push("/")');
     expect(promote).toContain("/api/finalize-current-master");
     expect(promote).toContain("No, stay here");

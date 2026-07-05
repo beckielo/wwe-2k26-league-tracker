@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createWeeklyCloseExports } from "@/domain/weekly-close-exports";
 import type { TrackerState } from "@/domain/tracker-state";
@@ -14,7 +14,6 @@ interface PromoteCurrentMasterProps {
   userLeague: LeagueName;
   workbookCompletedThroughWeek: number;
   source: string;
-  promptPreview?: ReactNode;
 }
 
 export function PromoteCurrentMaster(props: PromoteCurrentMasterProps) {
@@ -191,7 +190,6 @@ export function PromoteCurrentMaster(props: PromoteCurrentMasterProps) {
           </div>
         </div>
       )}
-      {props.promptPreview}
       {finalizationLogs.length > 0 && (
         <ol className="mt-4 space-y-2 text-sm">
           {finalizationLogs.map((log) => (
