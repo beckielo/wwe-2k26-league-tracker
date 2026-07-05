@@ -53,6 +53,8 @@ export interface SimulationValidationResult {
   errors: string[];
 }
 
+export type SimulationScheduleSource = "workbook" | "accepted-snapshot";
+
 const DRAW_CHANCE = 0.01;
 
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -80,6 +82,15 @@ function favoriteLabel(probability: number): FavoriteLabel {
   return "Even matchup";
 }
 
+export function resolveSimulationScheduleSource(input: {
+  activeSource: "local" | "app-workbook" | "workbook-dashboard";
+  scheduleSource: string;
+  hasAcceptedSchedule: boolean;
+}): SimulationScheduleSource {
+  if (input.hasAcceptedSchedule || input.activeSource === "app-workbook") return "accepted-snapshot";
+  return /accepted/i.test(input.scheduleSource) ? "accepted-snapshot" : "workbook";
+}
+
 export function buildSimulationCandidates(input: {
   matches: Match[];
   matchupReference: MatchupReferenceRow[];
@@ -95,6 +106,7 @@ scheduleSource?: "workbook" | "accepted-snapshot";
 week: number | null;
 candidates: SimulationCandidate[];
 excludedLeague: LeagueName;
+errors: string[];
 } {
 const completedIds = new Set(
 input.existingResults.map((result) => result.matchId),
@@ -115,7 +127,7 @@ input.targetWeek === undefined
 : null
 : input.targetWeek;
   
-  if (week === null) return { week, candidates: [], excludedLeague: input.userLeague };
+  if (week === null) return { week, candidates: [], excludedLeague: input.userLeague, errors: [] };
 
   const leagueByName = new Map(input.leagues.map((league) => [league.name, league]));
   const standingByWrestler = new Map(input.standings.map((row) => [`${row.league}:${row.wrestler}`, row]));
@@ -126,8 +138,9 @@ input.targetWeek === undefined
       .map((reference) => `${reference.league}:${reference.week}:${reference.matchNumber}:${reference.matchupKey}`),
   );
   const acceptedSnapshotIsAuthoritative = input.scheduleSource === "accepted-snapshot";
+  const errors: string[] = [];
 
-  function profile(match: Match, wrestler: string): SimulationProfile {
+  function profile(match: Match, wrestler: string): SimulationProfile | null {
     const membership = leagueByName.get(match.league)?.wrestlers.find((entry) => entry.wrestler.name === wrestler)
       ?? (acceptedSnapshotIsAuthoritative
         ? input.leagues.flatMap((league) => league.wrestlers).find((entry) => entry.wrestler.name === wrestler)
@@ -137,7 +150,13 @@ input.targetWeek === undefined
     const streak = streakByWrestler.get(`${match.league}:${wrestler}`)
       ?? (acceptedSnapshotIsAuthoritative ? input.streaks.find((row) => row.wrestler === wrestler) : undefined);
     if (!membership || !standing || !streak) {
-      throw new Error(`Missing simulation profile data for ${wrestler} in ${match.league}.`);
+      const missing = [
+        !membership ? "roster seed" : null,
+        !standing ? "current standing" : null,
+        !streak ? "streak record" : null,
+      ].filter(Boolean).join(", ");
+      errors.push(`Prediction data is missing for ${wrestler} in ${match.league}: ${missing}.`);
+      return null;
     }
     return {
       wrestler,
@@ -154,9 +173,13 @@ input.targetWeek === undefined
     .filter((match) => acceptedSnapshotIsAuthoritative
       || referenceKeys.has(`${match.league}:${match.week}:${match.matchNumber}:${match.matchupKey}`))
     .sort((a, b) => a.showDay.localeCompare(b.showDay) || a.matchNumber - b.matchNumber)
-    .map((match) => ({ match, wrestlerA: profile(match, match.wrestlerA), wrestlerB: profile(match, match.wrestlerB) }));
+    .flatMap((match): SimulationCandidate[] => {
+      const wrestlerA = profile(match, match.wrestlerA);
+      const wrestlerB = profile(match, match.wrestlerB);
+      return wrestlerA && wrestlerB ? [{ match, wrestlerA, wrestlerB }] : [];
+    });
 
-  return { week, candidates, excludedLeague: input.userLeague };
+  return { week, candidates, excludedLeague: input.userLeague, errors: [...new Set(errors)] };
 }
 
 export function simulateMatch(candidate: SimulationCandidate, random: () => number = Math.random): SimulationPreview {

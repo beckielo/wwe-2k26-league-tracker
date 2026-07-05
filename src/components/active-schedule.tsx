@@ -97,7 +97,7 @@ export function ActiveSchedule({ workbookMatches }: { workbookMatches: Match[]; 
                       <span className="sports-match-versus">VS</span>
                       <strong className="sports-match-participant participant-b">{match.wrestlerB}</strong>
                       <span className="sports-match-status">{match.status === "completed" ? "Completed" : "Open"}</span>
-                      <small>{active ? "Accepted snapshot" : "Workbook reference"}</small>
+                      <small>{active ? "Saved schedule" : "League schedule"}</small>
                     </li>
                   ))}
                 </ol>

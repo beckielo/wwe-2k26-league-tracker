@@ -76,7 +76,7 @@ describe("WorkflowContextNotice severity UI", () => {
       </TrackerStateProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText(/context notices?/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Saved data details/i)).toBeInTheDocument());
     expect(container.querySelector(".workflow-context-diagnostics")).toBeInTheDocument();
     expect(container.querySelector(".workflow-authority-notice")).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -105,7 +105,9 @@ describe("WorkflowContextNotice severity UI", () => {
 
     await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
     expect(container.querySelector(".workflow-authority-notice.has-blocking-conflict")).toBeInTheDocument();
-    expect(screen.getAllByText(/The active App checkpoint is internally inconsistent/)).toHaveLength(2);
+    expect(screen.getByText(/The active App checkpoint is internally inconsistent/)).toBeInTheDocument();
+    expect(screen.getByText(/Some saved data does not match the current week/)).toBeInTheDocument();
+    expect(screen.queryByText(/app-closing-signature/)).not.toBeInTheDocument();
   });
 
   it("keeps a low-confidence workbook fallback visible without red styling", async () => {

@@ -102,10 +102,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const currentTitle = routeTitles[pathname] ?? "League Control";
   const { authority, hydrated, state } = useTrackerState();
   const sourceLabel = authority.activeSource === "local"
-    ? "Validated local session"
+    ? "Saved progress active"
     : authority.activeSource === "app-workbook"
-      ? "Validated app checkpoint"
-      : "Workbook fallback";
+      ? "Saved progress active"
+      : "League data ready";
   const userLeague = state.activeWorkflow?.userLeague ?? "National League";
 
   return (
@@ -183,7 +183,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <main id="main-content" className="app-main">
           {hydrated
             ? children
-            : <div className="authority-loading" role="status">Validating workflow context…</div>}
+            : <div className="authority-loading" role="status">Loading saved progress…</div>}
         </main>
         <footer className="app-footer">
           <span>{sourceLabel}</span>
@@ -222,19 +222,19 @@ export function WorkflowContextNotice() {
   const diagnostics = authority.diagnosticNotices;
   if (blocking.length === 0 && diagnostics.length === 0 && authority.confidence === "high") return null;
   const authorityLabel = authority.activeSource === "local"
-    ? "Validated local session"
+    ? "Saved progress active"
     : authority.activeSource === "app-workbook"
-      ? "Validated app checkpoint"
-      : "Workbook fallback";
+      ? "Saved progress active"
+      : "League data ready";
 
   if (blocking.length === 0 && diagnostics.length > 0 && authority.activeSource !== "workbook-dashboard") {
     return (
-      <aside className="workflow-context-diagnostics" aria-label="Context diagnostics">
+      <aside className="workflow-context-diagnostics" aria-label="Saved data details">
         <details>
-          <summary>{diagnostics.length} context notice{diagnostics.length === 1 ? "" : "s"}</summary>
+          <summary>Saved data details ({diagnostics.length})</summary>
           <div>
             <strong>{authorityLabel}</strong>
-            <p>{diagnostics[0].message}</p>
+            <p>Non-blocking details are available for review.</p>
             <ul>{diagnostics.map((entry) => (
               <li key={`${entry.code}:${entry.message}`}>
                 <strong>{entry.code}</strong>
@@ -252,18 +252,20 @@ export function WorkflowContextNotice() {
   return (
     <section
       className={`workflow-authority-notice confidence-${authority.confidence}${blocking.length > 0 ? " has-blocking-conflict" : ""}`}
-      aria-label="Workflow context authority"
+      aria-label="Saved data status"
       role={blocking.length > 0 ? "alert" : "status"}
     >
       <div>
-        <span>Context authority</span>
+        <span>{blocking.length > 0 ? "Saved data needs attention" : "Saved data status"}</span>
         <strong>{authorityLabel}</strong>
-        <small>Confidence: {authority.confidence} · {authority.sourceSignature}</small>
+        <small>{blocking.length > 0 ? `${blocking.length} issue${blocking.length === 1 ? "" : "s"} must be resolved` : "Details available below"}</small>
       </div>
-      {lead && <p>{lead.message} {lead.recommendedAction}</p>}
+      {lead && <p>{blocking.length > 0
+        ? "Some saved data does not match the current week. Review the details before continuing."
+        : "Saved progress is available, with additional non-blocking details."}</p>}
       {notices.length > 0 && (
         <details>
-          <summary>{notices.length} context notice{notices.length === 1 ? "" : "s"}</summary>
+          <summary>Review technical details ({notices.length})</summary>
           <ul>{notices.map((entry) => (
             <li key={`${entry.code}:${entry.message}`}>
               <strong>{entry.code}</strong>

@@ -142,7 +142,7 @@ return (
         <ResultEntryForm matches={userMatches} userLeague={workflowUserLeague} />
       ) : (
         <div className="p-6 text-slate-400">
-          No authoritative user-league matches exist for this week.
+          No user-league matches are scheduled for this week.
         </div>
       )}
     </Panel>
@@ -159,7 +159,7 @@ return (
 
       <div className="space-y-4 p-6 text-sm leading-6 text-slate-300">
         <p>
-          Only the six authoritative {workflowUserLeague} matchups for active Week{" "}
+          Only the six scheduled {workflowUserLeague} matchups for Week{" "}
           {week} are available here.
         </p>
         <p>
@@ -167,8 +167,7 @@ return (
           and locked in Week Review.
         </p>
         <p>
-          The workbook stays read-only; confirmations are stored only in
-          this browser.
+          Confirmed results are saved on this device until the week is locked.
         </p>
 
         <Link

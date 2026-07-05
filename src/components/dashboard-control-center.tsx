@@ -110,7 +110,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
       </div>
       <div className="next-action-block">
         <span>Next action</span>
-        <strong>{card.length ? `Complete the ${userLeague} card` : "Connect the next authoritative card"}</strong>
+        <strong>{card.length ? `Complete the ${userLeague} card` : "Open the next scheduled card"}</strong>
         <p>{card.length ? "Record all six outcomes, then review and lock the week." : "No matchup is shown until an accepted schedule supplies it."}</p>
         <div className="dashboard-workflow-actions dashboard-workflow-actions-spaced">
           <Link href={nextHref} className="action-button action-primary">{nextLabel}</Link>
@@ -136,7 +136,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
           <div className="fight-card-title"><LeagueBrandMark league={userLeague} usage="compact" /><span>
             <p className="broadcast-kicker">Current user-controlled show</p>
             <h2>{userLeague}</h2>
-            <p>{display.compact} · Authoritative schedule</p>
+            <p>{display.compact} · Official schedule</p>
           </span></div>
           <Link href="/schedule">Full schedule</Link>
         </header>
@@ -158,7 +158,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
             </li>;
           })}
         </ol> : <div className="p-6">
-          <EmptyState title="No current card available" description="The control center will display matches only after they are present in the workbook schedule or an explicitly accepted schedule snapshot." />
+          <EmptyState title="No current card available" description="The control center will display matches after the next schedule has been accepted." />
           <div className="mt-4"><Link href="/schedule-setup" className="action-button action-secondary">Review schedule setup</Link></div>
         </div>}
       </section>
@@ -166,7 +166,6 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
       <UserLeagueLiveTable league={userLeague} rows={userLeagueRows} currentUserWrestler={selectedUser?.wrestler ?? props.meta.userWrestler} championRoles={previousSplitChampionColorRoles} />
     </div>
     <SocialFeed comments={socialFeed} />
-    <p className="dashboard-diagnostics-note">Source Warnings remain available in review workflows · Non-blocking · details contained.</p>
     <ReplaceWrestlerControl activeRoster={live.composition} matches={matches} leagueYear={leagueYear} split={split} week={yearWeek} />
     <NewRunSetupWizard meta={props.meta} />
   </>;

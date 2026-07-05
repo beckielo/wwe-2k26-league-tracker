@@ -64,8 +64,9 @@ describe("Phase 18A dashboard/results/simulation UI polish", () => {
   it("renders Draw and No Contest choices in the Result Entry winner grid", () => {
     expect(resultEntrySource).toContain('value="Draw"');
     expect(resultEntrySource).toContain('value="No Contest"');
-    expect(resultEntrySource).toContain('setResultType("Draw")');
-    expect(resultEntrySource).toContain('setResultType("No Contest")');
+    expect(resultEntrySource).toContain('{ resultType: "Draw", winner: null }');
+    expect(resultEntrySource).toContain('{ resultType: "No Contest", winner: null }');
+    expect(resultEntrySource).toContain('data-selected={checked ? "true" : "false"}');
   });
 
   it("removes the simulation explanatory info box without removing protection logic", () => {

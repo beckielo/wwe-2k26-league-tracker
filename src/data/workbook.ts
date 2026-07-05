@@ -17,7 +17,8 @@ import {
   type HistoricalAnalyticsAudit,
 } from "@/domain/historical-analytics";
 import { ACCEPTED_SCHEDULE_SHEET } from "@/domain/workbook-writeback";
-import { MANUAL_LEGACY_COMPLETED_SPLIT_SOURCE } from "@/domain/legacy-manual-corrections";
+import { buildPrecedingSplitHistory } from "@/domain/completed-split-history";
+import { MANUAL_LEGACY_COMPLETED_SPLIT_SOURCE, MANUAL_LEGACY_ELITE_CUP_CORRECTIONS } from "@/domain/legacy-manual-corrections";
 import { auditLegacyCompletedSplitSources, applyLegacyHistoryRecords, applyManualEliteCupDisplayPatch, enrichLegacyProfilesFromCurrentMaster, enrichLegacyProfilesWithCompletedSplitChampions, extractCompletedEliteCupRecordsFromFinalStandings, extractCompletedSplitTitleRecordsFromFinalStandings, legacyProfileEliteCupRecords, parseLegacyTracker, summarizeLegacyProfiles, type LegacyTableData } from "@/domain/legacy";
 import {
   LEAGUE_NAMES,
@@ -523,6 +524,19 @@ export function loadTrackerData(): TrackerData {
     ...currentHistoricalAnalytics.context,
     ...analyticsSheetStatus,
   };
+  const confirmedOpeningEliteCup = MANUAL_LEGACY_ELITE_CUP_CORRECTIONS.find((record) => (
+    record.leagueYear === 2 && record.split === "Opening Split" && record.wrestler
+  ));
+  const completedSplitHistory = buildPrecedingSplitHistory({
+    currentContext: selectedContext,
+    sourceWorkbook: sourceFile,
+    confirmedEliteCupWinner: confirmedOpeningEliteCup ? {
+      leagueYear: confirmedOpeningEliteCup.leagueYear,
+      split: "Opening Split",
+      wrestler: confirmedOpeningEliteCup.wrestler,
+      source: confirmedOpeningEliteCup.sourceLabel ?? "User-confirmed historical correction",
+    } : undefined,
+  });
   const historicalAnalyticsIssues: ValidationIssue[] = [
     ...(analyticsSheetStatus.headToHeadSheetStatus === "reconstructed" ? [{
       code: "HISTORICAL_ANALYTICS_H2H_RECONSTRUCTED",
@@ -572,6 +586,7 @@ export function loadTrackerData(): TrackerData {
     headToHead: currentHistoricalAnalytics.headToHead,
     streaks: currentHistoricalAnalytics.streaks,
     historicalAnalytics,
+    completedSplitHistory,
     matchupReference,
     hasLeagueFinalsTemplate: Boolean(workbook.Sheets.PPV_Template_Layout),
     workflowContext,

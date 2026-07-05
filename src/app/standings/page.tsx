@@ -25,7 +25,7 @@ export default function StandingsPage() {
       <PageHeader
         eyebrow={`Through Week ${data.meta.currentWeek}`}
         title="All Standings"
-        description="Records and points are imported from Standings_Current and reconciled against the completed schedule results. Zone labels are source values and remain provisional until clinching is explicitly encoded."
+        description="Records and points reflect completed schedule results. Position zones remain provisional until a place is clinched."
         aside={<Link href="/live-standings" className="action-button action-primary">Open Live Table</Link>}
       />
 

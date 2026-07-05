@@ -29,8 +29,6 @@ split: SplitName;
 hasLeagueFinalsTemplate: boolean;
 userLeague: LeagueName;
 workbookCurrentWeek: number;
-originalWorkbookCurrentWeek: number;
-latestAppWritebackWeek: number | null;
 sourceFile: string;
 userWrestler: string;
 completedSplitAudit?: LegacyCompletedSplitAudit;
@@ -44,8 +42,6 @@ matchupReference,
 hasLeagueFinalsTemplate,
 userLeague,
 workbookCurrentWeek,
-originalWorkbookCurrentWeek,
-latestAppWritebackWeek,
 sourceFile,
 userWrestler,
 completedSplitAudit,
@@ -135,7 +131,7 @@ replaceState(action.state);
 setMessages([
   "Week " +
     week +
-    " completed and locked. The next authoritative scheduled week is now the workflow target.",
+    " completed and locked. The next scheduled week is now ready.",
 ]);
 
 }
@@ -197,14 +193,14 @@ if (importInput.current) {
 
 function reset() {
 const confirmed = window.confirm(
-"Reset all local tracker state? This removes confirmed results, completed-week locks, and import/export timestamps from this browser. The workbook is not affected.",
+"Reset saved progress? This removes confirmed results, completed-week locks, and import/export timestamps from this device. League source data is not affected.",
 );
 
 if (!confirmed) return;
 
 resetState();
 setMessages([
-  "Local tracker state reset. The workbook snapshot remains unchanged.",
+  "Saved progress reset. League source data remains unchanged.",
 ]);
 
 }
@@ -313,7 +309,7 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
     <>
       <div className="border border-white/10 bg-[#111722] p-5">
         <p className="text-xs font-bold uppercase tracking-[.18em] text-red-400">
-          Current active app week
+          Current week
         </p>
 
         <div className="mt-2 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
@@ -328,10 +324,7 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
           </div>
 
           <p className="text-sm text-slate-500">
-            Workbook completed through Week {originalWorkbookCurrentWeek}
-            {latestAppWritebackWeek !== null && (
-              <> · App workbook baseline through Week {latestAppWritebackWeek} (App_* sheets)</>
-            )}
+            Progress saved through Year Week {authority.completedThroughYearWeek}
           </p>
         </div>
       </div>
@@ -379,7 +372,7 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
           ? splitReview.consequentialTies.some((tie) => tie.status === "Tiebreaker Match Required" || tie.status === "Review Required")
             ? "Regular season complete. Next phase: Tiebreaker Review. No normal Week 23 fixtures are generated."
             : "Regular season complete. No normal weekly card remains before League Finals."
-          : "Every later authoritative scheduled week is locked in browser-local tracker state."}
+          : "Every later scheduled week is complete and locked."}
       </p>
 
       <div className="mt-6 flex justify-center gap-3">
@@ -407,8 +400,7 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
           Week {latestLockedWeek} is complete and locked
         </p>
         <p className="mt-1 text-sm text-slate-300">
-          Its results are protected from edits. Progression and standings
-          are local app-state only; Excel remains unchanged.
+          Its results are protected from edits. Progress and standings are saved on this device.
         </p>
       </div>
 
@@ -429,7 +421,7 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
             <p className="mt-1 text-sm text-slate-400">
               {progress.status === "complete-unlocked"
                 ? "All validation passed. Locking protects these results and advances the workflow."
-                : "Locking stays disabled until all 24 authoritative results pass validation."}
+                : "Locking stays disabled until all 24 scheduled results pass validation."}
             </p>
           </div>
 
@@ -467,15 +459,20 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
       </div>
   )}
 
-  <PromoteCurrentMaster
-    state={state}
-    allMatches={workflowMatches}
-    baselineStandings={baselineStandings}
-    userLeague={workflowUserLeague}
-    workbookCompletedThroughWeek={workbookCurrentWeek}
-    source={sourceFile}
-    promptPreview={<MiniLiveStandingsPreview standings={updatedStandings} split={activeSplit} splitWeek={activeSplitWeek} latestLockedWeek={latestLockedWeek} currentUserWrestler={userWrestler} championRoles={getPreviousSplitChampionColorRoles(completedSplitAudit, state.completedSplitLegacyCommits)} />}
-  />
+  <details className="border border-white/10 bg-[#111722] p-5">
+    <summary className="cursor-pointer text-sm font-black uppercase tracking-wider text-slate-300">Advanced backup and data export</summary>
+    <div className="mt-5">
+      <PromoteCurrentMaster
+        state={state}
+        allMatches={workflowMatches}
+        baselineStandings={baselineStandings}
+        userLeague={workflowUserLeague}
+        workbookCompletedThroughWeek={workbookCurrentWeek}
+        source={sourceFile}
+        promptPreview={<MiniLiveStandingsPreview standings={updatedStandings} split={activeSplit} splitWeek={activeSplitWeek} latestLockedWeek={latestLockedWeek} currentUserWrestler={userWrestler} championRoles={getPreviousSplitChampionColorRoles(completedSplitAudit, state.completedSplitLegacyCommits)} />}
+      />
+    </div>
+  </details>
 
   <div className="flex flex-col gap-2 text-xs text-slate-500 sm:flex-row sm:justify-between">
     <span>
@@ -524,7 +521,7 @@ return (
   <section className="mt-5 border border-white/10 bg-[#0b111c]/80 p-4" aria-label="Mini live standings preview">
     <div className="flex flex-col justify-between gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-end">
       <div>
-        <p className="text-[10px] font-bold uppercase tracking-[.2em] text-red-300">Live Standings source</p>
+        <p className="text-[10px] font-bold uppercase tracking-[.2em] text-red-300">Updated standings</p>
         <h2 className="mt-1 text-xl font-black uppercase">Mini standings preview</h2>
         <p className="mt-1 text-xs text-slate-400">{split}{splitWeek ? ` · Split Week ${splitWeek}` : ""}{latestLockedWeek ? ` · updated through locked Year Week ${latestLockedWeek}` : ""}</p>
       </div>

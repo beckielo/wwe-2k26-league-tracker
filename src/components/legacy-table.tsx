@@ -54,7 +54,7 @@ export function LegacyTable({ profiles }: { profiles: LegacyProfile[] }) {
           ? commentary.evidenceTags.map((tag) => <span key={tag}>{tag}</span>)
           : <span>Current League Only</span>}
       </div>
-      <p className="commentary-boundary">Generated from current workbook-backed legacy values. Missing achievements are not inferred.</p>
+      <p className="commentary-boundary">Generated from recorded legacy values. Missing achievements are not inferred.</p>
     </aside>}
   </div>;
 }

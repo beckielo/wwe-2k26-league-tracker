@@ -36,14 +36,14 @@ export function WorkflowSummaryBanner({
       <div className="grid gap-6 p-6 xl:grid-cols-[1fr_auto] xl:items-center">
         <div>
           <p className="text-[11px] font-black uppercase tracking-[.22em] text-red-400">
-            Active browser-local workflow
+            Active weekly workflow
           </p>
           <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
             <h2 className="text-2xl font-black uppercase sm:text-3xl">
               {display?.primary ?? "Season workflow complete"}
             </h2>
             <span className="text-sm text-slate-400">
-              {display?.secondary ?? `Excel baseline: completed through Year Week ${summary.workbookCompletedThroughWeek}`}
+              {display?.secondary ?? `Progress saved through Year Week ${summary.workbookCompletedThroughWeek}`}
             </span>
           </div>
           <p className="mt-3 text-sm leading-6 text-slate-300">
@@ -82,7 +82,7 @@ export function WorkflowSummaryBanner({
         </div>
       </div>
       <div className="border-t border-white/10 bg-black/20 px-6 py-3 text-xs text-slate-500">
-        Excel remains read-only. Confirmed results and week locks are an overlay stored only in this browser.
+        Confirmed results and week locks are saved on this device.
       </div>
     </section>
   );

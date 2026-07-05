@@ -3,7 +3,7 @@
 import { SimulationWorkbench } from "./simulation-workbench";
 import { Stat } from "./ui";
 import { WorkflowSummaryBanner } from "./workflow-summary-banner";
-import { buildSimulationCandidates } from "@/domain/simulation";
+import { buildSimulationCandidates, resolveSimulationScheduleSource } from "@/domain/simulation";
 import { getWorkflowSummary } from "@/domain/week-progression";
 import {
 LEAGUE_NAMES,
@@ -87,7 +87,11 @@ existingResults: props.existingResults,
 userLeague: workflowUserLeague,
 targetWeek: week,
 confirmedMatchIds: state.confirmedResults.map((result) => result.matchId),
-scheduleSource: state.activeWorkflow && state.acceptedSchedule ? "accepted-snapshot" : "workbook",
+scheduleSource: resolveSimulationScheduleSource({
+  activeSource: authority.activeSource,
+  scheduleSource: authority.scheduleSource,
+  hasAcceptedSchedule: Boolean(state.acceptedSchedule),
+}),
 });
 const display = getWeekDisplay(authority.leagueYear, week, authority.split);
 
@@ -119,7 +123,7 @@ return (
       detail={
         eligibleLeagues.join(" · ")
           || (missingNonUserMatches
-            ? `${missingNonUserMatches} matches need prediction inputs`
+          ? `${missingNonUserMatches} matches need prediction inputs`
             : "All non-user matches confirmed")
       }
     />
@@ -160,12 +164,22 @@ return (
 
         <p className="mt-3 text-sm text-slate-400">
           {league.missing
-            ? league.missing + " authoritative matches still open."
-            : "League card complete in local state."}
+            ? league.missing + " scheduled matches still open."
+            : "League card complete."}
         </p>
       </div>
     ))}
   </div>
+
+  {simulation.errors.length > 0 && (
+    <div className="mb-8 border border-amber-400/30 bg-amber-400/10 p-5 text-amber-100" role="alert">
+      <h2 className="font-black uppercase">Prediction data needed</h2>
+      <p className="mt-2 text-sm">Complete the following wrestler data before generating this week&apos;s preview:</p>
+      <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
+        {simulation.errors.map((error) => <li key={error}>{error}</li>)}
+      </ul>
+    </div>
+  )}
 
   {simulation.candidates.length === 0 ? (
     <div className="border border-white/10 bg-[#111722] p-10 text-center">
@@ -174,8 +188,10 @@ return (
       </h2>
       <p className="mt-2 text-slate-500">
         {missingNonUserMatches
-          ? `${missingNonUserMatches} authoritative non-user matches remain open, but no eligible weighted prediction candidate is available. Review the schedule and matchup reference before confirming results.`
-          : `No open authoritative non-user matchups remain for ${display.primary}. Continue to Week Review.`}
+          ? simulation.errors.length
+            ? "The scheduled matches are ready, but the prediction data listed above is incomplete."
+            : `${missingNonUserMatches} non-user matches remain open, but no eligible preview is available for the current saved schedule.`
+          : `No open non-user matchups remain for ${display.primary}. Continue to Week Review.`}
       </p>
     </div>
   ) : (

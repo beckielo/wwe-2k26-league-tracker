@@ -18,7 +18,6 @@ interface LiveStandingsProps {
   workbookMatches: Match[];
   workbookResults: MatchResult[];
   meta: TrackerMeta;
-  sourceFile: string;
   completedSplitAudit?: LegacyCompletedSplitAudit;
 }
 
@@ -99,7 +98,7 @@ function LeagueTable({ league, rows, userLeague, currentUserWrestler, championRo
   </section>;
 }
 
-export function LiveStandings({ baseline, workbookMatches, workbookResults, meta, sourceFile, completedSplitAudit }: LiveStandingsProps) {
+export function LiveStandings({ baseline, workbookMatches, workbookResults, meta, completedSplitAudit }: LiveStandingsProps) {
   const { state, authority, hydrated } = useTrackerState();
   const matches = useMemo(() => getActiveWorkflowMatches(state, workbookMatches), [state, workbookMatches]);
   const previousSplitChampionColorRoles = useMemo(() => getPreviousSplitChampionColorRoles(completedSplitAudit, state.completedSplitLegacyCommits), [completedSplitAudit, state.completedSplitLegacyCommits]);
@@ -123,7 +122,6 @@ export function LiveStandings({ baseline, workbookMatches, workbookResults, meta
   const standings = live.standings;
   const selectedUser = useCurrentUser(live.composition).currentUser;
   const userLeague = state.activeWorkflow?.userLeague ?? selectedUser?.league ?? meta.userLeague;
-  const source = authority.scheduleSource || `Workbook · ${sourceFile}`;
   const diagnostics = [...live.diagnostics, ...validateActiveSplitStandings(standings, splitWeek)];
   const lastUpdate = state.completedWeeks.at(-1)?.completedAt ?? meta.latestAppWritebackCompletedAt ?? state.activeWorkflow?.activatedAt ?? null;
 
@@ -133,7 +131,7 @@ export function LiveStandings({ baseline, workbookMatches, workbookResults, meta
       <div>
         <p className="eyebrow">Four divisions · one live table</p>
         <h1>{split} Standings</h1>
-        <p>Current master standings are authoritative for the active split; browser-local overlays are applied only beyond the workbook/app baseline. No fixture or result is inferred.</p>
+        <p>Completed results define the active split table. Current-week updates are applied only after you save them, and no fixture or result is inferred.</p>
       </div>
       <div className="live-broadcast-status"><span />Live table feed<strong>{split} · Week {splitWeek}</strong></div>
     </section>
@@ -141,15 +139,15 @@ export function LiveStandings({ baseline, workbookMatches, workbookResults, meta
     <dl className="live-source-deck">
       <div><dt>Competition</dt><dd>League Year {authority.leagueYear}</dd></div>
       <div><dt>Current window</dt><dd>{split} · Split Week {splitWeek}</dd></div>
-      <div><dt>Table source</dt><dd>{source}</dd></div>
-      <div><dt>Last lock / update</dt><dd>{lastUpdate ? `${new Date(lastUpdate).toISOString().slice(0, 16).replace("T", " ")} UTC` : `Workbook through Week ${meta.currentWeek}`}</dd></div>
+      <div><dt>Progress status</dt><dd>Saved through Year Week {authority.completedThroughYearWeek}</dd></div>
+      <div><dt>Last lock / update</dt><dd>{lastUpdate ? `${new Date(lastUpdate).toISOString().slice(0, 16).replace("T", " ")} UTC` : `Through Year Week ${authority.completedThroughYearWeek}`}</dd></div>
     </dl>
 
     {diagnostics.length > 0 && <details className="source-warning">
       <summary>
         <span>
-          <strong>Source diagnostics</strong>
-          <small>{diagnostics.length} workbook/local-state notice{diagnostics.length === 1 ? "" : "s"}</small>
+          <strong>Data details</strong>
+          <small>{diagnostics.length} notice{diagnostics.length === 1 ? "" : "s"}</small>
         </span>
         <b>Review details</b>
       </summary>

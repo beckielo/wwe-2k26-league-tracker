@@ -167,7 +167,7 @@ export function LeagueFinals(props: LeagueFinalsProps) {
     || authority.finalsReadiness === "invalid"
     || completedSplitWeek < 22);
   const contextBlockReason = contextBlocked
-    ? `League Finals blocked: ${authority.split} context ${authority.sourceSignature} is ${authority.finalsReadiness} at Split Week ${completedSplitWeek}.`
+    ? `League Finals are not ready for ${authority.split} at Split Week ${completedSplitWeek}. Complete the regular season and resolve saved-data issues first.`
     : null;
   const rawFinalsResults = useMemo(() => state.leagueFinalsResults ?? [], [state.leagueFinalsResults]);
   const completedNights = useMemo(() => state.completedFinalsNights ?? [], [state.completedFinalsNights]);
@@ -251,12 +251,12 @@ export function LeagueFinals(props: LeagueFinalsProps) {
           {completedSplitWeek < 22 ? "Not reached" : splitReview.consequentialTies.length ? `${splitReview.consequentialTies.length} reviewed` : "No unresolved matches"}
         </strong>
       </div>
-      <div className="bg-[#111722] p-5"><p className="text-xs uppercase text-slate-500">League Finals readiness</p><strong className={`mt-2 block text-xl ${review.ready && !contextBlocked ? "text-emerald-300" : "text-amber-300"}`}>{contextBlocked ? "Blocked by context authority" : review.readinessLabel}</strong></div>
+      <div className="bg-[#111722] p-5"><p className="text-xs uppercase text-slate-500">League Finals readiness</p><strong className={`mt-2 block text-xl ${review.ready && !contextBlocked ? "text-emerald-300" : "text-amber-300"}`}>{contextBlocked ? "Waiting for completed split" : review.readinessLabel}</strong></div>
     </section>
 
 
-    <section className="border border-sky-400/20 bg-sky-400/5 p-6">
-      <h2 className="text-xl font-black uppercase text-sky-200">League Finals Source Audit</h2>
+    <details className="border border-sky-400/20 bg-sky-400/5 p-6">
+      <summary className="cursor-pointer text-sm font-black uppercase tracking-wider text-sky-200">Finals qualification details</summary>
       <div className="mt-4 grid gap-3 xl:grid-cols-4">
         {review.sourceAudit.map((league) => <div key={league.league} className="border border-white/10 bg-[#111722] p-4">
           <h3 className="text-sm font-black uppercase">{league.league}</h3>
@@ -265,7 +265,7 @@ export function LeagueFinals(props: LeagueFinalsProps) {
           </div>
         </div>)}
       </div>
-    </section>
+    </details>
 
     {(messages.length > 0 || review.readinessReasons.length > 0 || contextBlockReason) && <div className="border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-200">
       {[...messages, ...review.readinessReasons, ...(contextBlockReason ? [contextBlockReason] : [])].map((message) => <p key={message}>{message}</p>)}
@@ -292,7 +292,10 @@ export function LeagueFinals(props: LeagueFinalsProps) {
 
 
     {!cardsRenderable && <section className="border border-red-400/30 bg-red-400/10 p-6 text-red-100">
-      <h2 className="font-black uppercase">League Finals card rendering diagnostic</h2>
+      <h2 className="font-black uppercase">Finals card not ready</h2>
+      <p className="mt-2 text-sm">Complete the required standings and tiebreaker steps before the two-night card can be shown.</p>
+      <details className="mt-4">
+      <summary className="cursor-pointer text-xs font-black uppercase">Technical details</summary>
       <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
         <div><dt className="text-red-200/70">Final standings valid</dt><dd className="font-bold">{review.finalStandingsValid ? "yes" : "no"}</dd></div>
         <div><dt className="text-red-200/70">Night One generated count</dt><dd className="font-bold">{review.cardRenderability.nightOneGeneratedCount}</dd></div>
@@ -301,6 +304,7 @@ export function LeagueFinals(props: LeagueFinalsProps) {
         <div><dt className="text-red-200/70">Unresolved tiebreaker count</dt><dd className="font-bold">{review.unresolvedTiebreakerCount}</dd></div>
         <div><dt className="text-red-200/70">Reason cards are hidden</dt><dd className="font-bold">{review.cardRenderability.hiddenReasons.join(" ") || "Derived card count did not reach 6 matches for each night."}</dd></div>
       </dl>
+      </details>
     </section>}
 
     {(["Night One", "Night Two"] as const).map((night) => {

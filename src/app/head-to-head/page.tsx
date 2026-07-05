@@ -11,14 +11,14 @@ export default function HeadToHeadPage() {
     <PageHeader
       eyebrow="Validated current-split evidence"
       title="Head-to-Head Tracker"
-      description={`Derived from the authoritative League Year ${analytics.leagueYear} ${analytics.split} schedule and completed results. Use this evidence after points when comparing two tied wrestlers; seed is never used as an automatic tiebreaker.`}
+      description={`Based on completed League Year ${analytics.leagueYear} ${analytics.split} results. Use this evidence after points when comparing two tied wrestlers; seed is never used as an automatic tiebreaker.`}
     />
     <div className="mb-8 grid gap-4 sm:grid-cols-3">
       <Stat label="Completed records" value={data.headToHead.length} detail={`Through ${analytics.split} Week ${analytics.completedThroughSplitWeek}`} />
-      <Stat label="Leagues covered" value={LEAGUE_NAMES.length} detail={`Year Week ${analytics.completedThroughYearWeek} checkpoint`} />
+      <Stat label="Leagues covered" value={LEAGUE_NAMES.length} detail={`Updated through Year Week ${analytics.completedThroughYearWeek}`} />
       <Stat label="Active order" value="Points → H2H" detail="Then longest streak" />
     </div>
-    {analytics.headToHeadSheetStatus === "reconstructed" && <div className="mb-6 border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-200">The workbook H2H sheet was stale. This view safely uses the validated current-context reconstruction; no historical source was overwritten in memory.</div>}
+    {analytics.headToHeadSheetStatus === "reconstructed" && <div className="mb-6 border border-sky-400/30 bg-sky-400/10 p-4 text-sm text-sky-100">Head-to-head records were refreshed to match the current split.</div>}
     <div className="space-y-8">
       {LEAGUE_NAMES.map((league) => {
         const records = data.headToHead.filter((record) => record.league === league).sort((a, b) => b.week - a.week);

@@ -29,14 +29,14 @@ export function LegacyPageClient({
   const activeSplitLine = hydrated && state.activeWorkflow ? `Active split: ${state.activeWorkflow.split} Week ${state.activeWorkflow.splitWeek}` : null;
 
   return <>
-    <p className="legacy-policy">All-time honours remain sourced from Legacy_Tracker. Current league placement and longest-streak overlays use the validated League Year {historicalAnalytics.leagueYear} {historicalAnalytics.split} checkpoint through Split Week {historicalAnalytics.completedThroughSplitWeek}; the active incomplete split does not create title or cup records.</p>
+    <p className="legacy-policy">All-time honours remain preserved. Current league placement and longest-streak updates use completed League Year {historicalAnalytics.leagueYear} {historicalAnalytics.split} results through Split Week {historicalAnalytics.completedThroughSplitWeek}; the active incomplete split does not create title or cup records.</p>
     <div className="legacy-stats">
-      <Stat label="Ranked profiles" value={summary.rankedProfiles} detail="All populated workbook rows" />
+      <Stat label="Ranked profiles" value={summary.rankedProfiles} detail="All recorded profiles" />
       <Stat label="Active tiers" value={summary.activeLegacyTiers} detail="S-D tier values currently used" />
-      <Stat label="League title records" value={summary.leagueTitleRecords} detail={committedCount ? "Workbook + browser-local completed split commits" : "Recorded historical title total"} />
-      <Stat label="Elite Cup records" value={summary.eliteCupRecords} detail={committedCount ? "Workbook + browser-local completed split commits" : "Recorded historical event total"} />
+      <Stat label="League title records" value={summary.leagueTitleRecords} detail={committedCount ? "Recorded history + completed split updates" : "Recorded historical title total"} />
+      <Stat label="Elite Cup records" value={summary.eliteCupRecords} detail={committedCount ? "Recorded history + completed split updates" : "Recorded historical event total"} />
     </div>
-    {committedCount > 0 && <p className="legacy-policy">Latest completed split included: {latestCompleted?.split ?? "completed split"}. {activeSplitLine}. Legacy includes workbook base records plus {committedCount} authority-accepted browser-local completed split commit{committedCount === 1 ? "" : "s"}. Completed split facts are merged exactly once by source signature.</p>}
+    {committedCount > 0 && <p className="legacy-policy">Latest completed split included: {latestCompleted?.split ?? "completed split"}. {activeSplitLine}. {committedCount} completed split update{committedCount === 1 ? " is" : "s are"} included once in the all-time totals.</p>}
     <LegacyTable profiles={mergedProfiles} />
   </>;
 }

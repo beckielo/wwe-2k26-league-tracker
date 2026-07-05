@@ -132,7 +132,7 @@ export function PostFinalsTransitionView(props: Props) {
     || authority.finalsReadiness === "stale"
     || authority.finalsReadiness === "invalid"
     || completedSplitWeek < 22)
-    ? `Workflow context ${authority.sourceSignature} is not valid for Finals transition.`
+    ? "Saved progress is not ready for the Finals transition."
     : null;
   const reviewDisabledReason = contextDisabledReason
     ?? (!transition.finalsComplete
@@ -187,17 +187,17 @@ export function PostFinalsTransitionView(props: Props) {
         <p>Night Two: <strong>{transition.nightCompletion["Night Two"] ? "Complete" : "Incomplete"}</strong></p>
         <p>League Finals complete: <strong>{transition.finalsComplete ? "Yes" : "No"}</strong></p>
         <p>Post-Finals league composition valid: <strong>{transition.compositionValid ? "Yes" : "No"}</strong></p>
-        <p>League Finals page model valid: <strong>{transition.diagnostics.leagueFinalsPageModelValid ? "Yes" : "No"}</strong></p>
-        <p>Pre-finals tiebreaker state ignored after completed Finals: <strong>{transition.diagnostics.preFinalsTiebreakerStateIgnoredAfterCompletedFinals ? "yes" : "no"}</strong></p>
-        <p>Opening split readiness ignored after completed Finals: <strong>{transition.diagnostics.openingSplitReadinessIgnoredAfterCompletedFinals ? "yes" : "no"}</strong></p>
-        <p>Composition validation result: <strong>{transition.diagnostics.compositionValidationResult}</strong></p>
-        <p>Composition league sizes: <strong>{Object.entries(transition.diagnostics.compositionLeagueSizes).map(([league, count]) => `${league}: ${count}`).join(" · ")}</strong></p>
       </div>
       {transition.missingResults.length > 0 && <div className="mt-4"><strong>Missing League Finals results</strong><ul className="list-disc pl-5 text-sm">{transition.missingResults.map((item) => <li key={item}>{item}</li>)}</ul></div>}
       {transition.invalidResults.length > 0 && <div className="mt-4"><strong>Invalid / ambiguous results</strong><ul className="list-disc pl-5 text-sm">{transition.invalidResults.map((item) => <li key={item}>{item}</li>)}</ul></div>}
-      {(transition.invalidResults.length > 0 || transition.missingResults.length > 0) && <details className="mt-4 text-xs">
-        <summary className="cursor-pointer font-black uppercase">Reconciliation diagnostics</summary>
+      <details className="mt-4 text-xs">
+        <summary className="cursor-pointer font-black uppercase">Technical transition details</summary>
         <dl className="mt-2 grid gap-1 sm:grid-cols-2">
+          <div><dt>Finals model valid</dt><dd>{transition.diagnostics.leagueFinalsPageModelValid ? "yes" : "no"}</dd></div>
+          <div><dt>Prior tiebreaker state ignored</dt><dd>{transition.diagnostics.preFinalsTiebreakerStateIgnoredAfterCompletedFinals ? "yes" : "no"}</dd></div>
+          <div><dt>Prior split readiness ignored</dt><dd>{transition.diagnostics.openingSplitReadinessIgnoredAfterCompletedFinals ? "yes" : "no"}</dd></div>
+          <div><dt>Composition validation</dt><dd>{transition.diagnostics.compositionValidationResult}</dd></div>
+          <div><dt>League sizes</dt><dd>{Object.entries(transition.diagnostics.compositionLeagueSizes).map(([league, count]) => `${league}: ${count}`).join(" · ")}</dd></div>
           <div><dt>Saved result keys</dt><dd>{transition.diagnostics.savedLeagueFinalsResultKeys.join(", ") || "none"}</dd></div>
           <div><dt>Canonical match IDs</dt><dd>{transition.diagnostics.canonicalAuthoritativeFinalsMatchIds.join(", ") || "none"}</dd></div>
           <div><dt>Saved canonical IDs found</dt><dd>{transition.diagnostics.savedCanonicalIdsFound.join(", ") || "none"}</dd></div>
@@ -212,7 +212,7 @@ export function PostFinalsTransitionView(props: Props) {
           <div><dt>Extra unmatched saved IDs</dt><dd>{transition.diagnostics.extraUnmatchedSavedIds.join(", ") || "none"}</dd></div>
         </dl>
         {transition.diagnostics.invalidWinnerOutcomeCount > 0 && <pre className="mt-3 overflow-auto whitespace-pre-wrap border border-white/10 bg-black/20 p-3 text-[10px] text-slate-300">{JSON.stringify(transition.diagnostics.resultWinnerReconciliation.filter((row) => row.validationReason), null, 2)}</pre>}
-      </details>}
+      </details>
     </section>
 
     {!transition.finalsComplete && <section className="border border-white/10 bg-[#111722] p-6">
@@ -229,8 +229,8 @@ export function PostFinalsTransitionView(props: Props) {
     </section>}
 
     {transition.finalsComplete && <>
-      <section className="border border-sky-400/20 bg-sky-400/5 p-6">
-        <h2 className="text-xl font-black uppercase">Post-Finals Movement Source Audit</h2>
+      <details className="border border-sky-400/20 bg-sky-400/5 p-6">
+        <summary className="cursor-pointer text-sm font-black uppercase">Movement verification details</summary>
         <dl className="mt-4 grid gap-2 text-xs sm:grid-cols-2">
           <div><dt className="font-bold uppercase text-slate-400">Source</dt><dd>{transition.movementSourceAudit.source}</dd></div>
           <div><dt className="font-bold uppercase text-slate-400">Source signature</dt><dd className="break-all text-slate-200">{transition.movementSourceAudit.sourceSignature}</dd></div>
@@ -240,7 +240,7 @@ export function PostFinalsTransitionView(props: Props) {
         </dl>
         {transition.movementSourceAudit.mismatchMessage && <p className="mt-3 border border-red-400/30 bg-red-400/10 p-3 text-sm font-bold text-red-200">{transition.movementSourceAudit.mismatchMessage}</p>}
         <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">{transition.movementSourceAudit.directMovers.map((mover) => <div key={mover.slot} className="border border-white/10 p-3"><strong>{mover.slot}</strong><p className="text-slate-400">{mover.wrestler ?? "Missing"} → {mover.targetLeague}</p></div>)}</div>
-      </section>
+      </details>
 
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="border border-white/10 bg-[#111722] p-6">
@@ -282,7 +282,7 @@ export function PostFinalsTransitionView(props: Props) {
         {confirmingStart && <div role="dialog" aria-modal="true" aria-labelledby="start-next-split-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="max-w-lg border border-red-300/40 bg-[#111722] p-6 shadow-2xl">
             <h3 id="start-next-split-title" className="text-xl font-black uppercase">Start Next Split?</h3>
-            <p className="mt-3 text-sm text-slate-300">This will activate the accepted post-finals 4x12 league composition as the next split baseline and generate the regular-season schedule. The workbook will not be mutated automatically.</p>
+            <p className="mt-3 text-sm text-slate-300">This will activate the accepted post-finals 4x12 league composition as the next split starting point and generate the regular-season schedule.</p>
             <div className="mt-5 flex flex-wrap gap-3">
               <button type="button" className="bg-red-500 px-4 py-2 font-black uppercase text-white" onClick={startNextSplit}>Start Next Split</button>
               <button type="button" className="border border-white/20 px-4 py-2 font-bold" onClick={() => setConfirmingStart(false)}>Cancel</button>
@@ -292,7 +292,7 @@ export function PostFinalsTransitionView(props: Props) {
         {confirmingAcceptance && <div role="dialog" aria-modal="true" aria-labelledby="accept-composition-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="max-w-lg border border-emerald-300/40 bg-[#111722] p-6 shadow-2xl">
             <h3 id="accept-composition-title" className="text-xl font-black uppercase">Accept New League Composition?</h3>
-            <p className="mt-3 text-sm text-slate-300">This will save the reviewed 4x12 post-finals league composition as the roster baseline for the next split setup. The workbook will not be mutated automatically.</p>
+            <p className="mt-3 text-sm text-slate-300">This will save the reviewed 4x12 post-finals league composition as the roster starting point for the next split setup.</p>
             <div className="mt-5 flex flex-wrap gap-3">
               <button type="button" className="bg-red-500 px-4 py-2 font-black uppercase text-white" onClick={acceptComposition}>Accept Composition</button>
               <button type="button" className="border border-white/20 px-4 py-2 font-bold" onClick={() => setConfirmingAcceptance(false)}>Cancel</button>

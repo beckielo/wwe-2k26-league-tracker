@@ -6,8 +6,55 @@ import { resolveWorkflowContextAuthority } from "@/domain/workflow-context";
 vi.mock("server-only", () => ({}));
 
 import { loadLegacyTableData, loadMasterWorkbookBuffer, loadTrackerData } from "./workbook";
+import { buildSimulationCandidates, resolveSimulationScheduleSource } from "@/domain/simulation";
 
 describe("reconstructed current-master Closing checkpoint", () => {
+  it("exposes a non-destructive LY2 Opening archive record without inventing league champions", () => {
+    const data = loadTrackerData();
+
+    expect(data.completedSplitHistory).toHaveLength(1);
+    expect(data.completedSplitHistory[0]).toMatchObject({
+      leagueYear: 2,
+      split: "Opening Split",
+      completedThroughYearWeek: 24,
+      leagueChampions: { status: "missing", data: [] },
+      splitWinner: { status: "missing", data: null },
+      eliteCup: { status: "confirmed", data: { winner: "Roman Reigns", runnerUp: null } },
+    });
+    expect(data.completedSplitHistory.some((record) => record.split === "Closing Split")).toBe(false);
+
+    const { buffer } = loadMasterWorkbookBuffer();
+    expect(XLSX.read(buffer, { type: "buffer" }).SheetNames).toHaveLength(18);
+  });
+
+  it("builds the 18 open Week 37 simulation candidates from the validated App schedule", () => {
+    const data = loadTrackerData();
+    const appContext = data.workflowContext.appWorkbook;
+    expect(appContext?.valid).toBe(true);
+
+    const simulation = buildSimulationCandidates({
+      matches: data.matches,
+      matchupReference: data.matchupReference,
+      leagues: data.leagues,
+      standings: data.standings,
+      streaks: data.streaks,
+      existingResults: data.results,
+      userLeague: data.meta.userLeague,
+      targetWeek: 37,
+      scheduleSource: resolveSimulationScheduleSource({
+        activeSource: "app-workbook",
+        scheduleSource: appContext?.scheduleSource ?? "",
+        hasAcceptedSchedule: false,
+      }),
+    });
+
+    expect(simulation.errors).toEqual([]);
+    expect(simulation.candidates).toHaveLength(18);
+    expect(new Set(simulation.candidates.map((candidate) => candidate.match.league))).toEqual(
+      new Set(["Global League", "Continental League", "Regional League"]),
+    );
+  });
+
   it("loads the committed W36 App checkpoint as the high-confidence authority", () => {
     const data = loadTrackerData();
     const authority = resolveWorkflowContextAuthority(

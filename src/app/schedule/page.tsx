@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default function SchedulePage() {
   const data = loadTrackerData();
   return <>
-    <PageHeader eyebrow="Primary workflow · authoritative card" title="Schedule" description="See the active split-relative card exactly as supplied by the workbook or accepted schedule snapshot. The application never guesses fixtures." />
+    <PageHeader eyebrow="Primary workflow · current card" title="Schedule" description="See the current split card exactly as scheduled. The application never guesses fixtures." />
     <ActiveSchedule workbookMatches={data.matches} workbookCurrentWeek={data.meta.appBaselineCompletedThroughWeek} />
   </>;
 }
