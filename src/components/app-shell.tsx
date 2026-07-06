@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { ManualReviewBanner } from "./manual-review-banner";
 import { LeagueIcon, type LeagueIconName } from "./league-icon";
 import { useTrackerState } from "@/state/tracker-state-provider";
+import type { WorkflowContextPhase } from "@/domain/workflow-context";
 
 type NavigationItem = {
   label: string;
@@ -61,10 +62,6 @@ const mobileItems: NavigationItem[] = [
   { label: "Standings", href: "/live-standings", icon: "table" },
 ];
 
-const mobileMoreItems: NavigationItem[] = navigationGroups[0].links
-  .slice(4)
-  .map(([label, href, icon]) => ({ label, href, icon }));
-
 const routeTitles = Object.fromEntries(
   [...navigationGroups, ...internalNavigationGroups].flatMap((group) =>
     group.links.map(([label, href]) => [href, label]),
@@ -73,6 +70,10 @@ const routeTitles = Object.fromEntries(
 
 function isActive(pathname: string, href: string) {
   return pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
+}
+
+export function isLeagueFinalsNavigationVisible(phase: WorkflowContextPhase): boolean {
+  return phase === "split-complete" || phase === "finals" || phase === "post-finals";
 }
 
 function NavigationLink({
@@ -107,6 +108,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       ? "Saved progress active"
       : "League data ready";
   const userLeague = state.activeWorkflow?.userLeague ?? "National League";
+  const showLeagueFinals = isLeagueFinalsNavigationVisible(authority.phase);
+  const mobileMoreItems: NavigationItem[] = navigationGroups[0].links
+    .slice(4)
+    .filter(([, href]) => href !== "/league-finals" || showLeagueFinals)
+    .map(([label, href, icon]) => ({ label, href, icon }));
 
   return (
     <div className="sports-shell">
@@ -137,21 +143,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               <p>{group.label}</p>
               <div>
                 {group.links.map(([label, href, icon]) => (
-                  <NavigationLink key={href} item={{ label, href, icon }} pathname={pathname} />
+                  href !== "/league-finals" || showLeagueFinals
+                    ? <NavigationLink key={href} item={{ label, href, icon }} pathname={pathname} />
+                    : null
                 ))}
               </div>
             </section>
           ))}
         </nav>
-
-        <div className="sidebar-context">
-          <span>Current league</span>
-          <strong>{userLeague}</strong>
-          <small>
-            <i />
-            {sourceLabel}
-          </small>
-        </div>
       </aside>
 
       <div className={`shell-workspace route-${pathname === "/" ? "dashboard" : pathname.slice(1).replaceAll("/", "-")}`}>

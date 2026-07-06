@@ -249,17 +249,27 @@ describe("reconstructed current-master Closing checkpoint", () => {
 
   it("preserves all-time Legacy records while applying only safe Closing context overlays", () => {
     const legacy = loadLegacyTableData();
-    expect(legacy.summary.leagueTitleRecords).toBe(4);
+    expect(legacy.summary.leagueTitleRecords).toBe(8);
     expect(legacy.summary.eliteCupRecords).toBe(2);
+    expect(legacy.baselineCompletedSplitKeys).toEqual(["2:Opening Split"]);
     expect(legacy.profiles.find((profile) => profile.wrestler === "Gunther")).toMatchObject({
-      leagueWinsTotal: 1,
-      globalChampionWins: 1,
+      leagueWinsTotal: 2,
+      globalChampionWins: 2,
       eliteCupWins: 1,
     });
+    expect(legacy.profiles.find((profile) => profile.wrestler === "Randy Orton")?.leagueWinsTotal).toBe(1);
+    expect(legacy.profiles.find((profile) => profile.wrestler === "LA Knight")?.leagueWinsTotal).toBe(1);
+    expect(legacy.profiles.find((profile) => profile.wrestler === "Dragon Lee")?.leagueWinsTotal).toBe(1);
+    expect(legacy.profiles.find((profile) => profile.wrestler === "Roman Reigns")?.eliteCupWins).toBe(1);
     expect(legacy.profiles.find((profile) => profile.wrestler === "Ilja Dragunov")).toMatchObject({
       currentLeague: "Continental League",
       longestWinStreakOverall: 11,
     });
+    expect(legacy.summary.audit?.sources).toContainEqual(expect.objectContaining({
+      source: expect.stringContaining("031d361"),
+      leagueTitleRecords: 4,
+      eliteCupRecords: 1,
+    }));
     expect(legacy.historicalAnalytics).toMatchObject({
       split: "Closing Split",
       completedThroughYearWeek: 36,

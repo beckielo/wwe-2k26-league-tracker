@@ -724,37 +724,6 @@ textarea:focus-visible {
   content: "";
 }
 
-.sidebar-context {
-  display: grid;
-  gap: 5px;
-  margin: auto 10px 12px;
-  border: 1px solid var(--v2-line);
-  border-radius: var(--v2-radius);
-  background: #0b121b;
-  padding: 13px;
-}
-
-.sidebar-context > span {
-  color: var(--v2-subtle);
-  font-size: 9px;
-  font-weight: 850;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.sidebar-context strong {
-  font-size: 12px;
-}
-
-.sidebar-context small {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--v2-muted);
-  font-size: 10px;
-}
-
-.sidebar-context i,
 .context-source i {
   display: block;
   width: 7px;
