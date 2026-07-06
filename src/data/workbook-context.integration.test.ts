@@ -7,6 +7,7 @@ vi.mock("server-only", () => ({}));
 
 import { loadLegacyTableData, loadMasterWorkbookBuffer, loadTrackerData } from "./workbook";
 import { buildSimulationCandidates, resolveSimulationScheduleSource } from "@/domain/simulation";
+import { buildCurrentSplitCalendar } from "@/components/current-split-calendar-model";
 
 describe("reconstructed current-master Closing checkpoint", () => {
   it("exposes a non-destructive LY2 Opening archive record without inventing league champions", () => {
@@ -213,6 +214,33 @@ describe("reconstructed current-master Closing checkpoint", () => {
       activeYearWeek: 37,
     });
     expect(data.workflowContext.dashboard.conflicts).toEqual([]);
+  });
+
+  it("builds a current-split calendar from all 12 confirmed Closing matchdays", () => {
+    const data = loadTrackerData();
+    const calendar = buildCurrentSplitCalendar({
+      matches: data.matches,
+      workbookResults: data.results,
+      localResults: [],
+      completedWeeks: [],
+      workbookCompletedThroughWeek: data.meta.appBaselineCompletedThroughWeek,
+      leagueYear: data.meta.leagueYear,
+      split: data.meta.currentSplit,
+      userLeague: data.meta.userLeague,
+    });
+
+    expect(calendar.weeks).toHaveLength(12);
+    expect(calendar.confirmedResultCount).toBe(288);
+    expect(calendar.weeks.every((week) => (
+      week.state === "completed"
+      && week.confirmedCount === 24
+      && week.scheduledCount === 24
+    ))).toBe(true);
+    expect(calendar.weeks.flatMap((week) => week.matches).every((match) => (
+      match.leagueYear === 2 && match.split === "Closing Split"
+    ))).toBe(true);
+    expect(calendar.weeks.flatMap((week) => week.matches).filter((match) => match.origin === "manual")).toHaveLength(72);
+    expect(calendar.weeks.flatMap((week) => week.matches).filter((match) => match.origin === "simulation")).toHaveLength(216);
   });
 
   it("loads Closing-compatible H2H and streak analytics from the validated W36 checkpoint", () => {

@@ -21,6 +21,7 @@ const navigationGroups = [
     links: [
       ["Dashboard", "/", "shield"],
       ["Schedule", "/schedule", "calendar"],
+      ["Calendar", "/calendar", "calendar"],
       ["Live Standings", "/live-standings", "table"],
       ["Result Entry", "/results", "result"],
       ["Simulation", "/simulation", "simulation"],
@@ -110,7 +111,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const userLeague = state.activeWorkflow?.userLeague ?? "National League";
   const showLeagueFinals = isLeagueFinalsNavigationVisible(authority.phase);
   const mobileMoreItems: NavigationItem[] = navigationGroups[0].links
-    .slice(4)
+    .filter(([, href]) => !mobileItems.some((item) => item.href === href))
     .filter(([, href]) => href !== "/league-finals" || showLeagueFinals)
     .map(([label, href, icon]) => ({ label, href, icon }));
 

@@ -57,6 +57,8 @@ describe("AppShell workflow navigation", () => {
 
     expect(screen.queryByRole("link", { name: "League Finals" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Schedule" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "Calendar" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "Calendar" }).every((link) => link.getAttribute("href") === "/calendar")).toBe(true);
     expect(screen.getAllByRole("link", { name: "Simulation" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("link", { name: "Week Review" }).length).toBeGreaterThan(0);
   });
