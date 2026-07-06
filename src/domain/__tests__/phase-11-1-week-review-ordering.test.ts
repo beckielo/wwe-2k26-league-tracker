@@ -17,11 +17,12 @@ describe("Phase 11.1 Week Review ordering and mini standings", () => {
     expect(weekReview.indexOf('label="Simulation"')).toBeLessThan(weekReview.indexOf('label="State"'));
   });
 
-  it("keeps the lock, close week, promotion, and mini standings workflow order", () => {
+  it("keeps the lock, close week, visible mini standings, and advanced tools workflow order", () => {
     expect(weekReview.indexOf('label="State"')).toBeLessThan(weekReview.indexOf("is complete and locked"));
     expect(weekReview.indexOf("is complete and locked")).toBeLessThan(weekReview.indexOf("Close Week {week}"));
-    expect(weekReview.indexOf("Close Week {week}")).toBeLessThan(weekReview.indexOf("<PromoteCurrentMaster"));
-    expect(weekReview.indexOf("<PromoteCurrentMaster")).toBeLessThan(weekReview.indexOf("promptPreview={<MiniLiveStandingsPreview"));
+    expect(weekReview.indexOf("Close Week {week}")).toBeLessThan(weekReview.indexOf("<MiniLiveStandingsPreview"));
+    expect(weekReview.indexOf("<MiniLiveStandingsPreview")).toBeLessThan(weekReview.indexOf("Advanced backup and data export"));
+    expect(weekReview.indexOf("Advanced backup and data export")).toBeLessThan(weekReview.indexOf("<PromoteCurrentMaster"));
   });
 
   it("always renders mini standings from the shared workflow authority through its completed week", () => {
@@ -30,7 +31,9 @@ describe("Phase 11.1 Week Review ordering and mini standings", () => {
     expect(weekReview).toContain("reconstructActiveSplitLiveStandings");
     expect(weekReview).toContain("localResults: state.confirmedResults.filter((result) => result.week <= miniStandingsCompletedThroughWeek)");
     expect(weekReview).toContain("completedThroughWeek: miniStandingsCompletedThroughWeek");
-    expect(weekReview).toContain("promptPreview={<MiniLiveStandingsPreview standings={updatedStandings}");
+    expect(weekReview).toContain("<MiniLiveStandingsPreview");
+    expect(weekReview).toContain("standings={updatedStandings}");
+    expect(weekReview).not.toContain("promptPreview");
   });
 
   it("renders the mini standings preview as four readable league cards in a responsive 2x2 desktop grid", () => {

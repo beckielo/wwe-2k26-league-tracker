@@ -177,6 +177,32 @@ setErrors([]);
 
 }
 
+function undoConfirmedSimulation() {
+let nextState = state;
+const actionErrors: string[] = [];
+
+for (const result of confirmedForWeek) {
+  const action = removeResult(nextState, result.matchId);
+
+  if (!action.ok) {
+    actionErrors.push(...action.errors);
+    continue;
+  }
+
+  nextState = action.state;
+}
+
+if (actionErrors.length) {
+  setErrors(actionErrors);
+  return;
+}
+
+replaceState(nextState);
+setPreviews([]);
+setErrors([]);
+
+}
+
 if (!hydrated) {
 return ( <div className="border border-white/10 p-6 text-sm text-slate-500">
 Loading local tracker state… </div>
@@ -243,13 +269,24 @@ return ( <div className="space-y-6"> <div className="flex flex-col justify-betwe
 
   {confirmedForWeek.length > 0 && (
     <section className="border border-emerald-400/20 bg-emerald-400/5">
-      <div className="border-b border-emerald-400/20 p-5">
-        <p className="text-[10px] font-black uppercase tracking-[.2em] text-emerald-400">
-          Confirmed simulation results
-        </p>
-        <h2 className="mt-1 text-xl font-black uppercase">
-          Stored in shared tracker state
-        </h2>
+      <div className="flex flex-col justify-between gap-4 border-b border-emerald-400/20 p-5 sm:flex-row sm:items-center">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[.2em] text-emerald-400">
+            Confirmed simulation results
+          </p>
+          <h2 className="mt-1 text-xl font-black uppercase">
+            Ready for Week Review
+          </h2>
+        </div>
+
+        <button
+          type="button"
+          disabled={weekLocked}
+          onClick={undoConfirmedSimulation}
+          className="border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-xs font-black uppercase tracking-[.14em] text-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Undo confirmed simulation
+        </button>
       </div>
 
       <div className="divide-y divide-white/10">

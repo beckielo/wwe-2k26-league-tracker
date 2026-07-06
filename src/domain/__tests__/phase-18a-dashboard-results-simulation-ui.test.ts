@@ -78,6 +78,13 @@ describe("Phase 18A dashboard/results/simulation UI polish", () => {
     expect(simulationDomainSource).toContain("targetWeek");
   });
 
+  it("keeps the simulation workbench available after confirmation so results can be undone", () => {
+    expect(simulationWorkflowSource).toContain("hasConfirmedSimulationForWeek");
+    expect(simulationWorkflowSource).toContain(
+      "simulation.candidates.length === 0 && !hasConfirmedSimulationForWeek",
+    );
+  });
+
   it("awards win/loss results as 3/0", () => {
     const source = match();
     const rows = calculateStandingsWithConfirmedResults(baseline(source), [source], [result(source, "Winner", source.wrestlerA)]);

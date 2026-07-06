@@ -102,6 +102,9 @@ const missingNonUserMatches = summary.nonUserLeagueProgress.reduce(
   (total, league) => total + league.missing,
   0,
 );
+const hasConfirmedSimulationForWeek = state.confirmedResults.some(
+  (result) => result.week === week && result.source === "Simulation",
+);
 
 return (
 <> <div className="mb-8"> <WorkflowSummaryBanner
@@ -181,7 +184,7 @@ return (
     </div>
   )}
 
-  {simulation.candidates.length === 0 ? (
+  {simulation.candidates.length === 0 && !hasConfirmedSimulationForWeek ? (
     <div className="border border-white/10 bg-[#111722] p-10 text-center">
       <h2 className="text-2xl font-black uppercase">
         {missingNonUserMatches ? "Prediction candidates unavailable" : "Simulation card complete"}
