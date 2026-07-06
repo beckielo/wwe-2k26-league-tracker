@@ -8,24 +8,43 @@ import { LegacyTable } from "./legacy-table";
 import { getLastCompletedSplitChampionMetadata } from "@/domain/previous-split-name-colors";
 import { Stat } from "./ui";
 import type { HistoricalAnalyticsAudit } from "@/domain/historical-analytics";
+import type { CompletedSplitLegacyCommit } from "@/domain/tracker-state";
+
+function completedSplitKey(commit: Pick<CompletedSplitLegacyCommit, "leagueYear" | "split">): string {
+  return `${commit.leagueYear}:${commit.split}`;
+}
+
+export function excludeBaselineLegacyCommits(
+  commits: CompletedSplitLegacyCommit[] = [],
+  baselineCompletedSplitKeys: string[] = [],
+): CompletedSplitLegacyCommit[] {
+  const included = new Set(baselineCompletedSplitKeys);
+  return commits.filter((commit) => !included.has(completedSplitKey(commit)));
+}
 
 export function LegacyPageClient({
   profiles,
   summary: workbookSummary,
   historicalAnalytics,
+  baselineCompletedSplitKeys,
 }: {
   profiles: LegacyProfile[];
   summary: LegacySummary;
   historicalAnalytics: HistoricalAnalyticsAudit;
+  baselineCompletedSplitKeys: string[];
 }) {
   const { state, hydrated } = useTrackerState();
+  const localOnlyCommits = useMemo(
+    () => excludeBaselineLegacyCommits(state.completedSplitLegacyCommits, baselineCompletedSplitKeys),
+    [baselineCompletedSplitKeys, state.completedSplitLegacyCommits],
+  );
   const mergedProfiles = useMemo(
-    () => hydrated ? applyCompletedSplitLegacyCommits(profiles, state.completedSplitLegacyCommits) : profiles,
-    [hydrated, profiles, state.completedSplitLegacyCommits],
+    () => hydrated ? applyCompletedSplitLegacyCommits(profiles, localOnlyCommits) : profiles,
+    [hydrated, localOnlyCommits, profiles],
   );
   const summary = useMemo(() => summarizeLegacyProfiles(mergedProfiles, workbookSummary.audit), [mergedProfiles, workbookSummary.audit]);
-  const committedCount = hydrated ? new Set((state.completedSplitLegacyCommits ?? []).map((commit) => commit.sourceSignature)).size : 0;
-  const latestCompleted = hydrated ? getLastCompletedSplitChampionMetadata(state.completedSplitLegacyCommits) : null;
+  const committedCount = hydrated ? new Set(localOnlyCommits.map((commit) => commit.sourceSignature)).size : 0;
+  const latestCompleted = hydrated ? getLastCompletedSplitChampionMetadata(localOnlyCommits) : null;
   const activeSplitLine = hydrated && state.activeWorkflow ? `Active split: ${state.activeWorkflow.split} Week ${state.activeWorkflow.splitWeek}` : null;
 
   return <>

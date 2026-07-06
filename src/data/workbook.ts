@@ -19,7 +19,8 @@ import {
 import { ACCEPTED_SCHEDULE_SHEET } from "@/domain/workbook-writeback";
 import { buildPrecedingSplitHistory } from "@/domain/completed-split-history";
 import { MANUAL_LEGACY_COMPLETED_SPLIT_SOURCE, MANUAL_LEGACY_ELITE_CUP_CORRECTIONS } from "@/domain/legacy-manual-corrections";
-import { auditLegacyCompletedSplitSources, applyLegacyHistoryRecords, applyManualEliteCupDisplayPatch, enrichLegacyProfilesFromCurrentMaster, enrichLegacyProfilesWithCompletedSplitChampions, extractCompletedEliteCupRecordsFromFinalStandings, extractCompletedSplitTitleRecordsFromFinalStandings, legacyProfileEliteCupRecords, parseLegacyTracker, summarizeLegacyProfiles, type LegacyTableData } from "@/domain/legacy";
+import { auditLegacyCompletedSplitSources, applyCompletedSplitLegacyCommits, applyLegacyHistoryRecords, applyManualEliteCupDisplayPatch, enrichLegacyProfilesFromCurrentMaster, enrichLegacyProfilesWithCompletedSplitChampions, extractCompletedEliteCupRecordsFromFinalStandings, extractCompletedSplitTitleRecordsFromFinalStandings, legacyProfileEliteCupRecords, parseLegacyTracker, summarizeLegacyProfiles, type LegacyTableData } from "@/domain/legacy";
+import { getCurrentRunLegacySnapshot } from "@/data/current-run-legacy-snapshot";
 import {
   LEAGUE_NAMES,
   type HeadToHeadRecord,
@@ -64,6 +65,7 @@ export function loadLegacyTableData(): LegacyTableData & {
   sourceFile: string;
   sourceSheet: "Legacy_Tracker";
   historicalAnalytics: HistoricalAnalyticsAudit;
+  baselineCompletedSplitKeys: string[];
 } {
   const workbookPath = findMasterWorkbook();
   const sourceFile = path.basename(workbookPath);
@@ -92,6 +94,14 @@ export function loadLegacyTableData(): LegacyTableData & {
     tracker.standings,
     tracker.streaks,
   );
+  const currentRunSnapshot = getCurrentRunLegacySnapshot({
+    sourceFile,
+    leagueYear: tracker.meta.leagueYear,
+    split: currentSplit,
+  });
+  const baselineProfiles = currentRunSnapshot
+    ? applyCompletedSplitLegacyCommits(currentProfiles, [currentRunSnapshot.commit])
+    : currentProfiles;
   const explicitCompletedStandings = standings.every((row) => row.matches >= 22)
     && /finals|post-finals|abgeschlossen/i.test(
       `${dashboard.get("League Finals") ?? ""} ${dashboard.get("Ligaphase") ?? ""} ${dashboard.get("Aktueller Stand") ?? ""}`,
@@ -123,10 +133,11 @@ export function loadLegacyTableData(): LegacyTableData & {
     { source: "Post-Finals/final standings", completedSplits: finalStandingHistory.titleRecords.length === 4 ? [`${parseLeagueYear(leagueYearLabel)}:${currentSplit}`] : [], titleRecords: finalStandingHistory.titleRecords, notes: finalStandingHistory.warnings },
     { source: "League Finals records", completedSplits, eliteCupRecords: finalEliteCupHistory.eliteCupRecords, notes: finalEliteCupHistory.warnings.length ? finalEliteCupHistory.warnings : ["Recovered completed Elite Cup winner from finalized Global League Champion + Elite Cup status when Legacy_Tracker was incomplete."] },
     { source: "App database/history records", completedSplits, notes: ["Checked workbook app-state sheets; active Closing Split records are not counted as completed history."] },
+    ...(currentRunSnapshot ? [currentRunSnapshot.source] : []),
     MANUAL_LEGACY_COMPLETED_SPLIT_SOURCE,
   ]);
   const profilesWithTitles = applyLegacyHistoryRecords(
-    finalStandingHistory.titleRecords.length === 4 ? enrichLegacyProfilesWithCompletedSplitChampions(currentProfiles, standings) : currentProfiles,
+    finalStandingHistory.titleRecords.length === 4 ? enrichLegacyProfilesWithCompletedSplitChampions(baselineProfiles, standings) : baselineProfiles,
     finalStandingHistory.titleRecords,
     audit.eliteCupRecords,
   );
@@ -140,6 +151,7 @@ export function loadLegacyTableData(): LegacyTableData & {
     sourceFile,
     sourceSheet: "Legacy_Tracker",
     historicalAnalytics: tracker.historicalAnalytics,
+    baselineCompletedSplitKeys: currentRunSnapshot ? [currentRunSnapshot.completedSplitKey] : [],
   };
 }
 
