@@ -66,7 +66,7 @@ vi.mock("@/state/tracker-state-provider", async () => {
 });
 
 vi.mock("./promote-current-master", () => ({
-  PromoteCurrentMaster: () => <div>Advanced data tools</div>,
+  PromoteCurrentMaster: () => <button>Promote updated workbook as current master</button>,
 }));
 
 function weeklyMatches(): Match[] {
@@ -183,9 +183,17 @@ describe("WeekReview permanent mini preview", () => {
     const preview = screen.getByLabelText("Mini live standings preview");
     expect(preview).toBeVisible();
     expect(preview.closest("details")).toBeNull();
-    expect(screen.getByText("Current week")).toBeVisible();
-    expect(screen.getByText("Advanced backup and data export").closest("details"))
-      .not.toContainElement(preview);
+    expect(screen.queryByText("Current week")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Backup and data export").closest("details")).toBeNull();
+    expect(screen.getByRole("button", { name: "Promote updated workbook as current master" })).toBeVisible();
+
+    const closeWeek = screen.getByText("Close Week 37").closest(".week-review-close-card");
+    expect(closeWeek).not.toBeNull();
+    expect(within(closeWeek!).queryByText("Result Entry")).not.toBeInTheDocument();
+    expect(within(closeWeek!).queryByText("Simulation")).not.toBeInTheDocument();
+    expect(within(closeWeek!).queryByText("Export JSON")).not.toBeInTheDocument();
+    expect(within(closeWeek!).queryByText("Import JSON")).not.toBeInTheDocument();
+    expect(within(closeWeek!).queryByText("Reset local tracker state")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Complete & lock Week 37" }));
 

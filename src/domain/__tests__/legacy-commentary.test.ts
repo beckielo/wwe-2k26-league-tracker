@@ -147,14 +147,13 @@ describe("Phase 10.7 legacy table integration", () => {
     }));
   });
 
-  it("exposes the route from Dashboard and navigation while retaining History", () => {
+  it("exposes the route from quick navigation while retaining History", () => {
     expect(source("src/app/legacy/page.tsx")).toContain("LegacyTable");
-    expect(source("src/components/dashboard-control-center.tsx")).toContain('href="/legacy"');
-    expect(source("src/components/dashboard-control-center.tsx")).toContain("Open Legacy Table");
-    expect(source("src/components/dashboard-control-center.tsx")).toContain("GOAT / Legacy Rankings");
+    expect(source("src/components/dashboard-control-center.tsx")).not.toContain('href="/legacy"');
+    expect(source("src/components/dashboard-control-center.tsx")).not.toContain("Open Legacy Table");
+    expect(source("src/components/app-shell.tsx")).toContain('["Legacy Table", "/legacy"');
     expect(source("src/components/dashboard-control-center.tsx")).not.toContain("Career Archive · honours, streaks and invincible runs");
-    expect(source("src/components/dashboard-control-center.tsx")).toContain("Current legacy leader");
-    expect(source("src/components/app-shell.tsx")).toContain('["Legacy", "/legacy"');
+    expect(source("src/components/dashboard-control-center.tsx")).not.toContain("Current legacy leader");
     expect(source("src/components/app-shell.tsx")).toContain('["History", "/history"');
     expect(source("src/app/history/page.tsx")).toContain("HistoryDashboard");
   });

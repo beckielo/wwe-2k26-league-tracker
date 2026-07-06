@@ -74,6 +74,9 @@ describe("Phase 19AF Continental Champion blue name color", () => {
   });
 
   it("keeps the corrected shared color helper wired into all existing wrestler-name surfaces", () => {
+    expect(liveStandingsSource).toContain("keepCurrentRunConsistentChampionColorRoles");
+    expect(dashboardSource).toContain("keepCurrentRunConsistentChampionColorRoles");
+    expect(weekReviewSource).toContain("keepCurrentRunConsistentChampionColorRoles");
     expect(liveStandingsSource).toContain('<WrestlerNameWithRole wrestler={row.wrestler} currentUserWrestler={currentUserWrestler} championRoles={championRoles} />');
     expect(dashboardSource).toContain("<WrestlerNameWithRole wrestler={row.wrestler}");
     expect(dashboardSource).toContain("<DashboardShowWrestlerName wrestler={match.wrestlerA}");

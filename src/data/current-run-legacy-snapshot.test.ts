@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { excludeBaselineLegacyCommits } from "@/components/legacy-page-client";
 import { auditLegacyCompletedSplitSources } from "@/domain/legacy";
 import { MANUAL_LEGACY_COMPLETED_SPLIT_SOURCE } from "@/domain/legacy-manual-corrections";
-import { getPreviousSplitChampionColorRoles, getPreviousSplitNameColorRole } from "@/domain/previous-split-name-colors";
+import { getPreviousSplitChampionColorRoles, getPreviousSplitNameColorRole, keepCurrentRunConsistentChampionColorRoles } from "@/domain/previous-split-name-colors";
 import type { CompletedSplitLegacyCommit } from "@/domain/tracker-state";
 import {
   CURRENT_RUN_COMPLETED_SPLIT_COMMIT,
@@ -44,6 +44,32 @@ describe("current-run Legacy display snapshot", () => {
     expect(getPreviousSplitNameColorRole({ wrestler: "LA Knight", championRoles: roles })).toBe("national-champion");
     expect(getPreviousSplitNameColorRole({ wrestler: "Dragon Lee", championRoles: roles })).toBe("regional-champion");
     expect(getPreviousSplitNameColorRole({ wrestler: "Roman Reigns", championRoles: roles })).toBe("elite-cup");
+    expect(getPreviousSplitNameColorRole({ wrestler: "Cody Rhodes", championRoles: roles })).toBe("normal");
+  });
+
+  it("keeps only champion colors that are consistent with the current post-split leagues", () => {
+    const audit = auditLegacyCompletedSplitSources([
+      CURRENT_RUN_COMPLETED_SPLIT_SOURCE,
+      MANUAL_LEGACY_COMPLETED_SPLIT_SOURCE,
+    ]);
+    const roles = keepCurrentRunConsistentChampionColorRoles(
+      getPreviousSplitChampionColorRoles(audit),
+      [
+        { wrestler: "Gunther", league: "Global League" },
+        { wrestler: "Randy Orton", league: "Global League" },
+        { wrestler: "LA Knight", league: "National League" },
+        { wrestler: "Dragon Lee", league: "Regional League" },
+        { wrestler: "Roman Reigns", league: "Global League" },
+        { wrestler: "Cody Rhodes", league: "Global League" },
+      ],
+    );
+
+    expect(getPreviousSplitNameColorRole({ wrestler: "Gunther", championRoles: roles })).toBe("global-champion");
+    expect(getPreviousSplitNameColorRole({ wrestler: "Randy Orton", championRoles: roles })).toBe("continental-champion");
+    expect(getPreviousSplitNameColorRole({ wrestler: "Roman Reigns", championRoles: roles })).toBe("elite-cup");
+    expect(getPreviousSplitNameColorRole({ wrestler: "LA Knight", championRoles: roles })).toBe("normal");
+    expect(getPreviousSplitNameColorRole({ wrestler: "Dragon Lee", championRoles: roles })).toBe("normal");
+    expect(getPreviousSplitNameColorRole({ wrestler: "Missing Champion", championRoles: roles })).toBe("normal");
     expect(getPreviousSplitNameColorRole({ wrestler: "Cody Rhodes", championRoles: roles })).toBe("normal");
   });
 

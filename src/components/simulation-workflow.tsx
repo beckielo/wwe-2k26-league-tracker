@@ -1,7 +1,6 @@
 "use client";
 
 import { SimulationWorkbench } from "./simulation-workbench";
-import { Stat } from "./ui";
 import { WorkflowSummaryBanner } from "./workflow-summary-banner";
 import { buildSimulationCandidates, resolveSimulationScheduleSource } from "@/domain/simulation";
 import { getWorkflowSummary } from "@/domain/week-progression";
@@ -95,9 +94,6 @@ scheduleSource: resolveSimulationScheduleSource({
 });
 const display = getWeekDisplay(authority.leagueYear, week, authority.split);
 
-const eligibleLeagues = [
-...new Set(simulation.candidates.map((candidate) => candidate.match.league)),
-];
 const missingNonUserMatches = summary.nonUserLeagueProgress.reduce(
   (total, league) => total + league.missing,
   0,
@@ -113,66 +109,6 @@ return (
        userLeague={workflowUserLeague}
        compact
      /> </div>
-
-  <div className="mb-8 grid gap-4 sm:grid-cols-3">
-    <Stat
-      label="Active simulation week"
-      value={display.primary}
-      detail={display.secondary}
-    />
-    <Stat
-      label="Open simulation matches"
-      value={simulation.candidates.length}
-      detail={
-        eligibleLeagues.join(" · ")
-          || (missingNonUserMatches
-          ? `${missingNonUserMatches} matches need prediction inputs`
-            : "All non-user matches confirmed")
-      }
-    />
-    <Stat
-      label="Excluded user league"
-      value={workflowUserLeague.replace(" League", "")}
-      detail={props.userWrestler}
-    />
-  </div>
-
-  <div className="mb-8 grid gap-4 md:grid-cols-3">
-    {summary.nonUserLeagueProgress.map((league) => (
-      <div
-        key={league.league}
-        className="border border-white/10 bg-[#111722] p-5"
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[.18em] text-slate-500">
-              Simulation league
-            </p>
-            <h2 className="mt-2 text-lg font-black uppercase">
-              {league.league}
-            </h2>
-          </div>
-
-          <span
-            className={
-              "border px-2 py-1 text-xs font-black " +
-              (league.missing
-                ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
-                : "border-emerald-400/30 bg-emerald-400/10 text-emerald-200")
-            }
-          >
-            {league.confirmed}/{league.scheduled}
-          </span>
-        </div>
-
-        <p className="mt-3 text-sm text-slate-400">
-          {league.missing
-            ? league.missing + " scheduled matches still open."
-            : "League card complete."}
-        </p>
-      </div>
-    ))}
-  </div>
 
   {simulation.errors.length > 0 && (
     <div className="mb-8 border border-amber-400/30 bg-amber-400/10 p-5 text-amber-100" role="alert">

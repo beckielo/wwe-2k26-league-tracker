@@ -14,13 +14,14 @@ describe("Phase 13 root dashboard route regression guard", () => {
     expect(page).not.toContain('href="/dashboard"');
   });
 
-  it("keeps dashboard navigation and manual draft controls on the root dashboard instead of a dashboard-only route", () => {
+  it("keeps the user switcher while hiding Replace Wrestler behind a disabled presentation flag", () => {
     const shell = readFileSync("src/components/app-shell.tsx", "utf8");
     const dashboard = readFileSync("src/components/dashboard-control-center.tsx", "utf8");
 
     expect(shell).toContain('["Dashboard", "/", "shield"]');
     expect(dashboard).toContain("<CurrentUserSwitcher standings={live.composition} />");
+    expect(dashboard).toContain("const SHOW_REPLACE_WRESTLER_ON_DASHBOARD = false");
     expect(dashboard).toContain("<ReplaceWrestlerControl");
-    expect(dashboard.indexOf("<ReplaceWrestlerControl")).toBeGreaterThan(dashboard.indexOf("<SocialFeed comments={socialFeed} />"));
+    expect(dashboard).not.toContain("<NewRunSetupWizard");
   });
 });

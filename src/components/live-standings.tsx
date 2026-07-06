@@ -9,7 +9,7 @@ import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { reconstructActiveSplitLiveStandings, validateActiveSplitStandings } from "@/domain/tracker-state";
 import { LEAGUE_NAMES, type LeagueName, type Match, type MatchResult, type StandingRow, type TrackerMeta } from "@/domain/types";
 import { LEAGUE_VISUALS, placementLabel, placementZone } from "@/domain/visual-identity";
-import { getPreviousSplitChampionColorRoles, type PreviousSplitNameColorRole } from "@/domain/previous-split-name-colors";
+import { getPreviousSplitChampionColorRoles, keepCurrentRunConsistentChampionColorRoles, type PreviousSplitNameColorRole } from "@/domain/previous-split-name-colors";
 import type { LegacyCompletedSplitAudit } from "@/domain/legacy";
 import { WrestlerNameWithRole } from "./wrestler-name-with-role";
 
@@ -101,7 +101,6 @@ function LeagueTable({ league, rows, userLeague, currentUserWrestler, championRo
 export function LiveStandings({ baseline, workbookMatches, workbookResults, meta, completedSplitAudit }: LiveStandingsProps) {
   const { state, authority, hydrated } = useTrackerState();
   const matches = useMemo(() => getActiveWorkflowMatches(state, workbookMatches), [state, workbookMatches]);
-  const previousSplitChampionColorRoles = useMemo(() => getPreviousSplitChampionColorRoles(completedSplitAudit, state.completedSplitLegacyCommits), [completedSplitAudit, state.completedSplitLegacyCommits]);
   const split = authority.split;
   const splitWeek = authority.splitWeek;
   const activeCompletedThroughWeek = authority.completedThroughYearWeek;
@@ -120,6 +119,13 @@ export function LiveStandings({ baseline, workbookMatches, workbookResults, meta
     [activeCompletedThroughWeek, authority.leagueYear, baseline, hydrated, matches, meta.appBaselineCompletedThroughWeek, state.acceptedPostFinalsComposition?.rosters, state.activeWorkflow, state.confirmedResults, split, workbookResults],
   );
   const standings = live.standings;
+  const previousSplitChampionColorRoles = useMemo(
+    () => keepCurrentRunConsistentChampionColorRoles(
+      getPreviousSplitChampionColorRoles(completedSplitAudit, state.completedSplitLegacyCommits),
+      live.composition,
+    ),
+    [completedSplitAudit, live.composition, state.completedSplitLegacyCommits],
+  );
   const selectedUser = useCurrentUser(live.composition).currentUser;
   const userLeague = state.activeWorkflow?.userLeague ?? selectedUser?.league ?? meta.userLeague;
   const diagnostics = [...live.diagnostics, ...validateActiveSplitStandings(standings, splitWeek)];

@@ -74,13 +74,7 @@ const userShowComplete = userMissing === 0;
 const display = getWeekDisplay(authority.leagueYear, week, authority.split);
 
 return (
-<> <div className="mb-8"> <WorkflowSummaryBanner
-       matches={workflowMatches}
-       workbookCurrentWeek={workflowBaseline}
-       userLeague={workflowUserLeague}
-       compact
-     /> </div>
-
+<>
   <div className="mb-8 grid gap-4 sm:grid-cols-3">
     <Stat
       label="Active card"
@@ -127,7 +121,7 @@ return (
     </div>
   )}
 
-  <div className="grid gap-6 lg:grid-cols-[1.15fr_.85fr]">
+  <div>
     <Panel>
       <div className="border-b border-white/10 p-6">
         <p className="text-xs font-bold uppercase tracking-[.2em] text-red-400">
@@ -145,38 +139,6 @@ return (
           No user-league matches are scheduled for this week.
         </div>
       )}
-    </Panel>
-
-    <Panel className="h-fit">
-      <div className="border-b border-white/10 p-6">
-        <p className="text-xs font-bold uppercase tracking-[.2em] text-amber-400">
-          Weekly workflow
-        </p>
-        <h2 className="mt-2 text-2xl font-black uppercase">
-          What happens next
-        </h2>
-      </div>
-
-      <div className="space-y-4 p-6 text-sm leading-6 text-slate-300">
-        <p>
-          Only the six scheduled {workflowUserLeague} matchups for Week{" "}
-          {week} are available here.
-        </p>
-        <p>
-          Confirmed results remain editable until Week {week} is completed
-          and locked in Week Review.
-        </p>
-        <p>
-          Confirmed results are saved on this device until the week is locked.
-        </p>
-
-        <Link
-          href={summary.recommendedHref}
-          className="inline-block rounded-lg bg-red-500 px-4 py-3 text-xs font-black uppercase tracking-wider text-white"
-        >
-          {summary.recommendedLabel}
-        </Link>
-      </div>
     </Panel>
   </div>
 </>

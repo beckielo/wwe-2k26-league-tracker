@@ -15,7 +15,12 @@ type NavigationItem = {
   icon: LeagueIconName;
 };
 
-const navigationGroups = [
+type NavigationGroup = {
+  label: string;
+  links: readonly (readonly [label: string, href: string, icon: LeagueIconName])[];
+};
+
+const navigationGroups: readonly NavigationGroup[] = [
   {
     label: "Competition",
     links: [
@@ -29,7 +34,14 @@ const navigationGroups = [
       ["League Finals", "/league-finals", "finals"],
     ],
   },
-] as const;
+  {
+    label: "Quick access",
+    links: [
+      ["Legacy Table", "/legacy", "history"],
+      ["Create New Run", "/new-run", "shield"],
+    ],
+  },
+];
 
 const internalNavigationGroups = [
   {
@@ -49,7 +61,6 @@ const internalNavigationGroups = [
       ["Post-Finals", "/post-finals-transition", "result"],
       ["Year Rollover", "/year-rollover", "history"],
       ["Schedule Setup", "/schedule-setup", "calendar"],
-      ["Legacy", "/legacy", "history"],
       ["History", "/history", "history"],
       ["Rulebook", "/rulebook", "rulebook"],
     ],
@@ -110,7 +121,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       : "League data ready";
   const userLeague = state.activeWorkflow?.userLeague ?? "National League";
   const showLeagueFinals = isLeagueFinalsNavigationVisible(authority.phase);
-  const mobileMoreItems: NavigationItem[] = navigationGroups[0].links
+  const mobileMoreItems: NavigationItem[] = navigationGroups.flatMap((group) => group.links)
     .filter(([, href]) => !mobileItems.some((item) => item.href === href))
     .filter(([, href]) => href !== "/league-finals" || showLeagueFinals)
     .map(([label, href, icon]) => ({ label, href, icon }));
@@ -202,7 +213,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </summary>
           <div className="mobile-more-panel">
             <section>
-              <p>Competition</p>
+              <p>More</p>
               <div>
                 {mobileMoreItems.map((item) => (
                   <NavigationLink key={item.href} item={item} pathname={pathname} />

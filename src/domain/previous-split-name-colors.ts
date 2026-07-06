@@ -1,6 +1,6 @@
 import type { LegacyCompletedSplitAudit } from "./legacy";
 import type { CompletedSplitLegacyCommit, TrackerState } from "./tracker-state";
-import type { LeagueName } from "./types";
+import type { LeagueName, StandingRow } from "./types";
 
 export type PreviousSplitNameColorRole = "double-winner" | "elite-cup" | "global-champion" | "continental-champion" | "national-champion" | "regional-champion" | "normal";
 
@@ -124,4 +124,27 @@ export function getPreviousSplitChampionColorRoles(auditOrState?: LegacyComplete
 export function getPreviousSplitNameColorRole(input: { wrestler: string; championRoles?: Map<string, PreviousSplitNameColorRole>; audit?: LegacyCompletedSplitAudit; }): PreviousSplitNameColorRole {
   const roles = input.championRoles ?? getPreviousSplitChampionColorRoles(input.audit);
   return roles.get(key(input.wrestler)) ?? "normal";
+}
+
+const expectedCurrentLeagueByChampionRole: Partial<Record<PreviousSplitNameColorRole, LeagueName>> = {
+  "double-winner": "Global League",
+  "global-champion": "Global League",
+  "continental-champion": "Global League",
+  "national-champion": "Continental League",
+  "regional-champion": "National League",
+};
+
+export function keepCurrentRunConsistentChampionColorRoles(
+  roles: Map<string, PreviousSplitNameColorRole>,
+  currentComposition: Pick<StandingRow, "wrestler" | "league">[],
+): Map<string, PreviousSplitNameColorRole> {
+  const currentLeagueByWrestler = new Map(
+    currentComposition.map((row) => [key(row.wrestler), row.league]),
+  );
+
+  return new Map([...roles].filter(([wrestler, role]) => {
+    const expectedLeague = expectedCurrentLeagueByChampionRole[role];
+    if (!expectedLeague) return role === "elite-cup";
+    return currentLeagueByWrestler.get(wrestler) === expectedLeague;
+  }));
 }

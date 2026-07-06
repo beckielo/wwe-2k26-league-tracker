@@ -15,11 +15,10 @@ import { LEAGUE_NAMES } from "@/domain/types";
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { CurrentUserSwitcher, useCurrentUser } from "./current-user-switcher";
 import { ReplaceWrestlerControl } from "./replace-wrestler-control";
-import { NewRunSetupWizard } from "./new-run-setup-wizard";
 import { EmptyState, StatusBadge } from "./ui";
-import { InteractivePanel, LeagueBrandMark, LeagueDecorativeArt, LeagueWatermark } from "./brand-assets";
+import { LeagueBrandMark, LeagueDecorativeArt, LeagueWatermark } from "./brand-assets";
 import { LEAGUE_VISUALS, placementLabel, placementZone } from "@/domain/visual-identity";
-import { getPreviousSplitChampionColorRoles, getPreviousSplitNameColorRole, type PreviousSplitNameColorRole } from "@/domain/previous-split-name-colors";
+import { getPreviousSplitChampionColorRoles, getPreviousSplitNameColorRole, keepCurrentRunConsistentChampionColorRoles, type PreviousSplitNameColorRole } from "@/domain/previous-split-name-colors";
 import { ControllerIcon, isCurrentUserWrestler, WrestlerNameWithRole } from "./wrestler-name-with-role";
 import type { LegacyCompletedSplitAudit } from "@/domain/legacy";
 
@@ -66,7 +65,10 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
   const display = getWeekDisplay(leagueYear, yearWeek, split);
   const userLeagueRows = live.standings.filter((row) => row.league === userLeague).sort((a, b) => a.rank - b.rank);
   const currentRanks = new Map(userLeagueRows.map((row) => [row.wrestler, row.rank]));
-  const previousSplitChampionColorRoles = getPreviousSplitChampionColorRoles(props.legacySummary.completedSplitAudit, state.completedSplitLegacyCommits);
+  const previousSplitChampionColorRoles = keepCurrentRunConsistentChampionColorRoles(
+    getPreviousSplitChampionColorRoles(props.legacySummary.completedSplitAudit, state.completedSplitLegacyCommits),
+    live.composition,
+  );
   const allKnownMatches = [...props.workbookMatches.filter((match) => !matches.some((active) => active.id === match.id)), ...matches];
   const matchHistory = buildHistoricalResults(
     allKnownMatches,
@@ -121,15 +123,6 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
     </section>
 
 
-    <InteractivePanel href="/legacy" className="legacy-quick-link league-global">
-      <span className="legacy-quick-rank" aria-hidden>Ⅰ</span>
-      <span className="legacy-quick-copy"><small>GOAT / Legacy Rankings</small><strong>Open Legacy Table</strong></span>
-      <span className="legacy-quick-teaser">
-        <small>Current legacy leader</small>
-        <strong>{props.legacySummary.leader ?? "Archive pending"}</strong>
-      </span>
-    </InteractivePanel>
-
     <div className="dashboard-primary-grid dashboard-equal-panels">
       <section className="fight-card-panel dashboard-equal-panel">
         <header className="fight-card-header">
@@ -166,10 +159,13 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
       <UserLeagueLiveTable league={userLeague} rows={userLeagueRows} currentUserWrestler={selectedUser?.wrestler ?? props.meta.userWrestler} championRoles={previousSplitChampionColorRoles} />
     </div>
     <SocialFeed comments={socialFeed} />
-    <ReplaceWrestlerControl activeRoster={live.composition} matches={matches} leagueYear={leagueYear} split={split} week={yearWeek} />
-    <NewRunSetupWizard meta={props.meta} />
+    {SHOW_REPLACE_WRESTLER_ON_DASHBOARD && (
+      <ReplaceWrestlerControl activeRoster={live.composition} matches={matches} leagueYear={leagueYear} split={split} week={yearWeek} />
+    )}
   </>;
 }
+
+const SHOW_REPLACE_WRESTLER_ON_DASHBOARD = false;
 
 const dashboardShowNameColorClassByRole: Record<PreviousSplitNameColorRole, string> = {
   "double-winner": "name-color-double-winner",

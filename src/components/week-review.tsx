@@ -15,7 +15,7 @@ import { LEAGUE_NAMES, type LeagueName, type Match, type MatchResult, type Match
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { placementLabel, placementZone } from "@/domain/visual-identity";
-import { getPreviousSplitChampionColorRoles, type PreviousSplitNameColorRole } from "@/domain/previous-split-name-colors";
+import { getPreviousSplitChampionColorRoles, keepCurrentRunConsistentChampionColorRoles, type PreviousSplitNameColorRole } from "@/domain/previous-split-name-colors";
 import type { LegacyCompletedSplitAudit } from "@/domain/legacy";
 import { WrestlerNameWithRole } from "./wrestler-name-with-role";
 
@@ -307,28 +307,6 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
 
   {progress ? (
     <>
-      <div className="border border-white/10 bg-[#111722] p-5">
-        <p className="text-xs font-bold uppercase tracking-[.18em] text-red-400">
-          Current week
-        </p>
-
-        <div className="mt-2 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-          <div>
-            <h2 className="text-3xl font-black uppercase">Week {week}</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Status:{" "}
-              {progress.status === "complete-unlocked"
-                ? "Complete but unlocked — ready to lock"
-                : "Incomplete — confirmed results still required"}
-            </p>
-          </div>
-
-          <p className="text-sm text-slate-500">
-            Progress saved through Year Week {authority.completedThroughYearWeek}
-          </p>
-        </div>
-      </div>
-
       <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-6">
         <ProgressCard label="Scheduled" value={progress.total} color="text-white" />
         <ProgressCard label="Manual" value={progress.manual} color="text-sky-300" />
@@ -375,21 +353,15 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
           : "Every later scheduled week is complete and locked."}
       </p>
 
-      <div className="mt-6 flex justify-center gap-3">
-        <StateControls
-          downloadExport={downloadExport}
-          importInput={importInput}
-          importFile={importFile}
-          reset={reset}
-        />
-        {splitReview.regularPhaseComplete && (
-          splitReview.consequentialTies.some((tie) => tie.status === "Tiebreaker Match Required" || tie.status === "Review Required") ? (
+      {splitReview.regularPhaseComplete && (
+        <div className="mt-6 flex justify-center gap-3">
+          {splitReview.consequentialTies.some((tie) => tie.status === "Tiebreaker Match Required" || tie.status === "Review Required") ? (
             <Link href="/tiebreakers" className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-amber-200">Tiebreaker Review</Link>
           ) : (
             <Link href="/league-finals" className="rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-emerald-200">Prepare League Finals</Link>
-          )
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   )}
 
@@ -414,8 +386,8 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
     </div>
   )}
   {progress && (
-    <div className="border border-white/10 bg-[#111722] p-5">
-        <div className="flex flex-col justify-between gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-center">
+    <div className="week-review-close-card border border-white/10 bg-[#111722] p-5">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <p className="font-black uppercase">Close Week {week}</p>
             <p className="mt-1 text-sm text-slate-400">
@@ -433,29 +405,6 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
             Complete & lock Week {week}
           </button>
         </div>
-
-        <div className="mt-5 flex flex-wrap gap-3">
-          <Link
-            href="/results"
-            className="rounded-lg border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300"
-          >
-            Result Entry
-          </Link>
-
-          <Link
-            href="/simulation"
-            className="rounded-lg border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300"
-          >
-            Simulation
-          </Link>
-
-          <StateControls
-            downloadExport={downloadExport}
-            importInput={importInput}
-            importFile={importFile}
-            reset={reset}
-          />
-        </div>
       </div>
   )}
 
@@ -465,37 +414,36 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
     splitWeek={activeSplitWeek}
     latestLockedWeek={latestLockedWeek}
     currentUserWrestler={userWrestler}
-    championRoles={getPreviousSplitChampionColorRoles(completedSplitAudit, state.completedSplitLegacyCommits)}
+    championRoles={keepCurrentRunConsistentChampionColorRoles(
+      getPreviousSplitChampionColorRoles(completedSplitAudit, state.completedSplitLegacyCommits),
+      updatedStandings,
+    )}
   />
 
-  <details className="border border-white/10 bg-[#111722] p-5">
-    <summary className="cursor-pointer text-sm font-black uppercase tracking-wider text-slate-300">Advanced backup and data export</summary>
-    <div className="mt-5">
-      <PromoteCurrentMaster
-        state={state}
-        allMatches={workflowMatches}
-        baselineStandings={baselineStandings}
-        userLeague={workflowUserLeague}
-        workbookCompletedThroughWeek={workbookCurrentWeek}
-        source={sourceFile}
+  <section className="week-review-backup-tools" aria-label="Backup and data export">
+    <div>
+      <p className="text-xs font-black uppercase tracking-wider text-slate-300">Backup and data export</p>
+      <p className="mt-1 text-xs text-slate-500">Optional local tracker backup tools.</p>
+    </div>
+    <div className="week-review-backup-actions">
+      <StateControls
+        downloadExport={downloadExport}
+        importInput={importInput}
+        importFile={importFile}
+        reset={reset}
       />
     </div>
-  </details>
+  </section>
 
-  <div className="flex flex-col gap-2 text-xs text-slate-500 sm:flex-row sm:justify-between">
-    <span>
-      Last export:{" "}
-      {state.lastExportedAt
-        ? new Date(state.lastExportedAt).toLocaleString()
-        : "Never"}
-    </span>
-    <span>
-      Last import:{" "}
-      {state.lastImportedAt
-        ? new Date(state.lastImportedAt).toLocaleString()
-        : "Never"}
-    </span>
-  </div>
+  <PromoteCurrentMaster
+    compact
+    state={state}
+    allMatches={workflowMatches}
+    baselineStandings={baselineStandings}
+    userLeague={workflowUserLeague}
+    workbookCompletedThroughWeek={workbookCurrentWeek}
+    source={sourceFile}
+  />
 
 </div>
 
@@ -589,12 +537,14 @@ reset: () => void;
 }) {
 return (
 <> <button
+     type="button"
      onClick={downloadExport}
      className="rounded-lg border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300"
    >
 Export JSON </button>
 
   <button
+    type="button"
     onClick={() => importInput.current?.click()}
     className="rounded-lg border border-white/15 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-300"
   >
@@ -610,6 +560,7 @@ Export JSON </button>
   />
 
   <button
+    type="button"
     onClick={reset}
     className="rounded-lg ml-auto border border-red-400/30 bg-red-400/5 px-4 py-3 text-xs font-black uppercase tracking-wider text-red-300"
   >

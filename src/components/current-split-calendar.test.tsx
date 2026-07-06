@@ -104,6 +104,13 @@ describe("CurrentSplitCalendar", () => {
     expect(screen.getByLabelText("Global League calendar results")).toHaveTextContent("Simulated league");
     expect(screen.getByText("Manual result / Confirmed")).toBeVisible();
     expect(screen.getByText("Simulated result / Confirmed")).toBeVisible();
+    const resultPreview = screen.getByLabelText("Confirmed result preview");
+    expect(resultPreview).toHaveClass("week-match-preview", "calendar-result-preview");
+    expect(resultPreview.querySelector(".match-preview-backdrop")).toBeInTheDocument();
+    expect(within(resultPreview).getByText("Manual result")).toBeVisible();
+
+    fireEvent.click(within(resultPreview).getByRole("button", { name: "Next Result" }));
+    expect(within(resultPreview).getByText("Simulated result")).toBeVisible();
 
     fireEvent.click(screen.getByRole("button", { name: /Week 1/ }));
 

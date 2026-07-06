@@ -173,25 +173,36 @@ Week {selected?.week} is complete and locked. Unlock it from Week
 Review before editing. </div>
 )}
 
-  <div>
-    <label
-      className="mb-2 block text-[11px] font-bold uppercase tracking-[.16em] text-slate-500"
-      htmlFor="match"
-    >
-      Scheduled matchup
-    </label>
-    <select
-      id="match"
-      value={matchId}
-      onChange={(event) => chooseMatch(event.target.value)}
-      className="w-full border border-white/15 bg-[#0b1019] px-4 py-3 text-white outline-none focus:border-red-400"
-    >
-      {matches.map((match) => (
-        <option value={match.id} key={match.id}>
-          Match {match.matchNumber}: {match.wrestlerA} vs {match.wrestlerB}
-        </option>
-      ))}
-    </select>
+  <div className="result-match-selector" role="listbox" aria-label="Scheduled matchups">
+    <p className="mb-2 text-[11px] font-bold uppercase tracking-[.16em] text-slate-500">
+      Scheduled matchups
+    </p>
+    <div className="result-match-card-list">
+      {matches.map((match) => {
+        const selectedMatch = match.id === matchId;
+        const confirmed = state.confirmedResults.find((result) => result.matchId === match.id);
+        return (
+          <button
+            key={match.id}
+            type="button"
+            role="option"
+            aria-selected={selectedMatch}
+            className={`result-match-card${selectedMatch ? " is-selected" : ""}`}
+            onClick={() => chooseMatch(match.id)}
+          >
+            <span className="result-match-number">Match {String(match.matchNumber).padStart(2, "0")}</span>
+            <span className="result-match-versus">
+              <strong>{match.wrestlerA}</strong>
+              <small>VS</small>
+              <strong>{match.wrestlerB}</strong>
+            </span>
+            <span className={`result-match-state${confirmed ? " is-confirmed" : ""}`}>
+              {confirmed ? "Result saved" : selectedMatch ? "Selected" : "Select"}
+            </span>
+          </button>
+        );
+      })}
+    </div>
   </div>
 
   <p className="text-sm text-slate-400">Standard result entry records winner and loser only. No finish type or special outcome is assumed.</p>

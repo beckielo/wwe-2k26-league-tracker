@@ -7,11 +7,12 @@ function source(file: string) {
 }
 
 describe("Phase 10.9.2 dashboard density and live table navigation cleanup", () => {
-  it("removes the standalone Open Live Table card while preserving legacy navigation", () => {
+  it("removes standalone live and legacy cards from the dashboard", () => {
     const dashboard = source("src/components/dashboard-control-center.tsx");
     expect(dashboard).not.toContain("live-table-quick-link");
     expect(dashboard).not.toContain("Open Live Table");
-    expect(dashboard).toContain("Open Legacy Table");
+    expect(dashboard).not.toContain("Open Legacy Table");
+    expect(source("src/components/app-shell.tsx")).toContain('["Legacy Table", "/legacy", "history"]');
   });
 
   it("keeps the live standings link inside the Current User League Live Table panel", () => {
