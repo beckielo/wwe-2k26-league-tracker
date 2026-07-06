@@ -26,7 +26,8 @@ describe("Phase 10.5 UI wiring", () => {
     expect(shell).toContain("const internalNavigationGroups");
     expect(shell).toContain("internalOnly: true");
     expect(shell).toContain("const mobileMoreItems");
-    expect(shell).toContain(".slice(4)");
+    expect(shell).toContain("!mobileItems.some((item) => item.href === href)");
+    expect(shell).toContain('["Calendar", "/calendar", "calendar"]');
     expect(shell).toContain("{navigationGroups.map");
     expect(shell).not.toContain("{internalNavigationGroups.map");
   });
