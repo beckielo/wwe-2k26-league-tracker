@@ -21,13 +21,16 @@ describe("Phase 10.5 UI wiring", () => {
     expect(source("src/components/app-shell.tsx")).toContain('["Live Standings", "/live-standings"');
   });
 
-  it("keeps analysis and management routes internal while mobile More exposes only core competition workflows", () => {
+  it("keeps analysis routes internal while mobile More exposes core workflows and requested quick access", () => {
     const shell = source("src/components/app-shell.tsx");
     expect(shell).toContain("const internalNavigationGroups");
     expect(shell).toContain("internalOnly: true");
     expect(shell).toContain("const mobileMoreItems");
     expect(shell).toContain("!mobileItems.some((item) => item.href === href)");
     expect(shell).toContain('["Calendar", "/calendar", "calendar"]');
+    expect(shell).toContain('["Legacy Table", "/legacy", "history"]');
+    expect(shell).toContain('["Create New Run", "/new-run", "shield"]');
+    expect(shell).not.toContain('["Replace Wrestler"');
     expect(shell).toContain("{navigationGroups.map");
     expect(shell).not.toContain("{internalNavigationGroups.map");
   });

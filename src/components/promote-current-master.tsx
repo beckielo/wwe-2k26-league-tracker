@@ -8,6 +8,7 @@ import type { LeagueName, Match, StandingRow } from "@/domain/types";
 import type { StepLog } from "@/domain/current-master-finalization";
 
 interface PromoteCurrentMasterProps {
+  compact?: boolean;
   state: TrackerState;
   allMatches: Match[];
   baselineStandings: StandingRow[];
@@ -130,15 +131,36 @@ export function PromoteCurrentMaster(props: PromoteCurrentMasterProps) {
   }
 
   return (
-    <section className="border border-violet-400/20 bg-[#111722] p-5">
-      <p className="font-black uppercase text-violet-300">Promote Current Master</p>
-      <p className="mt-2 text-sm text-slate-400">
-        Promotes the locked updated workbook as the local current master file.
-      </p>
-      <p className="mt-2 text-sm font-bold text-violet-100">{scheduleSourceLabel}</p>
-      {!exports.ok && (
-        <p className="mt-3 text-sm text-amber-300">{exports.reason}</p>
-      )}
+    <section className={props.compact ? "week-review-promote-action" : "border border-violet-400/20 bg-[#111722] p-5"}>
+      <div className={props.compact ? "week-review-promote-copy" : ""}>
+        <p className="font-black uppercase text-violet-300">Promote Current Master</p>
+        {!props.compact && (
+          <>
+            <p className="mt-2 text-sm text-slate-400">
+              Promotes the locked updated workbook as the local current master file.
+            </p>
+            <p className="mt-2 text-sm font-bold text-violet-100">{scheduleSourceLabel}</p>
+          </>
+        )}
+      </div>
+      <div className={props.compact ? "week-review-promote-control" : undefined}>
+        {!exports.ok && (
+          <p className={props.compact ? "text-sm text-amber-300" : "mt-3 text-sm text-amber-300"}>{exports.reason}</p>
+        )}
+        <button
+          type="button"
+          disabled={!exports.ok || promoting}
+          onClick={promote}
+          className={props.compact
+            ? "week-review-promote-button"
+            : "rounded-lg mt-4 border border-violet-400/30 bg-violet-400/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-violet-200 disabled:cursor-not-allowed disabled:opacity-35"}
+          title={props.compact ? scheduleSourceLabel : undefined}
+        >
+          {promoting
+            ? "Promoting updated workbook…"
+            : "Promote updated workbook as current master"}
+        </button>
+      </div>
       {message && (
         <ul
           className={`mt-3 list-disc space-y-1 pl-5 text-sm ${
@@ -148,16 +170,6 @@ export function PromoteCurrentMaster(props: PromoteCurrentMasterProps) {
           {message.lines.map((line) => <li key={line}>{line}</li>)}
         </ul>
       )}
-      <button
-        type="button"
-        disabled={!exports.ok || promoting}
-        onClick={promote}
-        className="rounded-lg mt-4 border border-violet-400/30 bg-violet-400/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-violet-200 disabled:cursor-not-allowed disabled:opacity-35"
-      >
-        {promoting
-          ? "Promoting updated workbook…"
-          : "Promote updated workbook as current master"}
-      </button>
       {promotedWeek !== null && (
         <div className="mt-5 border border-emerald-400/30 bg-emerald-400/5 p-4">
           <p className="text-sm font-bold text-emerald-200">

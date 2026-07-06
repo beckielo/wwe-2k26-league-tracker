@@ -6,6 +6,7 @@ import type { CompletedSplitLegacyCommit } from "@/domain/tracker-state";
 import type { StandingRow } from "@/domain/types";
 
 const dashboardSource = readFileSync("src/components/dashboard-control-center.tsx", "utf8");
+const appShellSource = readFileSync("src/components/app-shell.tsx", "utf8");
 const weekReviewSource = readFileSync("src/components/week-review.tsx", "utf8");
 const cssSource = readFileSync("src/app/globals.css", "utf8");
 
@@ -25,9 +26,9 @@ const latestCompletedCommit: CompletedSplitLegacyCommit = {
 };
 
 describe("Phase 19AC final metadata and week review UI cleanup", () => {
-  it("keeps the dashboard legacy card link but removes the grey dashboard-only subtitles", () => {
-    expect(dashboardSource).toContain('href="/legacy"');
-    expect(dashboardSource).toContain("Open Legacy Table");
+  it("moves the legacy link to quick navigation and removes dashboard-only legacy copy", () => {
+    expect(appShellSource).toContain('["Legacy Table", "/legacy", "history"]');
+    expect(dashboardSource).not.toContain("Open Legacy Table");
     expect(dashboardSource).not.toContain("Career Archive · honours, streaks and invincible runs");
     expect(dashboardSource).not.toContain("league title records · {props.legacySummary.eliteCupWinners} Elite Cup records");
     expect(dashboardSource).not.toContain("8 league title records · 2 Elite Cup records");

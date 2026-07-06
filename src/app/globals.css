@@ -1481,6 +1481,85 @@ button.bg-red-500:hover {
   text-align: center;
 }
 
+.result-match-selector {
+  display: grid;
+  gap: 8px;
+}
+
+.result-match-card-list {
+  display: grid;
+  gap: 8px;
+}
+
+.result-match-card {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) 90px;
+  align-items: center;
+  gap: 14px;
+  min-height: 72px;
+  width: 100%;
+  border: 1px solid var(--v2-line);
+  border-radius: var(--v2-radius);
+  background: var(--v2-panel-soft);
+  padding: 12px 14px;
+  color: var(--v2-muted);
+  text-align: left;
+}
+
+.result-match-card:hover,
+.result-match-card:focus-visible {
+  border-color: rgba(240, 82, 97, 0.55);
+  background: var(--v2-panel-raised);
+}
+
+.result-match-card.is-selected {
+  border-color: rgba(240, 82, 97, 0.65);
+  background: linear-gradient(100deg, rgba(240, 82, 97, 0.16), var(--v2-panel-raised));
+  box-shadow: inset 4px 0 #f05261;
+  color: white;
+}
+
+.result-match-number,
+.result-match-state {
+  color: var(--v2-subtle);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.result-match-versus {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.result-match-versus strong {
+  overflow: hidden;
+  color: inherit;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-match-versus strong:last-child,
+.result-match-state {
+  text-align: right;
+}
+
+.result-match-versus small {
+  color: #f05261;
+  font-size: 9px;
+  font-weight: 950;
+  text-align: center;
+}
+
+.result-match-state.is-confirmed {
+  color: #8fe0b5;
+}
+
 .result-option {
   position: relative;
 }
@@ -1901,6 +1980,69 @@ button.bg-red-500:hover {
   border-color: var(--v2-line-soft);
 }
 
+.week-review-close-card {
+  min-height: 0;
+}
+
+.week-review-backup-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px solid var(--v2-line);
+  border-radius: var(--v2-radius);
+  background: var(--v2-panel-soft);
+  padding: 14px 16px;
+}
+
+.week-review-backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.week-review-promote-action {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(220px, auto);
+  align-items: center;
+  gap: 14px;
+  border: 1px solid rgba(170, 112, 255, 0.28) !important;
+  border-radius: var(--v2-radius);
+  background: linear-gradient(105deg, rgba(128, 75, 202, 0.12), var(--v2-panel));
+  padding: 14px 16px;
+}
+
+.week-review-promote-action > ul,
+.week-review-promote-action > div:not(.week-review-promote-copy):not(.week-review-promote-control) {
+  grid-column: 1 / -1;
+}
+
+.week-review-promote-control {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+  text-align: right;
+}
+
+.week-review-promote-button {
+  justify-self: end;
+  border: 1px solid rgba(170, 112, 255, 0.45);
+  border-radius: 9px;
+  background: rgba(170, 112, 255, 0.14);
+  padding: 12px 15px;
+  color: #d8c4ff;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.week-review-promote-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
 .route-league-finals .finals-night-panel {
   overflow: hidden;
   border-color: var(--v2-line);
@@ -2119,6 +2261,24 @@ button.bg-red-500:hover {
 .calendar-results {
   display: grid;
   gap: 14px;
+}
+
+.calendar-result-preview {
+  min-height: 360px;
+  margin: 0;
+}
+
+.calendar-result-preview .match-preview-stage {
+  min-height: 270px;
+  padding-block: 38px 30px;
+}
+
+.calendar-result-preview .match-preview-versus strong.is-winner {
+  color: var(--brand-primary);
+}
+
+.calendar-result-preview .match-preview-source dd {
+  max-width: 260px;
 }
 
 .calendar-results-header,
@@ -2434,6 +2594,54 @@ button.bg-red-500:hover {
   .calendar-timeline-heading {
     grid-template-columns: auto 1fr auto;
     align-items: center;
+  }
+
+  .calendar-result-preview {
+    min-height: 470px;
+  }
+
+  .calendar-result-preview .match-preview-stage {
+    min-height: 390px;
+    padding-inline: 52px;
+  }
+
+  .result-match-card {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .result-match-versus {
+    grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr);
+  }
+
+  .result-match-state {
+    text-align: left;
+  }
+
+  .week-review-backup-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .week-review-backup-actions {
+    justify-content: stretch;
+  }
+
+  .week-review-backup-actions button {
+    flex: 1 1 100%;
+  }
+
+  .week-review-promote-action {
+    grid-template-columns: 1fr;
+  }
+
+  .week-review-promote-button {
+    justify-self: stretch;
+  }
+
+  .week-review-promote-control {
+    justify-items: stretch;
+    text-align: left;
   }
 }
 

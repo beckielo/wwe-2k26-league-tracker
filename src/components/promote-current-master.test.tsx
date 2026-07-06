@@ -43,6 +43,14 @@ afterEach(() => {
 });
 
 describe("PromoteCurrentMaster confirmation", () => {
+  it("renders the compact permanent Week Review action without changing its safety gate", () => {
+    const { container } = render(<PromoteCurrentMaster {...props} compact />);
+
+    expect(container.querySelector(".week-review-promote-action")).toBeTruthy();
+    expect((screen.getByRole("button", { name: /promote updated workbook/i }) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByText(/Promotes the locked updated workbook/i)).toBeNull();
+  });
+
   it("No, stay here does not run Git finalization", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
       response({ filename: "W16.xlsx", backupFilename: "old.backup", week: 16, gitAutomationEnabled: true }),

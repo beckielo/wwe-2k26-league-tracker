@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { resolveCurrentUser } from "@/domain/current-user";
+import { getLeagueBrandAsset } from "@/domain/brand-assets";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import type { LeagueName, Match, MatchResult, StandingRow } from "@/domain/types";
 import { LEAGUE_NAMES } from "@/domain/types";
@@ -160,6 +161,8 @@ function CalendarWeekResults({ week, userLeague }: { week: CurrentSplitCalendarW
       </span>
     </header>
 
+    <CalendarResultPreview key={week.yearWeek} matches={week.matches} />
+
     <LeagueResultPanel
       league={userLeague}
       matches={userMatches}
@@ -183,6 +186,62 @@ function CalendarWeekResults({ week, userLeague }: { week: CurrentSplitCalendarW
       </div>
     </section>
   </div>;
+}
+
+function CalendarResultPreview({ matches }: { matches: CurrentSplitCalendarMatch[] }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  if (matches.length === 0) return null;
+
+  const activeMatch = matches[activeIndex % matches.length];
+  const asset = getLeagueBrandAsset(activeMatch.league);
+
+  function move(offset: number) {
+    setActiveIndex((current) => (current + offset + matches.length) % matches.length);
+  }
+
+  return <section
+    className={`week-match-preview calendar-result-preview league-${asset.id}`}
+    aria-label="Confirmed result preview"
+    style={{ "--brand-primary": asset.primaryColor, "--brand-accent": asset.accentColor } as CSSProperties}
+  >
+    <LeagueDecorativeArt league={activeMatch.league} className="match-preview-backdrop" />
+    <div className="match-preview-vignette" />
+    <header className="match-preview-header">
+      <div>
+        <p>Current split / confirmed result preview</p>
+        <h2>{activeMatch.roundType} / Split Week {activeMatch.splitWeek}</h2>
+      </div>
+      <span>{activeIndex + 1} / {matches.length}</span>
+    </header>
+    <div className="match-preview-stage">
+      <div className="match-preview-league">
+        <LeagueBrandMark league={activeMatch.league} usage="compact-badge" />
+        <span>
+          <small>{activeMatch.isUserLeague ? "User-controlled league" : "Simulated league"}</small>
+          <strong>{activeMatch.league}</strong>
+        </span>
+      </div>
+      <p className="match-preview-bout">Bout {String(activeMatch.matchNumber).padStart(2, "0")}</p>
+      <div className="match-preview-versus">
+        <strong className={activeMatch.winner === activeMatch.wrestlerA ? "is-winner" : ""}>{activeMatch.wrestlerA}</strong>
+        <span>VS</span>
+        <strong className={activeMatch.winner === activeMatch.wrestlerB ? "is-winner" : ""}>{activeMatch.wrestlerB}</strong>
+      </div>
+      <dl className="match-preview-source">
+        <div><dt>Result</dt><dd>{activeMatch.resultLabel}</dd></div>
+        <div><dt>Source</dt><dd>{activeMatch.sourceLabel}</dd></div>
+        <div><dt>Week state</dt><dd>{activeMatch.isWeekCompleted ? "Completed" : "Confirmed"}</dd></div>
+      </dl>
+    </div>
+    {matches.length > 1 && <>
+      <button type="button" className="match-preview-previous" onClick={() => move(-1)} aria-label="Previous Result">
+        <span aria-hidden>←</span><b>Previous</b>
+      </button>
+      <button type="button" className="match-preview-next" onClick={() => move(1)} aria-label="Next Result">
+        <b>Next Result</b><span aria-hidden>→</span>
+      </button>
+    </>}
+  </section>;
 }
 
 function LeagueResultPanel({

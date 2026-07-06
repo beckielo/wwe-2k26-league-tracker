@@ -65,6 +65,9 @@ describe("Phase 18C current user icon and name colors", () => {
   });
 
   it("wires the shared wrestler-name helper into the requested UI surfaces only in wrestler cells", () => {
+    expect(dashboardSource).toContain("keepCurrentRunConsistentChampionColorRoles");
+    expect(liveStandingsSource).toContain("keepCurrentRunConsistentChampionColorRoles");
+    expect(weekReviewSource).toContain("keepCurrentRunConsistentChampionColorRoles");
     expect(dashboardSource).toContain("<DashboardShowWrestlerName wrestler={match.wrestlerA}");
     expect(dashboardSource).toContain("<WrestlerNameWithRole wrestler={row.wrestler}");
     expect(liveStandingsSource).toContain("<WrestlerNameWithRole wrestler={row.wrestler}");

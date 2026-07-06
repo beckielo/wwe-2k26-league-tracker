@@ -61,6 +61,9 @@ describe("AppShell workflow navigation", () => {
     expect(screen.getAllByRole("link", { name: "Calendar" }).every((link) => link.getAttribute("href") === "/calendar")).toBe(true);
     expect(screen.getAllByRole("link", { name: "Simulation" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("link", { name: "Week Review" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "Legacy Table" }).every((link) => link.getAttribute("href") === "/legacy")).toBe(true);
+    expect(screen.getAllByRole("link", { name: "Create New Run" }).every((link) => link.getAttribute("href") === "/new-run")).toBe(true);
+    expect(screen.queryByRole("link", { name: "Replace Wrestler" })).not.toBeInTheDocument();
   });
 
   it.each(["split-complete", "finals", "post-finals"] as const)(

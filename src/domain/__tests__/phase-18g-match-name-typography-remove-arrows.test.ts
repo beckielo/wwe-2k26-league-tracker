@@ -28,7 +28,7 @@ describe("Phase 18G dashboard match typography and action arrow cleanup", () => 
 
     expect(dashboard).toContain('<Link href={nextHref} className="action-button action-primary">{nextLabel}</Link>');
     expect(dashboard).toContain('<Link href="/schedule">Full schedule</Link>');
-    expect(dashboard).toContain('<strong>Open Legacy Table</strong>');
+    expect(dashboard).not.toContain("Open Legacy Table");
     expect(dashboard).not.toContain('<b aria-hidden>→</b>');
     expect(ui).toContain('{action}</ActionButton>');
     expect(results).toContain('{summary.recommendedLabel}');

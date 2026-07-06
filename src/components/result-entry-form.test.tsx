@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TrackerState } from "@/domain/tracker-state";
 import type { Match } from "@/domain/types";
@@ -69,21 +69,26 @@ describe("ResultEntryForm winner selection", () => {
 
   it("preserves an unsaved choice while moving between matches", () => {
     render(<ResultEntryForm matches={matches()} userLeague="National League" />);
-    const matchup = screen.getByLabelText("Scheduled matchup");
 
     fireEvent.click(screen.getByRole("radio", { name: /Draw/ }));
-    fireEvent.change(matchup, { target: { value: "national-37-2" } });
+    fireEvent.click(screen.getByRole("option", { name: /Match 02/ }));
     expect(screen.getByRole("radio", { name: /Wrestler A2/ })).toBeChecked();
 
-    fireEvent.change(matchup, { target: { value: "national-37-1" } });
+    fireEvent.click(screen.getByRole("option", { name: /Match 01/ }));
     expect(screen.getByRole("radio", { name: /Draw/ })).toBeChecked();
   });
 
-  it("keeps all six matches available without the redundant matchup button box", () => {
+  it("shows all six matches as one visual selector without a matchup dropdown", () => {
     const { container } = render(<ResultEntryForm matches={matches()} userLeague="National League" />);
 
-    expect(screen.getByLabelText("Scheduled matchup").querySelectorAll("option")).toHaveLength(6);
-    expect(container.querySelector(".result-match-selector")).not.toBeInTheDocument();
+    const selector = screen.getByRole("listbox", { name: "Scheduled matchups" });
+    expect(within(selector).getAllByRole("option")).toHaveLength(6);
+    expect(container.querySelector("select#match")).not.toBeInTheDocument();
+    expect(within(selector).getByRole("option", { name: /Match 01/ })).toHaveAttribute("aria-selected", "true");
+
+    fireEvent.click(within(selector).getByRole("option", { name: /Match 03/ }));
+    expect(within(selector).getByRole("option", { name: /Match 03/ })).toHaveAttribute("aria-selected", "true");
+    expect(within(selector).getByRole("option", { name: /Match 01/ })).toHaveAttribute("aria-selected", "false");
   });
 
   it("uses focusable native radio controls for keyboard users", () => {

@@ -9,20 +9,21 @@ describe("Phase 11.1 Week Review ordering and mini standings", () => {
   const weekReview = source("src/components/week-review.tsx");
   const workflowBanner = source("src/components/workflow-summary-banner.tsx");
 
-  it("renders the active workflow first, followed by the current week and stat cards", () => {
-    expect(weekReview.indexOf("<WorkflowSummaryBanner")).toBeLessThan(weekReview.indexOf("Current week"));
-    expect(weekReview.indexOf("Current week")).toBeLessThan(weekReview.indexOf('label="Scheduled"'));
+  it("renders the active workflow followed directly by the stat cards without a Current Week box", () => {
+    expect(weekReview.indexOf("<WorkflowSummaryBanner")).toBeLessThan(weekReview.indexOf('label="Scheduled"'));
+    expect(weekReview).not.toContain("Current week");
     expect(weekReview.indexOf('label="Scheduled"')).toBeLessThan(weekReview.indexOf('label="Manual"'));
     expect(weekReview.indexOf('label="Manual"')).toBeLessThan(weekReview.indexOf('label="Simulation"'));
     expect(weekReview.indexOf('label="Simulation"')).toBeLessThan(weekReview.indexOf('label="State"'));
   });
 
-  it("keeps the lock, close week, visible mini standings, and advanced tools workflow order", () => {
+  it("keeps the lock, compact close week, visible mini standings, flat backup tools, and promote order", () => {
     expect(weekReview.indexOf('label="State"')).toBeLessThan(weekReview.indexOf("is complete and locked"));
     expect(weekReview.indexOf("is complete and locked")).toBeLessThan(weekReview.indexOf("Close Week {week}"));
     expect(weekReview.indexOf("Close Week {week}")).toBeLessThan(weekReview.indexOf("<MiniLiveStandingsPreview"));
-    expect(weekReview.indexOf("<MiniLiveStandingsPreview")).toBeLessThan(weekReview.indexOf("Advanced backup and data export"));
-    expect(weekReview.indexOf("Advanced backup and data export")).toBeLessThan(weekReview.indexOf("<PromoteCurrentMaster"));
+    expect(weekReview.indexOf("<MiniLiveStandingsPreview")).toBeLessThan(weekReview.indexOf("Backup and data export"));
+    expect(weekReview.indexOf("Backup and data export")).toBeLessThan(weekReview.indexOf("<PromoteCurrentMaster"));
+    expect(weekReview).not.toContain("<details className=\"border border-white/10 bg-[#111722] p-5\">");
   });
 
   it("always renders mini standings from the shared workflow authority through its completed week", () => {
