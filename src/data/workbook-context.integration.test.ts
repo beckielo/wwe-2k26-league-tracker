@@ -286,15 +286,17 @@ describe("reconstructed current-master Closing checkpoint", () => {
       eliteCupWins: 1,
     });
     expect(legacy.profiles.find((profile) => profile.wrestler === "Randy Orton")?.leagueWinsTotal).toBe(1);
-    expect(legacy.profiles.find((profile) => profile.wrestler === "LA Knight")?.leagueWinsTotal).toBe(1);
-    expect(legacy.profiles.find((profile) => profile.wrestler === "Dragon Lee")?.leagueWinsTotal).toBe(1);
+    expect(legacy.profiles.find((profile) => profile.wrestler === "Undertaker")?.leagueWinsTotal).toBe(1);
+    expect(legacy.profiles.find((profile) => profile.wrestler === "Pete Dunne")?.leagueWinsTotal).toBe(1);
+    expect(legacy.profiles.find((profile) => profile.wrestler === "LA Knight")?.leagueWinsTotal).toBe(0);
+    expect(legacy.profiles.find((profile) => profile.wrestler === "Dragon Lee")?.leagueWinsTotal).toBe(0);
     expect(legacy.profiles.find((profile) => profile.wrestler === "Roman Reigns")?.eliteCupWins).toBe(1);
     expect(legacy.profiles.find((profile) => profile.wrestler === "Ilja Dragunov")).toMatchObject({
       currentLeague: "Continental League",
       longestWinStreakOverall: 11,
     });
     expect(legacy.summary.audit?.sources).toContainEqual(expect.objectContaining({
-      source: expect.stringContaining("031d361"),
+      source: expect.stringContaining("user-confirmed National/Regional corrections"),
       leagueTitleRecords: 4,
       eliteCupRecords: 1,
     }));

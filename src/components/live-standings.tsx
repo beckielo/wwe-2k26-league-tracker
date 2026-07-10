@@ -9,7 +9,8 @@ import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { reconstructActiveSplitLiveStandings, validateActiveSplitStandings } from "@/domain/tracker-state";
 import { LEAGUE_NAMES, type LeagueName, type Match, type MatchResult, type StandingRow, type TrackerMeta } from "@/domain/types";
 import { LEAGUE_VISUALS, placementLabel, placementZone } from "@/domain/visual-identity";
-import { getPreviousSplitChampionColorRoles, keepCurrentRunConsistentChampionColorRoles, type PreviousSplitNameColorRole } from "@/domain/previous-split-name-colors";
+import { keepCurrentRunConsistentChampionColorRoles, type PreviousSplitNameColorRole } from "@/domain/previous-split-name-colors";
+import { getCurrentRunPreviousSplitChampionColorRoles } from "@/data/current-run-legacy-snapshot";
 import type { LegacyCompletedSplitAudit } from "@/domain/legacy";
 import { WrestlerNameWithRole } from "./wrestler-name-with-role";
 
@@ -121,7 +122,7 @@ export function LiveStandings({ baseline, workbookMatches, workbookResults, meta
   const standings = live.standings;
   const previousSplitChampionColorRoles = useMemo(
     () => keepCurrentRunConsistentChampionColorRoles(
-      getPreviousSplitChampionColorRoles(completedSplitAudit, state.completedSplitLegacyCommits),
+      getCurrentRunPreviousSplitChampionColorRoles(completedSplitAudit, state.completedSplitLegacyCommits),
       live.composition,
     ),
     [completedSplitAudit, live.composition, state.completedSplitLegacyCommits],
