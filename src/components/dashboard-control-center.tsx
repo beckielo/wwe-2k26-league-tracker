@@ -18,7 +18,8 @@ import { ReplaceWrestlerControl } from "./replace-wrestler-control";
 import { EmptyState, StatusBadge } from "./ui";
 import { LeagueBrandMark, LeagueDecorativeArt, LeagueWatermark } from "./brand-assets";
 import { LEAGUE_VISUALS, placementLabel, placementZone } from "@/domain/visual-identity";
-import { getPreviousSplitChampionColorRoles, getPreviousSplitNameColorRole, keepCurrentRunConsistentChampionColorRoles, type PreviousSplitNameColorRole } from "@/domain/previous-split-name-colors";
+import { getPreviousSplitNameColorRole, keepCurrentRunConsistentChampionColorRoles, type PreviousSplitNameColorRole } from "@/domain/previous-split-name-colors";
+import { getCurrentRunPreviousSplitChampionColorRoles } from "@/data/current-run-legacy-snapshot";
 import { ControllerIcon, isCurrentUserWrestler, WrestlerNameWithRole } from "./wrestler-name-with-role";
 import type { LegacyCompletedSplitAudit } from "@/domain/legacy";
 
@@ -66,7 +67,7 @@ export function DashboardControlCenter(props: DashboardControlCenterProps) {
   const userLeagueRows = live.standings.filter((row) => row.league === userLeague).sort((a, b) => a.rank - b.rank);
   const currentRanks = new Map(userLeagueRows.map((row) => [row.wrestler, row.rank]));
   const previousSplitChampionColorRoles = keepCurrentRunConsistentChampionColorRoles(
-    getPreviousSplitChampionColorRoles(props.legacySummary.completedSplitAudit, state.completedSplitLegacyCommits),
+    getCurrentRunPreviousSplitChampionColorRoles(props.legacySummary.completedSplitAudit, state.completedSplitLegacyCommits),
     live.composition,
   );
   const allKnownMatches = [...props.workbookMatches.filter((match) => !matches.some((active) => active.id === match.id)), ...matches];
@@ -177,7 +178,7 @@ const dashboardShowNameColorClassByRole: Record<PreviousSplitNameColorRole, stri
   normal: "name-color-normal",
 };
 
-function DashboardShowWrestlerName({ wrestler, currentUserWrestler, championRoles, children }: { wrestler: string; currentUserWrestler?: string | null; championRoles: ReturnType<typeof getPreviousSplitChampionColorRoles>; children: ReactNode }) {
+function DashboardShowWrestlerName({ wrestler, currentUserWrestler, championRoles, children }: { wrestler: string; currentUserWrestler?: string | null; championRoles: ReturnType<typeof getCurrentRunPreviousSplitChampionColorRoles>; children: ReactNode }) {
   const role = getPreviousSplitNameColorRole({ wrestler, championRoles });
   const isCurrentUser = isCurrentUserWrestler(wrestler, currentUserWrestler);
   return <span className={["dashboard-show-name-content", dashboardShowNameColorClassByRole[role]].join(" ")}>
@@ -204,7 +205,7 @@ function PredictionStrip({ prediction }: { prediction: ReturnType<typeof predict
   </div>;
 }
 
-function UserLeagueLiveTable({ league, rows, currentUserWrestler, championRoles }: { league: LeagueName; rows: StandingRow[]; currentUserWrestler?: string | null; championRoles: ReturnType<typeof getPreviousSplitChampionColorRoles> }) {
+function UserLeagueLiveTable({ league, rows, currentUserWrestler, championRoles }: { league: LeagueName; rows: StandingRow[]; currentUserWrestler?: string | null; championRoles: ReturnType<typeof getCurrentRunPreviousSplitChampionColorRoles> }) {
   return <section className={`dashboard-live-table dashboard-equal-panel league-${LEAGUE_VISUALS[league].key}`} aria-labelledby="dashboard-live-table-title">
     <header>
       <div className="dashboard-live-table-title"><LeagueBrandMark league={league} usage="compact" /><span><p className="broadcast-kicker">Current user table</p><h2 id="dashboard-live-table-title">{league}</h2></span></div>

@@ -15,7 +15,8 @@ import { LEAGUE_NAMES, type LeagueName, type Match, type MatchResult, type Match
 import { useTrackerState } from "@/state/tracker-state-provider";
 import { getActiveWorkflowMatches } from "@/domain/schedule-setup";
 import { placementLabel, placementZone } from "@/domain/visual-identity";
-import { getPreviousSplitChampionColorRoles, keepCurrentRunConsistentChampionColorRoles, type PreviousSplitNameColorRole } from "@/domain/previous-split-name-colors";
+import { keepCurrentRunConsistentChampionColorRoles, type PreviousSplitNameColorRole } from "@/domain/previous-split-name-colors";
+import { getCurrentRunPreviousSplitChampionColorRoles } from "@/data/current-run-legacy-snapshot";
 import type { LegacyCompletedSplitAudit } from "@/domain/legacy";
 import { WrestlerNameWithRole } from "./wrestler-name-with-role";
 
@@ -415,7 +416,7 @@ return ( <div className="space-y-8"> <WorkflowSummaryBanner
     latestLockedWeek={latestLockedWeek}
     currentUserWrestler={userWrestler}
     championRoles={keepCurrentRunConsistentChampionColorRoles(
-      getPreviousSplitChampionColorRoles(completedSplitAudit, state.completedSplitLegacyCommits),
+      getCurrentRunPreviousSplitChampionColorRoles(completedSplitAudit, state.completedSplitLegacyCommits),
       updatedStandings,
     )}
   />
